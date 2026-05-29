@@ -9,9 +9,9 @@ import { CouponCard } from "@/components/coupon-card";
 
 export const Route = createFileRoute("/search")({
   validateSearch: z.object({ q: z.string().optional().default("") }),
-  head: ({ search }) => ({
+  head: () => ({
     meta: [
-      { title: search.q ? `Search: ${search.q} — SaveHub` : "Search coupons & stores — SaveHub" },
+      { title: "Search coupons & stores — SaveHub" },
       { name: "description", content: "Search verified coupons, stores and categories on SaveHub." },
       { name: "robots", content: "noindex" },
     ],
