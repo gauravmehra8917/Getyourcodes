@@ -35,7 +35,7 @@ export function SiteHeader() {
         </form>
 
         <nav className="ml-auto flex items-center gap-1 text-sm md:ml-0">
-          <Link to="/search" search={{ q: "" }} className="rounded-full p-2 text-muted-foreground hover:bg-secondary md:hidden">
+          <Link to="/search" search={{ q: "" }} aria-label="Search" className="rounded-full p-2 text-muted-foreground hover:bg-secondary md:hidden">
             <Search className="h-5 w-5" />
           </Link>
           <Link to="/admin" className="hidden rounded-full px-4 py-2 text-muted-foreground hover:bg-secondary hover:text-foreground sm:inline-flex">

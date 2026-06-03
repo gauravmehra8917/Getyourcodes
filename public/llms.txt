@@ -1,0 +1,13 @@
+# SaveHub
+
+> Verified coupons, promo codes and deals from thousands of brands, updated daily.
+
+SaveHub helps shoppers save money with hand-picked coupon codes and deals across categories like fashion, food, electronics, travel and more.
+
+## Pages
+
+- [Home](/): Featured stores, trending coupon codes, latest deals and category browse.
+
+## Optional
+
+- [Search](/search): Search stores, brands and coupons.
