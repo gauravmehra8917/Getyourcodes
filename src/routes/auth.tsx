@@ -117,6 +117,15 @@ function AuthPage() {
         <Field label="Email" type="email" value={email} onChange={setEmail} required />
         <Field label="Password" type="password" value={password} onChange={setPassword} required minLength={6} />
 
+        {mode === "signin" && (
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-xs font-medium text-primary hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+        )}
+
+
         {err && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</p>}
         {info && <p className="rounded-lg bg-success-soft px-3 py-2 text-sm text-success">{info}</p>}
 
