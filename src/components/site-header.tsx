@@ -1,10 +1,38 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Search, Tag } from "lucide-react";
-import { useState } from "react";
+import { Search, Tag, User, LogOut, Heart } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { User as AuthUser } from "@supabase/supabase-js";
 
 export function SiteHeader() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    if (menuOpen) document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
+
+  const initial = (user?.user_metadata?.display_name as string | undefined ?? user?.email ?? "?").charAt(0).toUpperCase();
+  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setMenuOpen(false);
+    navigate({ to: "/" });
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
@@ -38,9 +66,44 @@ export function SiteHeader() {
           <Link to="/search" search={{ q: "" }} aria-label="Search" className="rounded-full p-2 text-muted-foreground hover:bg-secondary md:hidden">
             <Search className="h-5 w-5" />
           </Link>
-          <Link to="/admin" className="hidden rounded-full px-4 py-2 text-muted-foreground hover:bg-secondary hover:text-foreground sm:inline-flex">
-            Admin
-          </Link>
+
+          {user ? (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen((o) => !o)}
+                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-sm font-semibold text-primary hover:opacity-90"
+                aria-label="Account menu"
+              >
+                {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initial}
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
+                  <div className="border-b border-border px-4 py-3">
+                    <p className="truncate text-xs text-muted-foreground">Signed in as</p>
+                    <p className="truncate text-sm font-medium">{user.email}</p>
+                  </div>
+                  <Link to="/account" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary">
+                    <User className="h-4 w-4" /> My account
+                  </Link>
+                  <Link to="/account" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary">
+                    <Heart className="h-4 w-4" /> Saved
+                  </Link>
+                  <button onClick={signOut} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-destructive hover:bg-secondary">
+                    <LogOut className="h-4 w-4" /> Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Link to="/auth" className="hidden rounded-full px-4 py-2 text-muted-foreground hover:bg-secondary hover:text-foreground sm:inline-flex">
+                Sign in
+              </Link>
+              <Link to="/auth" className="inline-flex rounded-full bg-primary px-4 py-2 font-semibold text-primary-foreground hover:opacity-90">
+                Sign up
+              </Link>
+            </>
+          )}
         </nav>
       </div>
     </header>
