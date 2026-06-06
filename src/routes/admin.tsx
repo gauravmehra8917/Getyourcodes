@@ -177,6 +177,7 @@ function CouponsTab() {
   const [form, setForm] = useState({
     store_id: "", title: "", description: "", coupon_code: "",
     coupon_type: "code" as "code" | "deal", affiliate_url: "", expiry_date: "", terms: "",
+    featured_in_banner: false,
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -194,9 +195,10 @@ function CouponsTab() {
         expiry_date: form.expiry_date || null,
         terms: form.terms || null,
         status: "active",
+        featured_in_banner: form.featured_in_banner,
       });
       if (error) throw error;
-      setForm({ ...form, title: "", description: "", coupon_code: "", affiliate_url: "", expiry_date: "", terms: "" });
+      setForm({ ...form, title: "", description: "", coupon_code: "", affiliate_url: "", expiry_date: "", terms: "", featured_in_banner: false });
       refetch();
     } catch (e) { setErr((e as Error).message); }
     finally { setSaving(false); }
@@ -204,6 +206,10 @@ function CouponsTab() {
 
   const setStatus = async (id: string, status: "active" | "expired" | "draft") => {
     await sb.from("coupons").update({ status }).eq("id", id);
+    refetch();
+  };
+  const toggleBanner = async (id: string, value: boolean) => {
+    await sb.from("coupons").update({ featured_in_banner: value }).eq("id", id);
     refetch();
   };
   const remove = async (id: string) => {
@@ -224,6 +230,10 @@ function CouponsTab() {
         <Input label="Affiliate URL" value={form.affiliate_url} onChange={(v) => setForm({ ...form, affiliate_url: v })} placeholder="https://…" />
         <Input label="Expiry date" type="date" value={form.expiry_date} onChange={(v) => setForm({ ...form, expiry_date: v })} />
         <Textarea label="Terms & conditions" value={form.terms} onChange={(v) => setForm({ ...form, terms: v })} />
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.featured_in_banner} onChange={(e) => setForm({ ...form, featured_in_banner: e.target.checked })} />
+          Feature in global deals banner
+        </label>
         {err && <p className="text-sm text-destructive">{err}</p>}
         <button disabled={saving} className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
           <Plus className="h-4 w-4" /> {saving ? "Saving…" : "Add coupon"}
@@ -235,9 +245,16 @@ function CouponsTab() {
           <div key={c.id} className="rounded-xl border border-border bg-card p-3">
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{c.title}</p>
+                <p className="truncate font-medium">
+                  {c.title}
+                  {c.featured_in_banner && <span className="ml-2 rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">In banner</span>}
+                </p>
                 <p className="text-xs text-muted-foreground">{c.stores?.name} · {c.coupon_type}{c.coupon_code ? ` · ${c.coupon_code}` : ""}{c.expiry_date ? ` · exp ${c.expiry_date}` : ""}</p>
               </div>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground" title="Show in global deals banner">
+                <input type="checkbox" checked={c.featured_in_banner} onChange={(e) => toggleBanner(c.id, e.target.checked)} />
+                Banner
+              </label>
               <select value={c.status} onChange={(e) => setStatus(c.id, e.target.value as "active" | "expired" | "draft")} className="rounded-lg border border-border bg-card px-2 py-1 text-xs">
                 <option value="active">active</option>
                 <option value="expired">expired</option>

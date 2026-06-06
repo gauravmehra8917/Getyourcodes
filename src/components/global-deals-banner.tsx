@@ -22,7 +22,17 @@ export function GlobalDealsBanner() {
   const { data: deals } = useQuery({
     queryKey: ["global-deals-banner"],
     queryFn: async () => {
-      // Try ranking by recent clicks
+      // Prefer admin-curated featured coupons
+      const { data: featured } = await sb
+        .from("coupons")
+        .select("*, stores(name, slug, logo_url)")
+        .eq("status", "active")
+        .eq("featured_in_banner", true)
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (featured && featured.length > 0) return featured as DealRow[];
+
+      // Fallback: rank active coupons by recent clicks
       const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data: clicks } = await sb
         .from("coupon_clicks")

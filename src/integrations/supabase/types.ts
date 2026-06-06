@@ -72,6 +72,7 @@ export type Database = {
           created_at: string
           description: string | null
           expiry_date: string | null
+          featured_in_banner: boolean
           id: string
           status: Database["public"]["Enums"]["coupon_status"]
           store_id: string
@@ -85,6 +86,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           expiry_date?: string | null
+          featured_in_banner?: boolean
           id?: string
           status?: Database["public"]["Enums"]["coupon_status"]
           store_id: string
@@ -98,6 +100,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           expiry_date?: string | null
+          featured_in_banner?: boolean
           id?: string
           status?: Database["public"]["Enums"]["coupon_status"]
           store_id?: string

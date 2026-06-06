@@ -1,0 +1,2 @@
+ALTER TABLE public.coupons ADD COLUMN featured_in_banner boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS coupons_featured_in_banner_idx ON public.coupons (featured_in_banner) WHERE featured_in_banner = true;
