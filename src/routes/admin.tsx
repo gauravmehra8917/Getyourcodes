@@ -245,9 +245,16 @@ function CouponsTab() {
           <div key={c.id} className="rounded-xl border border-border bg-card p-3">
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{c.title}</p>
+                <p className="truncate font-medium">
+                  {c.title}
+                  {c.featured_in_banner && <span className="ml-2 rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">In banner</span>}
+                </p>
                 <p className="text-xs text-muted-foreground">{c.stores?.name} · {c.coupon_type}{c.coupon_code ? ` · ${c.coupon_code}` : ""}{c.expiry_date ? ` · exp ${c.expiry_date}` : ""}</p>
               </div>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground" title="Show in global deals banner">
+                <input type="checkbox" checked={c.featured_in_banner} onChange={(e) => toggleBanner(c.id, e.target.checked)} />
+                Banner
+              </label>
               <select value={c.status} onChange={(e) => setStatus(c.id, e.target.value as "active" | "expired" | "draft")} className="rounded-lg border border-border bg-card px-2 py-1 text-xs">
                 <option value="active">active</option>
                 <option value="expired">expired</option>
