@@ -5,6 +5,7 @@ import { Search, Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home
 import { sb, type Store, type Coupon, type Category } from "@/lib/db";
 import { StoreCard } from "@/components/store-card";
 import { CouponCard } from "@/components/coupon-card";
+import { GlobalDealsBanner } from "@/components/global-deals-banner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
