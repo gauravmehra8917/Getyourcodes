@@ -5,6 +5,7 @@ import { Search, Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home
 import { sb, type Store, type Coupon, type Category } from "@/lib/db";
 import { StoreCard } from "@/components/store-card";
 import { CouponCard } from "@/components/coupon-card";
+import { GlobalDealsBanner } from "@/components/global-deals-banner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -102,7 +103,10 @@ function HomePage() {
         </div>
       </section>
 
+      <GlobalDealsBanner />
+
       <div className="mx-auto max-w-7xl space-y-20 px-4 py-16 sm:px-6">
+
         {/* Featured stores */}
         <Section title="Featured stores" subtitle="Top brands picked by our editors">
           {featured.data && featured.data.length > 0 ? (
