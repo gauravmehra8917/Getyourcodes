@@ -230,6 +230,10 @@ function CouponsTab() {
         <Input label="Affiliate URL" value={form.affiliate_url} onChange={(v) => setForm({ ...form, affiliate_url: v })} placeholder="https://…" />
         <Input label="Expiry date" type="date" value={form.expiry_date} onChange={(v) => setForm({ ...form, expiry_date: v })} />
         <Textarea label="Terms & conditions" value={form.terms} onChange={(v) => setForm({ ...form, terms: v })} />
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.featured_in_banner} onChange={(e) => setForm({ ...form, featured_in_banner: e.target.checked })} />
+          Feature in global deals banner
+        </label>
         {err && <p className="text-sm text-destructive">{err}</p>}
         <button disabled={saving} className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
           <Plus className="h-4 w-4" /> {saving ? "Saving…" : "Add coupon"}
