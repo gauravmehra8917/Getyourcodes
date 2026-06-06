@@ -32,6 +32,7 @@ export type Coupon = {
   status: CouponStatus;
   terms: string | null;
   created_at: string;
+  featured_in_banner: boolean;
 };
 
 // Untyped accessor (types.ts is auto-generated and currently empty)
