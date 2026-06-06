@@ -177,6 +177,7 @@ function CouponsTab() {
   const [form, setForm] = useState({
     store_id: "", title: "", description: "", coupon_code: "",
     coupon_type: "code" as "code" | "deal", affiliate_url: "", expiry_date: "", terms: "",
+    featured_in_banner: false,
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -194,9 +195,10 @@ function CouponsTab() {
         expiry_date: form.expiry_date || null,
         terms: form.terms || null,
         status: "active",
+        featured_in_banner: form.featured_in_banner,
       });
       if (error) throw error;
-      setForm({ ...form, title: "", description: "", coupon_code: "", affiliate_url: "", expiry_date: "", terms: "" });
+      setForm({ ...form, title: "", description: "", coupon_code: "", affiliate_url: "", expiry_date: "", terms: "", featured_in_banner: false });
       refetch();
     } catch (e) { setErr((e as Error).message); }
     finally { setSaving(false); }
@@ -204,6 +206,10 @@ function CouponsTab() {
 
   const setStatus = async (id: string, status: "active" | "expired" | "draft") => {
     await sb.from("coupons").update({ status }).eq("id", id);
+    refetch();
+  };
+  const toggleBanner = async (id: string, value: boolean) => {
+    await sb.from("coupons").update({ featured_in_banner: value }).eq("id", id);
     refetch();
   };
   const remove = async (id: string) => {
