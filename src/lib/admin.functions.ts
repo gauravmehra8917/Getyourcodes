@@ -33,7 +33,8 @@ export const uploadStoreLogo = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const bytes = decodeBase64(data.base64);
-    const { error } = await supabaseAdmin.storage.from("store-logos").upload(data.path, bytes, {
+    const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const { error } = await supabaseAdmin.storage.from("store-logos").upload(data.path, body, {
       contentType: data.contentType,
       upsert: true,
     });
