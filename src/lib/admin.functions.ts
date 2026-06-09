@@ -22,8 +22,9 @@ export const uploadStoreLogo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(uploadLogoSchema)
   .handler(async ({ data, context }) => {
-    const { data: isAdmin, error: roleError } = await (context.supabase as any).rpc("has_role", {
-      _user_id: context.userId,
+    const authContext = context as typeof context & { supabase: any; userId: string };
+    const { data: isAdmin, error: roleError } = await authContext.supabase.rpc("has_role", {
+      _user_id: authContext.userId,
       _role: "admin",
     });
 
@@ -33,7 +34,7 @@ export const uploadStoreLogo = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const bytes = decodeBase64(data.base64);
-    const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
     const { error } = await supabaseAdmin.storage.from("store-logos").upload(data.path, body, {
       contentType: data.contentType,
       upsert: true,
