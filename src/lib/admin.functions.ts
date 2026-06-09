@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const uploadLogoSchema = z.object({
-  path: z.string().min(1).max(180),
+  path: z.string().min(1).max(180).regex(/^[a-z0-9-]+\.(png|jpe?g|webp|gif|svg)$/i),
   contentType: z.string().regex(/^image\//),
   base64: z.string().min(1),
 });
