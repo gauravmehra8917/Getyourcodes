@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadStoreLogo } from "@/lib/admin.functions";
 import { sb, type Store, type Coupon, type Category } from "@/lib/db";
 import { LogOut, Plus, Trash2, Upload } from "lucide-react";
 
@@ -12,6 +13,16 @@ export const Route = createFileRoute("/admin")({
 
 function slugify(s: string) {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+async function fileToBase64(file: File) {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read logo file."));
+    reader.readAsDataURL(file);
+  });
+  return dataUrl.split(",")[1] ?? "";
 }
 
 function AdminPage() {
@@ -92,10 +103,8 @@ function StoresTab() {
       if (logoFile) {
         const ext = logoFile.name.split(".").pop();
         const path = `${slugify(form.name)}-${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("store-logos").upload(path, logoFile, { upsert: true });
-        if (upErr) throw upErr;
-        const { data: pub } = supabase.storage.from("store-logos").getPublicUrl(path);
-        logo_url = pub.publicUrl;
+        const result = await uploadStoreLogo({ data: { path, contentType: logoFile.type || "image/*", base64: await fileToBase64(logoFile) } });
+        logo_url = result.publicUrl;
       }
       const { error } = await sb.from("stores").insert({
         name: form.name, slug: slugify(form.name),
