@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "logos public read" ON storage.objects;
