@@ -90,30 +90,62 @@ function StoresTab() {
       return (data ?? []) as Store[];
     },
   });
-  const [form, setForm] = useState({ name: "", description: "", affiliate_url: "", featured: false });
+  const emptyForm = { name: "", description: "", affiliate_url: "", featured: false };
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const startEdit = (s: Store) => {
+    setEditingId(s.id);
+    setForm({
+      name: s.name,
+      description: s.description ?? "",
+      affiliate_url: s.affiliate_url ?? "",
+      featured: s.featured,
+    });
+    setLogoFile(null);
+    setErr(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setLogoFile(null);
+    setErr(null);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null); setSaving(true);
     try {
-      let logo_url: string | null = null;
+      let logo_url: string | null | undefined = undefined;
       if (logoFile) {
         const ext = logoFile.name.split(".").pop();
         const path = `${slugify(form.name)}-${Date.now()}.${ext}`;
         const result = await uploadStoreLogo({ data: { path, contentType: logoFile.type || "image/*", base64: await fileToBase64(logoFile) } });
         logo_url = result.publicUrl;
       }
-      const { error } = await sb.from("stores").insert({
-        name: form.name, slug: slugify(form.name),
-        description: form.description || null, affiliate_url: form.affiliate_url || null,
-        featured: form.featured, logo_url,
-      });
-      if (error) throw error;
-      setForm({ name: "", description: "", affiliate_url: "", featured: false });
-      setLogoFile(null);
+      if (editingId) {
+        const patch: Record<string, unknown> = {
+          name: form.name, slug: slugify(form.name),
+          description: form.description || null,
+          affiliate_url: form.affiliate_url || null,
+          featured: form.featured,
+        };
+        if (logo_url !== undefined) patch.logo_url = logo_url;
+        const { error } = await sb.from("stores").update(patch).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await sb.from("stores").insert({
+          name: form.name, slug: slugify(form.name),
+          description: form.description || null, affiliate_url: form.affiliate_url || null,
+          featured: form.featured, logo_url: logo_url ?? null,
+        });
+        if (error) throw error;
+      }
+      cancelEdit();
       refetch();
       qc.invalidateQueries({ queryKey: ["stores"] });
     } catch (e) { setErr((e as Error).message); }
@@ -123,18 +155,22 @@ function StoresTab() {
   const remove = async (id: string) => {
     if (!confirm("Delete this store and all its coupons?")) return;
     await sb.from("stores").delete().eq("id", id);
+    if (editingId === id) cancelEdit();
     refetch();
   };
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_1.5fr]">
       <form onSubmit={submit} className="space-y-3 rounded-2xl border border-border bg-card p-5">
-        <h3 className="font-semibold">Add store</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">{editingId ? "Edit store" : "Add store"}</h3>
+          {editingId && <button type="button" onClick={cancelEdit} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /> Cancel</button>}
+        </div>
         <Input label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
         <Textarea label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
         <Input label="Affiliate URL" value={form.affiliate_url} onChange={(v) => setForm({ ...form, affiliate_url: v })} placeholder="https://…" />
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">Logo</span>
+          <span className="mb-1.5 block text-sm font-medium">Logo {editingId && <span className="text-xs font-normal text-muted-foreground">(leave empty to keep current)</span>}</span>
           <label className="flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border bg-secondary/40 px-4 text-sm text-muted-foreground hover:border-primary">
             <Upload className="h-4 w-4" /> {logoFile ? logoFile.name : "Choose image"}
             <input type="file" accept="image/*" className="hidden" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} />
@@ -146,18 +182,19 @@ function StoresTab() {
         </label>
         {err && <p className="text-sm text-destructive">{err}</p>}
         <button disabled={saving} className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
-          <Plus className="h-4 w-4" /> {saving ? "Saving…" : "Add store"}
+          {editingId ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {saving ? "Saving…" : editingId ? "Save changes" : "Add store"}
         </button>
       </form>
 
       <div className="space-y-2">
         {data?.map((s) => (
-          <div key={s.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+          <div key={s.id} className={`flex items-center gap-3 rounded-xl border bg-card p-3 ${editingId === s.id ? "border-primary" : "border-border"}`}>
             {s.logo_url ? <img src={s.logo_url} className="h-10 w-10 rounded-lg border border-border object-contain p-1" /> : <div className="h-10 w-10 rounded-lg bg-secondary" />}
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{s.name} {s.featured && <span className="ml-1 rounded-full bg-success-soft px-2 py-0.5 text-[10px] font-semibold uppercase text-success">Featured</span>}</p>
               <p className="truncate text-xs text-muted-foreground">/{s.slug}-coupons</p>
             </div>
+            <button onClick={() => startEdit(s)} className="rounded-lg p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary" title="Make changes"><Pencil className="h-4 w-4" /></button>
             <button onClick={() => remove(s.id)} className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
           </div>
         ))}
