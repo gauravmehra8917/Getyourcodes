@@ -354,38 +354,52 @@ function CategoriesTab() {
     },
   });
   const [name, setName] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const add = async (e: React.FormEvent) => {
+  const cancelEdit = () => { setEditingId(null); setName(""); setErr(null); };
+  const startEdit = (c: Category) => { setEditingId(c.id); setName(c.name); setErr(null); };
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
-    const { error } = await sb.from("categories").insert({ name, slug: slugify(name) });
-    if (error) { setErr(error.message); return; }
-    setName(""); refetch();
+    if (editingId) {
+      const { error } = await sb.from("categories").update({ name, slug: slugify(name) }).eq("id", editingId);
+      if (error) { setErr(error.message); return; }
+    } else {
+      const { error } = await sb.from("categories").insert({ name, slug: slugify(name) });
+      if (error) { setErr(error.message); return; }
+    }
+    cancelEdit(); refetch();
   };
   const remove = async (id: string) => {
     if (!confirm("Delete this category?")) return;
     await sb.from("categories").delete().eq("id", id);
+    if (editingId === id) cancelEdit();
     refetch();
   };
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_1.5fr]">
-      <form onSubmit={add} className="space-y-3 rounded-2xl border border-border bg-card p-5">
-        <h3 className="font-semibold">Add category</h3>
+      <form onSubmit={submit} className="space-y-3 rounded-2xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">{editingId ? "Edit category" : "Add category"}</h3>
+          {editingId && <button type="button" onClick={cancelEdit} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /> Cancel</button>}
+        </div>
         <Input label="Name" value={name} onChange={setName} required placeholder="Fashion" />
         {err && <p className="text-sm text-destructive">{err}</p>}
         <button className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
-          <Plus className="h-4 w-4" /> Add
+          {editingId ? <><Pencil className="h-4 w-4" /> Save changes</> : <><Plus className="h-4 w-4" /> Add</>}
         </button>
       </form>
       <div className="space-y-2">
         {data?.map((c) => (
-          <div key={c.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+          <div key={c.id} className={`flex items-center gap-3 rounded-xl border bg-card p-3 ${editingId === c.id ? "border-primary" : "border-border"}`}>
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{c.name}</p>
               <p className="truncate text-xs text-muted-foreground">/{c.slug}-offers</p>
             </div>
+            <button onClick={() => startEdit(c)} className="rounded-lg p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary" title="Make changes"><Pencil className="h-4 w-4" /></button>
             <button onClick={() => remove(c.id)} className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
           </div>
         ))}
