@@ -220,19 +220,38 @@ function CouponsTab() {
     },
   });
 
-  const [form, setForm] = useState({
+  const emptyForm = {
     store_id: "", title: "", description: "", coupon_code: "",
     coupon_type: "code" as "code" | "deal", affiliate_url: "", expiry_date: "", terms: "",
     featured_in_banner: false,
-  });
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const startEdit = (c: Coupon) => {
+    setEditingId(c.id);
+    setForm({
+      store_id: c.store_id,
+      title: c.title,
+      description: c.description ?? "",
+      coupon_code: c.coupon_code ?? "",
+      coupon_type: c.coupon_type,
+      affiliate_url: c.affiliate_url ?? "",
+      expiry_date: c.expiry_date ?? "",
+      terms: c.terms ?? "",
+      featured_in_banner: c.featured_in_banner,
+    });
+    setErr(null);
+  };
+  const cancelEdit = () => { setEditingId(null); setForm(emptyForm); setErr(null); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null); setSaving(true);
     try {
-      const { error } = await sb.from("coupons").insert({
+      const payload = {
         store_id: form.store_id, title: form.title,
         description: form.description || null,
         coupon_code: form.coupon_type === "code" ? form.coupon_code : null,
@@ -240,11 +259,16 @@ function CouponsTab() {
         affiliate_url: form.affiliate_url || null,
         expiry_date: form.expiry_date || null,
         terms: form.terms || null,
-        status: "active",
         featured_in_banner: form.featured_in_banner,
-      });
-      if (error) throw error;
-      setForm({ ...form, title: "", description: "", coupon_code: "", affiliate_url: "", expiry_date: "", terms: "", featured_in_banner: false });
+      };
+      if (editingId) {
+        const { error } = await sb.from("coupons").update(payload).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await sb.from("coupons").insert({ ...payload, status: "active" });
+        if (error) throw error;
+      }
+      cancelEdit();
       refetch();
     } catch (e) { setErr((e as Error).message); }
     finally { setSaving(false); }
@@ -261,13 +285,17 @@ function CouponsTab() {
   const remove = async (id: string) => {
     if (!confirm("Delete this coupon?")) return;
     await sb.from("coupons").delete().eq("id", id);
+    if (editingId === id) cancelEdit();
     refetch();
   };
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_1.5fr]">
       <form onSubmit={submit} className="space-y-3 rounded-2xl border border-border bg-card p-5">
-        <h3 className="font-semibold">Add coupon</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">{editingId ? "Edit coupon" : "Add coupon"}</h3>
+          {editingId && <button type="button" onClick={cancelEdit} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /> Cancel</button>}
+        </div>
         <Select label="Store" value={form.store_id} onChange={(v) => setForm({ ...form, store_id: v })} options={(stores ?? []).map((s) => ({ value: s.id, label: s.name }))} required />
         <Select label="Type" value={form.coupon_type} onChange={(v) => setForm({ ...form, coupon_type: v as "code" | "deal" })} options={[{ value: "code", label: "Code" }, { value: "deal", label: "Deal" }]} />
         <Input label="Title" value={form.title} onChange={(v) => setForm({ ...form, title: v })} required placeholder="20% off sitewide" />
@@ -282,13 +310,13 @@ function CouponsTab() {
         </label>
         {err && <p className="text-sm text-destructive">{err}</p>}
         <button disabled={saving} className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
-          <Plus className="h-4 w-4" /> {saving ? "Saving…" : "Add coupon"}
+          {editingId ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {saving ? "Saving…" : editingId ? "Save changes" : "Add coupon"}
         </button>
       </form>
 
       <div className="space-y-2">
         {data?.map((c) => (
-          <div key={c.id} className="rounded-xl border border-border bg-card p-3">
+          <div key={c.id} className={`rounded-xl border bg-card p-3 ${editingId === c.id ? "border-primary" : "border-border"}`}>
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">
@@ -306,6 +334,7 @@ function CouponsTab() {
                 <option value="expired">expired</option>
                 <option value="draft">draft</option>
               </select>
+              <button onClick={() => startEdit(c)} className="rounded-lg p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary" title="Make changes"><Pencil className="h-4 w-4" /></button>
               <button onClick={() => remove(c.id)} className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
             </div>
           </div>
