@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadStoreLogo } from "@/lib/admin.functions";
 import { sb, type Store, type Coupon, type Category } from "@/lib/db";
-import { LogOut, Plus, Trash2, Upload } from "lucide-react";
+import { LogOut, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin dashboard — SaveHub" }, { name: "robots", content: "noindex" }] }),
