@@ -173,7 +173,7 @@ function DealTile({ deal }: { deal: DealRow }) {
       <div className="flex items-center gap-3">
         <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-secondary">
           {store?.logo_url ? (
-            <img src={store.logo_url} alt={store.name} className="h-full w-full object-contain" />
+            <img src={store.logo_url} alt={store.name} width={44} height={44} loading="lazy" decoding="async" className="h-full w-full object-contain" />
           ) : (
             <span className="text-sm font-bold text-muted-foreground">
               {(store?.name ?? "?").charAt(0)}

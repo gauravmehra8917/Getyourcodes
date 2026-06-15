@@ -78,7 +78,7 @@ function StorePage({ store, coupons }: { store: Store; coupons: Coupon[] }) {
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
       <header className="flex flex-col items-start gap-5 rounded-3xl border border-border bg-gradient-to-br from-primary-soft to-accent/40 p-6 sm:flex-row sm:items-center sm:p-8">
         {store.logo_url ? (
-          <img src={store.logo_url} alt={`${store.name} logo`} className="h-20 w-20 rounded-2xl border border-border bg-card object-contain p-2" />
+          <img src={store.logo_url} alt={`${store.name} logo`} width={80} height={80} fetchPriority="high" decoding="async" className="h-20 w-20 rounded-2xl border border-border bg-card object-contain p-2" />
         ) : (
           <div className="grid h-20 w-20 place-items-center rounded-2xl bg-card text-primary"><Tag className="h-8 w-8" /></div>
         )}

@@ -81,7 +81,7 @@ function AccountPage() {
         <h2 className="font-display text-lg font-semibold">Profile</h2>
         <div className="mt-4 flex items-center gap-4">
           {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover" />
+            <img src={profile.avatar_url} alt="" width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 rounded-full object-cover" />
           ) : (
             <div className="grid h-14 w-14 place-items-center rounded-full bg-primary-soft text-primary font-semibold">
               {(displayName || email || "?").charAt(0).toUpperCase()}
@@ -136,7 +136,7 @@ function AccountPage() {
             {savedStores.map((s) => s.stores && (
               <li key={s.store_id} className="flex items-center gap-3 rounded-xl border border-border p-3">
                 <Link to="/$slug" params={{ slug: `${s.stores.slug}-coupons` }} className="flex min-w-0 flex-1 items-center gap-2">
-                  {s.stores.logo_url ? <img src={s.stores.logo_url} alt="" className="h-8 w-8 rounded object-contain" /> : <Tag className="h-5 w-5 text-primary" />}
+                  {s.stores.logo_url ? <img src={s.stores.logo_url} alt="" width={32} height={32} loading="lazy" decoding="async" className="h-8 w-8 rounded object-contain" /> : <Tag className="h-5 w-5 text-primary" />}
                   <span className="truncate text-sm font-medium">{s.stores.name}</span>
                 </Link>
                 <button onClick={() => unsaveStore(s.store_id)} className="text-xs text-muted-foreground hover:text-destructive">Remove</button>
