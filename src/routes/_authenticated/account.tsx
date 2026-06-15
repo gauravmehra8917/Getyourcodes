@@ -81,7 +81,7 @@ function AccountPage() {
         <h2 className="font-display text-lg font-semibold">Profile</h2>
         <div className="mt-4 flex items-center gap-4">
           {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover" />
+            <img src={profile.avatar_url} alt="" width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 rounded-full object-cover" />
           ) : (
             <div className="grid h-14 w-14 place-items-center rounded-full bg-primary-soft text-primary font-semibold">
               {(displayName || email || "?").charAt(0).toUpperCase()}
