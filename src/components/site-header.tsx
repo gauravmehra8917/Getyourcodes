@@ -74,7 +74,7 @@ export function SiteHeader() {
                 className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-sm font-semibold text-primary hover:opacity-90"
                 aria-label="Account menu"
               >
-                {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initial}
+                {avatarUrl ? <img src={avatarUrl} alt="" width={36} height={36} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : initial}
               </button>
               {menuOpen && (
                 <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
