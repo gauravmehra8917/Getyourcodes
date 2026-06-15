@@ -63,7 +63,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/48d51b3c-73ea-4d3c-b6da-11bf7fc93a34" },
       { name: "google-site-verification", content: "Ow_7FR3k57CCSHvT7EMJWaR_3FJgra9yDeC8ctsp4wY" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      // Font loading: preconnect to Google's CDNs (DNS+TLS upfront),
+      // preload the CSS so it doesn't render-block on discovery, then
+      // the actual stylesheet with display=swap to avoid FOIT/CLS.
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "preload",
+        as: "style",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap",
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
