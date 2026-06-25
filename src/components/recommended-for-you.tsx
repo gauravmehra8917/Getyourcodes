@@ -97,7 +97,7 @@ export function RecommendedForYou() {
         })),
       );
       const byId = new Map(coupons.map((c) => [c.id, c]));
-      return ranked.slice(0, 6).map((r) => byId.get(r.id)!).filter(Boolean);
+      return ranked.slice(0, 6).map((r: { id: string }) => byId.get(r.id)!).filter(Boolean);
     },
   });
 
