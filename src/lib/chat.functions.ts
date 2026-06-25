@@ -1,11 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import type { UIMessage } from "ai";
+
+export type StoredChatMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  parts: unknown[];
+};
 
 export const loadChatHistory = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .handler(async ({ context }): Promise<StoredChatMessage[]> => {
     const { data, error } = await context.supabase
       .from("chat_messages")
       .select("id, role, parts, created_at")
@@ -15,9 +20,12 @@ export const loadChatHistory = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return ((data ?? []) as Array<{ id: string; role: string; parts: unknown }>).map((row) => ({
       id: row.id,
-      role: row.role,
-      parts: Array.isArray(row.parts) ? row.parts : [],
-    })) as UIMessage[];
+      role: (row.role === "assistant" || row.role === "system" ? row.role : "user") as
+        | "user"
+        | "assistant"
+        | "system",
+      parts: Array.isArray(row.parts) ? (row.parts as unknown[]) : [],
+    }));
   });
 
 export const saveChatMessages = createServerFn({ method: "POST" })

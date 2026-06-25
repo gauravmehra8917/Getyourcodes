@@ -46,8 +46,9 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
     if (!open || !authed || initialMessages !== null) return;
     loadChatHistory()
       .then((msgs) => {
-        setInitialMessages(msgs);
-        lastPersistedRef.current = msgs.length;
+        const ui = msgs.map((m) => ({ id: m.id, role: m.role, parts: m.parts })) as unknown as UIMessage[];
+        setInitialMessages(ui);
+        lastPersistedRef.current = ui.length;
       })
       .catch(() => setInitialMessages([]));
   }, [open, authed, initialMessages]);
