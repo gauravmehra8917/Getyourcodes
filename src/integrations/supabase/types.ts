@@ -65,18 +65,21 @@ export type Database = {
           coupon_id: string
           id: string
           source_page: string | null
+          user_id: string | null
         }
         Insert: {
           clicked_at?: string
           coupon_id: string
           id?: string
           source_page?: string | null
+          user_id?: string | null
         }
         Update: {
           clicked_at?: string
           coupon_id?: string
           id?: string
           source_page?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -216,6 +219,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      search_queries: {
+        Row: {
+          created_at: string
+          id: string
+          query: string
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          query: string
+          source?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          query?: string
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       stores: {
         Row: {
