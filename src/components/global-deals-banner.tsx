@@ -69,7 +69,6 @@ export function GlobalDealsBanner() {
   if (dismissed || total === 0) return null;
 
   const dismiss = () => {
-    if (typeof window !== "undefined") localStorage.setItem(DISMISS_KEY, "1");
     setDismissed(true);
   };
 
