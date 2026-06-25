@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
-import { Field, TextInput, TextArea, Select } from "@/components/admin/form-fields";
+import { Field, TextInput, TextArea, SelectInput as Select } from "@/components/admin/form-fields";
 
 type PostRow = {
   id?: string;
@@ -42,7 +42,7 @@ export function PostForm({ initial, onSaved }: { initial?: PostRow; onSaved: () 
 
   const set = <K extends keyof PostRow>(k: K, v: PostRow[K]) => setForm((f) => ({ ...f, [k]: v }));
 
-  const submit = async (e: React.FormEvent, publish?: boolean) => {
+  const submit = async (e: React.FormEvent | React.MouseEvent, publish?: boolean) => {
     e.preventDefault();
     if (saving) return;
     setSaving(true);
