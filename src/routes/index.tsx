@@ -1,11 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Search, Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home } from "lucide-react";
+import { Search, Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home, Wand2 } from "lucide-react";
 import { sb, type Store, type Coupon, type Category } from "@/lib/db";
 import { StoreCard } from "@/components/store-card";
 import { CouponCard } from "@/components/coupon-card";
 import { GlobalDealsBanner } from "@/components/global-deals-banner";
+import { useAssistant } from "@/components/ai-assistant-provider";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -25,7 +26,9 @@ const ICONS = [ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home];
 
 function HomePage() {
   const navigate = useNavigate();
+  const assistant = useAssistant();
   const [q, setQ] = useState("");
+  const [aiQ, setAiQ] = useState("");
 
   const featured = useQuery({
     queryKey: ["stores", "featured"],
@@ -100,6 +103,50 @@ function HomePage() {
               </button>
             </div>
           </form>
+
+          {/* AI Deal Assistant search */}
+          <div className="mx-auto mt-6 max-w-2xl">
+            <div className="rounded-3xl border border-primary/30 bg-card/60 p-4 shadow-sm backdrop-blur sm:p-5">
+              <div className="mb-3 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                <Wand2 className="h-3.5 w-3.5" /> Ask Dealio · AI Deal Assistant
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const t = aiQ.trim();
+                  if (!t) return;
+                  assistant.open(t);
+                  setAiQ("");
+                }}
+                className="flex flex-col gap-2 sm:flex-row"
+              >
+                <input
+                  value={aiQ}
+                  onChange={(e) => setAiQ(e.target.value)}
+                  placeholder="What deal are you looking for? e.g. Nike sneakers under $100"
+                  className="h-12 flex-1 rounded-full border border-border bg-background px-5 text-sm outline-none focus:border-primary"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-br from-primary to-accent-foreground px-6 text-sm font-semibold text-primary-foreground hover:opacity-95"
+                >
+                  <Sparkles className="h-4 w-4" /> Ask Dealio
+                </button>
+              </form>
+              <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs">
+                {["Best laptop deals", "Food delivery codes", "Travel discounts this week"].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => assistant.open(s)}
+                    className="rounded-full border border-border bg-background px-3 py-1 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
