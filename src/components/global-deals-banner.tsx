@@ -63,8 +63,10 @@ export function GlobalDealsBanner() {
     const rail = railRef.current;
     if (!rail) return;
     const child = rail.children[index] as HTMLElement | undefined;
-    child?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    if (!child) return;
+    rail.scrollTo({ left: child.offsetLeft - rail.offsetLeft, behavior: "smooth" });
   }, [index]);
+
 
   if (dismissed || total === 0) return null;
 
