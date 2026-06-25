@@ -276,31 +276,8 @@ function HomePage() {
         )}
 
         {/* Newsletter strip */}
-        <section className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-primary/30 via-surface-2 to-surface p-8 text-center sm:p-12 shadow-glow">
-          <Mail className="mx-auto mb-4 h-8 w-8 text-glow" />
-          <h2 className="font-display text-3xl font-bold sm:text-4xl">Never miss a deal.</h2>
-          <p className="mx-auto mt-2 max-w-md text-white/70">Get the best coupons of the week in your inbox. No spam, ever.</p>
-          <form
-            className="mx-auto mt-6 flex max-w-md flex-col gap-2 sm:flex-row"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              const email = String(fd.get("email") || "").trim();
-              if (!email) return;
-              await sb.from("subscribers").insert({ email });
-              (e.currentTarget as HTMLFormElement).reset();
-              alert("You're subscribed!");
-            }}
-          >
-            <input
-              type="email" required name="email" placeholder="Your email address"
-              className="h-12 flex-1 rounded-full border border-white/15 bg-background/40 px-5 text-sm text-white placeholder:text-white/40 outline-none focus:border-primary"
-            />
-            <button className="gradient-primary inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white shadow-glow">
-              Subscribe <ArrowRight className="h-4 w-4" />
-            </button>
-          </form>
-        </section>
+        <NewsletterStrip />
+
       </div>
     </div>
   );
@@ -327,3 +304,69 @@ function EmptyHint({ text }: { text: string }) {
     </div>
   );
 }
+
+
+
+
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+function NewsletterStrip() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<{ kind: "idle" | "ok" | "err"; msg: string }>({ kind: "idle", msg: "" });
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const normalized = email.trim().toLowerCase();
+    if (!EMAIL_RE.test(normalized) || normalized.length > 254) {
+      setStatus({ kind: "err", msg: "Please enter a valid email address." });
+      return;
+    }
+    setBusy(true);
+    const { error } = await sb.from("subscribers").insert({ email: normalized });
+    setBusy(false);
+    if (error) {
+      const dup = error.code === "23505" || /duplicate|unique/i.test(error.message);
+      setStatus({ kind: dup ? "ok" : "err", msg: dup ? "You're already subscribed — thanks!" : "Something went wrong. Try again." });
+      return;
+    }
+    setEmail("");
+    setStatus({ kind: "ok", msg: "You're subscribed! Check your inbox for top deals." });
+  }
+
+  return (
+    <section className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-primary/30 via-surface-2 to-surface p-8 text-center sm:p-12 shadow-glow">
+      <Mail className="mx-auto mb-4 h-8 w-8 text-glow" />
+      <h2 className="font-display text-3xl font-bold sm:text-4xl">Never miss a deal.</h2>
+      <p className="mx-auto mt-2 max-w-md text-white/70">Any email works — get the best coupons of the week in your inbox. No spam, ever.</p>
+      <form className="mx-auto mt-6 flex max-w-md flex-col gap-2 sm:flex-row" onSubmit={onSubmit} noValidate>
+        <input
+          type="email"
+          required
+          name="email"
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); if (status.kind !== "idle") setStatus({ kind: "idle", msg: "" }); }}
+          placeholder="Your email address"
+          maxLength={254}
+          autoComplete="email"
+          aria-label="Email address"
+          aria-invalid={status.kind === "err"}
+          className="h-12 flex-1 rounded-full border border-white/15 bg-background/40 px-5 text-sm text-white placeholder:text-white/40 outline-none focus:border-primary"
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          className="gradient-primary inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white shadow-glow disabled:opacity-60"
+        >
+          {busy ? "Subscribing…" : (<>Subscribe <ArrowRight className="h-4 w-4" /></>)}
+        </button>
+      </form>
+      {status.kind !== "idle" && (
+        <p role="status" aria-live="polite" className={`mt-4 text-sm ${status.kind === "ok" ? "text-emerald-300" : "text-red-300"}`}>
+          {status.msg}
+        </p>
+      )}
+    </section>
+  );
+}
+
