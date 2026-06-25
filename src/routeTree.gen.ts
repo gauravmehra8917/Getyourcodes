@@ -26,6 +26,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminStoresRouteImport } from './routes/admin.stores'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
@@ -118,6 +119,11 @@ const AdminStoresRoute = AdminStoresRouteImport.update({
   path: '/stores',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminCouponsRoute = AdminCouponsRouteImport.update({
   id: '/coupons',
   path: '/coupons',
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/account': typeof AuthenticatedAccountRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/stores': typeof AdminStoresRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByTo {
   '/account': typeof AuthenticatedAccountRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/stores': typeof AdminStoresRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
@@ -221,6 +229,7 @@ export interface FileRoutesById {
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/stores': typeof AdminStoresRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
@@ -248,6 +257,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/admin/categories'
     | '/admin/coupons'
+    | '/admin/settings'
     | '/admin/stores'
     | '/admin/users'
     | '/api/chat'
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/admin/categories'
     | '/admin/coupons'
+    | '/admin/settings'
     | '/admin/stores'
     | '/admin/users'
     | '/api/chat'
@@ -298,6 +309,7 @@ export interface FileRouteTypes {
     | '/_authenticated/account'
     | '/admin/categories'
     | '/admin/coupons'
+    | '/admin/settings'
     | '/admin/stores'
     | '/admin/users'
     | '/api/chat'
@@ -446,6 +458,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminStoresRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/coupons': {
       id: '/admin/coupons'
       path: '/coupons'
@@ -540,6 +559,7 @@ const AdminStoresRouteWithChildren = AdminStoresRoute._addFileChildren(
 interface AdminRouteChildren {
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminCouponsRoute: typeof AdminCouponsRouteWithChildren
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminStoresRoute: typeof AdminStoresRouteWithChildren
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -548,6 +568,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminCouponsRoute: AdminCouponsRouteWithChildren,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminStoresRoute: AdminStoresRouteWithChildren,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
