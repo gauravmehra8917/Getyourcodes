@@ -89,7 +89,13 @@ function HomePage() {
           </p>
           <form
             className="mx-auto mt-10 max-w-2xl"
-            onSubmit={(e) => { e.preventDefault(); if (q.trim()) navigate({ to: "/search", search: { q: q.trim() } }); }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const term = q.trim();
+              if (!term) return;
+              trackSearch(term, "search");
+              navigate({ to: "/search", search: { q: term } });
+            }}
           >
             <div className="relative">
               <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -116,6 +122,7 @@ function HomePage() {
                   e.preventDefault();
                   const t = aiQ.trim();
                   if (!t) return;
+                  trackSearch(t, "ai");
                   assistant.open(t);
                   setAiQ("");
                 }}
