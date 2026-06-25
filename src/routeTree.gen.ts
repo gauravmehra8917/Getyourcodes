@@ -27,6 +27,7 @@ import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminStoresRouteImport } from './routes/admin.stores'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AdminStoresNewRouteImport } from './routes/admin.stores.new'
 import { Route as AdminStoresIdRouteImport } from './routes/admin.stores.$id'
 import { Route as AdminCouponsNewRouteImport } from './routes/admin.coupons.new'
 import { Route as AdminCouponsIdRouteImport } from './routes/admin.coupons.$id'
@@ -120,6 +121,11 @@ const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AdminStoresNewRoute = AdminStoresNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AdminStoresRoute,
+} as any)
 const AdminStoresIdRoute = AdminStoresIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/admin/coupons/$id': typeof AdminCouponsIdRoute
   '/admin/coupons/new': typeof AdminCouponsNewRoute
   '/admin/stores/$id': typeof AdminStoresIdRoute
+  '/admin/stores/new': typeof AdminStoresNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/admin/coupons/$id': typeof AdminCouponsIdRoute
   '/admin/coupons/new': typeof AdminCouponsNewRoute
   '/admin/stores/$id': typeof AdminStoresIdRoute
+  '/admin/stores/new': typeof AdminStoresNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -202,6 +210,7 @@ export interface FileRoutesById {
   '/admin/coupons/$id': typeof AdminCouponsIdRoute
   '/admin/coupons/new': typeof AdminCouponsNewRoute
   '/admin/stores/$id': typeof AdminStoresIdRoute
+  '/admin/stores/new': typeof AdminStoresNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/admin/coupons/$id'
     | '/admin/coupons/new'
     | '/admin/stores/$id'
+    | '/admin/stores/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/admin/coupons/$id'
     | '/admin/coupons/new'
     | '/admin/stores/$id'
+    | '/admin/stores/new'
   id:
     | '__root__'
     | '/'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/admin/coupons/$id'
     | '/admin/coupons/new'
     | '/admin/stores/$id'
+    | '/admin/stores/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -417,6 +429,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/admin/stores/new': {
+      id: '/admin/stores/new'
+      path: '/new'
+      fullPath: '/admin/stores/new'
+      preLoaderRoute: typeof AdminStoresNewRouteImport
+      parentRoute: typeof AdminStoresRoute
+    }
     '/admin/stores/$id': {
       id: '/admin/stores/$id'
       path: '/$id'
@@ -468,10 +487,12 @@ const AdminCouponsRouteWithChildren = AdminCouponsRoute._addFileChildren(
 
 interface AdminStoresRouteChildren {
   AdminStoresIdRoute: typeof AdminStoresIdRoute
+  AdminStoresNewRoute: typeof AdminStoresNewRoute
 }
 
 const AdminStoresRouteChildren: AdminStoresRouteChildren = {
   AdminStoresIdRoute: AdminStoresIdRoute,
+  AdminStoresNewRoute: AdminStoresNewRoute,
 }
 
 const AdminStoresRouteWithChildren = AdminStoresRoute._addFileChildren(
