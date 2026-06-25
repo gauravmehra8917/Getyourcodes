@@ -25,10 +25,19 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminTranslationsRouteImport } from './routes/admin.translations'
+import { Route as AdminThemeRouteImport } from './routes/admin.theme'
+import { Route as AdminSubscribersRouteImport } from './routes/admin.subscribers'
+import { Route as AdminSubcategoriesRouteImport } from './routes/admin.subcategories'
 import { Route as AdminStoresRouteImport } from './routes/admin.stores'
+import { Route as AdminSlidersRouteImport } from './routes/admin.sliders'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminPagesRouteImport } from './routes/admin.pages'
+import { Route as AdminMenusRouteImport } from './routes/admin.menus'
+import { Route as AdminEtemplatesRouteImport } from './routes/admin.etemplates'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
+import { Route as AdminAdsRouteImport } from './routes/admin.ads'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AdminStoresNewRouteImport } from './routes/admin.stores.new'
 import { Route as AdminStoresIdRouteImport } from './routes/admin.stores.$id'
@@ -114,14 +123,54 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminTranslationsRoute = AdminTranslationsRouteImport.update({
+  id: '/translations',
+  path: '/translations',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminThemeRoute = AdminThemeRouteImport.update({
+  id: '/theme',
+  path: '/theme',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubscribersRoute = AdminSubscribersRouteImport.update({
+  id: '/subscribers',
+  path: '/subscribers',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubcategoriesRoute = AdminSubcategoriesRouteImport.update({
+  id: '/subcategories',
+  path: '/subcategories',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminStoresRoute = AdminStoresRouteImport.update({
   id: '/stores',
   path: '/stores',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSlidersRoute = AdminSlidersRouteImport.update({
+  id: '/sliders',
+  path: '/sliders',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPagesRoute = AdminPagesRouteImport.update({
+  id: '/pages',
+  path: '/pages',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMenusRoute = AdminMenusRouteImport.update({
+  id: '/menus',
+  path: '/menus',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminEtemplatesRoute = AdminEtemplatesRouteImport.update({
+  id: '/etemplates',
+  path: '/etemplates',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminCouponsRoute = AdminCouponsRouteImport.update({
@@ -132,6 +181,11 @@ const AdminCouponsRoute = AdminCouponsRouteImport.update({
 const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
   id: '/categories',
   path: '/categories',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAdsRoute = AdminAdsRouteImport.update({
+  id: '/ads',
+  path: '/ads',
   getParentRoute: () => AdminRoute,
 } as any)
 const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
@@ -174,10 +228,19 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/admin/ads': typeof AdminAdsRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
+  '/admin/etemplates': typeof AdminEtemplatesRoute
+  '/admin/menus': typeof AdminMenusRoute
+  '/admin/pages': typeof AdminPagesRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/sliders': typeof AdminSlidersRoute
   '/admin/stores': typeof AdminStoresRouteWithChildren
+  '/admin/subcategories': typeof AdminSubcategoriesRoute
+  '/admin/subscribers': typeof AdminSubscribersRoute
+  '/admin/theme': typeof AdminThemeRoute
+  '/admin/translations': typeof AdminTranslationsRoute
   '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
   '/admin/': typeof AdminIndexRoute
@@ -199,10 +262,19 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/admin/ads': typeof AdminAdsRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
+  '/admin/etemplates': typeof AdminEtemplatesRoute
+  '/admin/menus': typeof AdminMenusRoute
+  '/admin/pages': typeof AdminPagesRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/sliders': typeof AdminSlidersRoute
   '/admin/stores': typeof AdminStoresRouteWithChildren
+  '/admin/subcategories': typeof AdminSubcategoriesRoute
+  '/admin/subscribers': typeof AdminSubscribersRoute
+  '/admin/theme': typeof AdminThemeRoute
+  '/admin/translations': typeof AdminTranslationsRoute
   '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
   '/admin': typeof AdminIndexRoute
@@ -227,10 +299,19 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
+  '/admin/ads': typeof AdminAdsRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
+  '/admin/etemplates': typeof AdminEtemplatesRoute
+  '/admin/menus': typeof AdminMenusRoute
+  '/admin/pages': typeof AdminPagesRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/sliders': typeof AdminSlidersRoute
   '/admin/stores': typeof AdminStoresRouteWithChildren
+  '/admin/subcategories': typeof AdminSubcategoriesRoute
+  '/admin/subscribers': typeof AdminSubscribersRoute
+  '/admin/theme': typeof AdminThemeRoute
+  '/admin/translations': typeof AdminTranslationsRoute
   '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
   '/admin/': typeof AdminIndexRoute
@@ -255,10 +336,19 @@ export interface FileRouteTypes {
     | '/search'
     | '/sitemap.xml'
     | '/account'
+    | '/admin/ads'
     | '/admin/categories'
     | '/admin/coupons'
+    | '/admin/etemplates'
+    | '/admin/menus'
+    | '/admin/pages'
     | '/admin/settings'
+    | '/admin/sliders'
     | '/admin/stores'
+    | '/admin/subcategories'
+    | '/admin/subscribers'
+    | '/admin/theme'
+    | '/admin/translations'
     | '/admin/users'
     | '/api/chat'
     | '/admin/'
@@ -280,10 +370,19 @@ export interface FileRouteTypes {
     | '/search'
     | '/sitemap.xml'
     | '/account'
+    | '/admin/ads'
     | '/admin/categories'
     | '/admin/coupons'
+    | '/admin/etemplates'
+    | '/admin/menus'
+    | '/admin/pages'
     | '/admin/settings'
+    | '/admin/sliders'
     | '/admin/stores'
+    | '/admin/subcategories'
+    | '/admin/subscribers'
+    | '/admin/theme'
+    | '/admin/translations'
     | '/admin/users'
     | '/api/chat'
     | '/admin'
@@ -307,10 +406,19 @@ export interface FileRouteTypes {
     | '/search'
     | '/sitemap.xml'
     | '/_authenticated/account'
+    | '/admin/ads'
     | '/admin/categories'
     | '/admin/coupons'
+    | '/admin/etemplates'
+    | '/admin/menus'
+    | '/admin/pages'
     | '/admin/settings'
+    | '/admin/sliders'
     | '/admin/stores'
+    | '/admin/subcategories'
+    | '/admin/subscribers'
+    | '/admin/theme'
+    | '/admin/translations'
     | '/admin/users'
     | '/api/chat'
     | '/admin/'
@@ -451,6 +559,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/translations': {
+      id: '/admin/translations'
+      path: '/translations'
+      fullPath: '/admin/translations'
+      preLoaderRoute: typeof AdminTranslationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/theme': {
+      id: '/admin/theme'
+      path: '/theme'
+      fullPath: '/admin/theme'
+      preLoaderRoute: typeof AdminThemeRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscribers': {
+      id: '/admin/subscribers'
+      path: '/subscribers'
+      fullPath: '/admin/subscribers'
+      preLoaderRoute: typeof AdminSubscribersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subcategories': {
+      id: '/admin/subcategories'
+      path: '/subcategories'
+      fullPath: '/admin/subcategories'
+      preLoaderRoute: typeof AdminSubcategoriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/stores': {
       id: '/admin/stores'
       path: '/stores'
@@ -458,11 +594,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminStoresRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/sliders': {
+      id: '/admin/sliders'
+      path: '/sliders'
+      fullPath: '/admin/sliders'
+      preLoaderRoute: typeof AdminSlidersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/settings': {
       id: '/admin/settings'
       path: '/settings'
       fullPath: '/admin/settings'
       preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/pages': {
+      id: '/admin/pages'
+      path: '/pages'
+      fullPath: '/admin/pages'
+      preLoaderRoute: typeof AdminPagesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/menus': {
+      id: '/admin/menus'
+      path: '/menus'
+      fullPath: '/admin/menus'
+      preLoaderRoute: typeof AdminMenusRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/etemplates': {
+      id: '/admin/etemplates'
+      path: '/etemplates'
+      fullPath: '/admin/etemplates'
+      preLoaderRoute: typeof AdminEtemplatesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/coupons': {
@@ -477,6 +641,13 @@ declare module '@tanstack/react-router' {
       path: '/categories'
       fullPath: '/admin/categories'
       preLoaderRoute: typeof AdminCategoriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/ads': {
+      id: '/admin/ads'
+      path: '/ads'
+      fullPath: '/admin/ads'
+      preLoaderRoute: typeof AdminAdsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_authenticated/account': {
@@ -557,19 +728,37 @@ const AdminStoresRouteWithChildren = AdminStoresRoute._addFileChildren(
 )
 
 interface AdminRouteChildren {
+  AdminAdsRoute: typeof AdminAdsRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminCouponsRoute: typeof AdminCouponsRouteWithChildren
+  AdminEtemplatesRoute: typeof AdminEtemplatesRoute
+  AdminMenusRoute: typeof AdminMenusRoute
+  AdminPagesRoute: typeof AdminPagesRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminSlidersRoute: typeof AdminSlidersRoute
   AdminStoresRoute: typeof AdminStoresRouteWithChildren
+  AdminSubcategoriesRoute: typeof AdminSubcategoriesRoute
+  AdminSubscribersRoute: typeof AdminSubscribersRoute
+  AdminThemeRoute: typeof AdminThemeRoute
+  AdminTranslationsRoute: typeof AdminTranslationsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAdsRoute: AdminAdsRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminCouponsRoute: AdminCouponsRouteWithChildren,
+  AdminEtemplatesRoute: AdminEtemplatesRoute,
+  AdminMenusRoute: AdminMenusRoute,
+  AdminPagesRoute: AdminPagesRoute,
   AdminSettingsRoute: AdminSettingsRoute,
+  AdminSlidersRoute: AdminSlidersRoute,
   AdminStoresRoute: AdminStoresRouteWithChildren,
+  AdminSubcategoriesRoute: AdminSubcategoriesRoute,
+  AdminSubscribersRoute: AdminSubscribersRoute,
+  AdminThemeRoute: AdminThemeRoute,
+  AdminTranslationsRoute: AdminTranslationsRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
