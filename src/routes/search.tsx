@@ -24,6 +24,11 @@ function SearchPage() {
   const navigate = Route.useNavigate();
   const [q, setQ] = useState(initialQ);
 
+  useEffect(() => {
+    if (initialQ.trim()) trackSearch(initialQ, "search");
+  }, [initialQ]);
+
+
   const results = useQuery({
     queryKey: ["search", initialQ],
     enabled: initialQ.length > 0,
