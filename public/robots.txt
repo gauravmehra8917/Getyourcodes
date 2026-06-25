@@ -2,5 +2,9 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /login
+Disallow: /auth
+Disallow: /account
+Disallow: /forgot-password
+Disallow: /reset-password
 
 Sitemap: https://dealio-dash.lovable.app/sitemap.xml
