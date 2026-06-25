@@ -49,7 +49,10 @@ export function SiteHeader() {
           className="ml-auto hidden flex-1 max-w-md md:flex"
           onSubmit={(e) => {
             e.preventDefault();
-            if (q.trim()) navigate({ to: "/search", search: { q: q.trim() } });
+            const term = q.trim();
+            if (!term) return;
+            trackSearch(term, "search");
+            navigate({ to: "/search", search: { q: term } });
           }}
         >
           <div className="relative w-full">
