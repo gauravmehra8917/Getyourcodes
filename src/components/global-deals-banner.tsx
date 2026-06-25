@@ -3,8 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Globe2, X, Sparkles } from "lucide-react";
 import { sb, trackClick, type Coupon, type Store } from "@/lib/db";
 
-const DISMISS_KEY = "savehub:global-banner-dismissed";
-
 type DealRow = Coupon & { stores: Pick<Store, "name" | "slug" | "logo_url"> | null };
 
 export function GlobalDealsBanner() {
@@ -12,12 +10,6 @@ export function GlobalDealsBanner() {
   const [index, setIndex] = useState(0);
   const railRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && localStorage.getItem(DISMISS_KEY) === "1") {
-      setDismissed(true);
-    }
-  }, []);
 
   const { data: deals } = useQuery({
     queryKey: ["global-deals-banner"],
