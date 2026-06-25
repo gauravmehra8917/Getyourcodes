@@ -276,31 +276,8 @@ function HomePage() {
         )}
 
         {/* Newsletter strip */}
-        <section className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-primary/30 via-surface-2 to-surface p-8 text-center sm:p-12 shadow-glow">
-          <Mail className="mx-auto mb-4 h-8 w-8 text-glow" />
-          <h2 className="font-display text-3xl font-bold sm:text-4xl">Never miss a deal.</h2>
-          <p className="mx-auto mt-2 max-w-md text-white/70">Get the best coupons of the week in your inbox. No spam, ever.</p>
-          <form
-            className="mx-auto mt-6 flex max-w-md flex-col gap-2 sm:flex-row"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              const email = String(fd.get("email") || "").trim();
-              if (!email) return;
-              await sb.from("subscribers").insert({ email });
-              (e.currentTarget as HTMLFormElement).reset();
-              alert("You're subscribed!");
-            }}
-          >
-            <input
-              type="email" required name="email" placeholder="Your email address"
-              className="h-12 flex-1 rounded-full border border-white/15 bg-background/40 px-5 text-sm text-white placeholder:text-white/40 outline-none focus:border-primary"
-            />
-            <button className="gradient-primary inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white shadow-glow">
-              Subscribe <ArrowRight className="h-4 w-4" />
-            </button>
-          </form>
-        </section>
+        <NewsletterStrip />
+
       </div>
     </div>
   );
