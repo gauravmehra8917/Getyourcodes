@@ -76,11 +76,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "preload",
         as: "style",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap",
       },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap",
       },
     ],
   }),
@@ -110,7 +110,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AssistantProvider>
         {isAdmin ? (
-          <Outlet />
+          <div className="admin-shell min-h-screen"><Outlet /></div>
         ) : (
           <div className="flex min-h-screen flex-col">
             <SiteHeader />
