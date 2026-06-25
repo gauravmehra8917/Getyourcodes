@@ -1,7 +1,8 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Search, Tag, User, LogOut, Heart } from "lucide-react";
+import { Search, Tag, User, LogOut, Heart, BarChart3 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { trackSearch } from "@/lib/db";
 import type { User as AuthUser } from "@supabase/supabase-js";
 
 export function SiteHeader() {
@@ -48,7 +49,10 @@ export function SiteHeader() {
           className="ml-auto hidden flex-1 max-w-md md:flex"
           onSubmit={(e) => {
             e.preventDefault();
-            if (q.trim()) navigate({ to: "/search", search: { q: q.trim() } });
+            const term = q.trim();
+            if (!term) return;
+            trackSearch(term, "search");
+            navigate({ to: "/search", search: { q: term } });
           }}
         >
           <div className="relative w-full">
@@ -87,6 +91,9 @@ export function SiteHeader() {
                   </Link>
                   <Link to="/account" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary">
                     <Heart className="h-4 w-4" /> Saved
+                  </Link>
+                  <Link to="/analytics" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary">
+                    <BarChart3 className="h-4 w-4" /> Deal analytics
                   </Link>
                   <button onClick={signOut} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-destructive hover:bg-secondary">
                     <LogOut className="h-4 w-4" /> Sign out

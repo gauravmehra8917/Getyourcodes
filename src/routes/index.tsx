@@ -2,10 +2,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Search, Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home, Wand2 } from "lucide-react";
-import { sb, type Store, type Coupon, type Category } from "@/lib/db";
+import { sb, trackSearch, type Store, type Coupon, type Category } from "@/lib/db";
 import { StoreCard } from "@/components/store-card";
 import { CouponCard } from "@/components/coupon-card";
 import { GlobalDealsBanner } from "@/components/global-deals-banner";
+import { RecommendedForYou } from "@/components/recommended-for-you";
 import { useAssistant } from "@/components/ai-assistant-provider";
 
 export const Route = createFileRoute("/")({
@@ -88,7 +89,13 @@ function HomePage() {
           </p>
           <form
             className="mx-auto mt-10 max-w-2xl"
-            onSubmit={(e) => { e.preventDefault(); if (q.trim()) navigate({ to: "/search", search: { q: q.trim() } }); }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const term = q.trim();
+              if (!term) return;
+              trackSearch(term, "search");
+              navigate({ to: "/search", search: { q: term } });
+            }}
           >
             <div className="relative">
               <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -115,6 +122,7 @@ function HomePage() {
                   e.preventDefault();
                   const t = aiQ.trim();
                   if (!t) return;
+                  trackSearch(t, "ai");
                   assistant.open(t);
                   setAiQ("");
                 }}
@@ -153,6 +161,10 @@ function HomePage() {
       <GlobalDealsBanner />
 
       <div className="mx-auto max-w-7xl space-y-20 px-4 py-16 sm:px-6">
+
+        {/* Personalized recommendations (signed-in only; renders nothing otherwise) */}
+        <RecommendedForYou />
+
 
         {/* Featured stores */}
         <Section title="Featured stores" subtitle="Top brands picked by our editors">

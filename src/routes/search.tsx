@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { z } from "zod";
-import { sb, type Store, type Coupon, type Category } from "@/lib/db";
+import { sb, trackSearch, type Store, type Coupon, type Category } from "@/lib/db";
 import { StoreCard } from "@/components/store-card";
 import { CouponCard } from "@/components/coupon-card";
 
@@ -23,6 +23,11 @@ function SearchPage() {
   const { q: initialQ } = Route.useSearch();
   const navigate = Route.useNavigate();
   const [q, setQ] = useState(initialQ);
+
+  useEffect(() => {
+    if (initialQ.trim()) trackSearch(initialQ, "search");
+  }, [initialQ]);
+
 
   const results = useQuery({
     queryKey: ["search", initialQ],
