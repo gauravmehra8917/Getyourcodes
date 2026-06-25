@@ -15,7 +15,7 @@ export const Route = createFileRoute("/analytics")({
   component: AnalyticsPage,
 });
 
-type SearchRow = { query: string; source: string };
+type TopSearchRow = { query: string; count: number };
 type ClickRow = { coupon_id: string; coupons: { title: string; stores: { name: string; slug: string } | null } | null };
 
 function AnalyticsPage() {
