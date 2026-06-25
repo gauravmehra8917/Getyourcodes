@@ -41,7 +41,27 @@ export const sb = supabase as any;
 
 export async function trackClick(couponId: string, sourcePage: string) {
   try {
-    await sb.from("coupon_clicks").insert({ coupon_id: couponId, source_page: sourcePage });
+    const { data } = await supabase.auth.getUser();
+    await sb.from("coupon_clicks").insert({
+      coupon_id: couponId,
+      source_page: sourcePage,
+      user_id: data.user?.id ?? null,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function trackSearch(query: string, source: "search" | "ai" = "search") {
+  const q = query.trim();
+  if (!q) return;
+  try {
+    const { data } = await supabase.auth.getUser();
+    await sb.from("search_queries").insert({
+      query: q.slice(0, 200),
+      source,
+      user_id: data.user?.id ?? null,
+    });
   } catch {
     /* ignore */
   }
