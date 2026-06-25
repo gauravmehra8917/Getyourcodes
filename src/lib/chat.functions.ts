@@ -2,10 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+type JsonValue = string | number | boolean | null | { [k: string]: JsonValue } | JsonValue[];
+
 export type StoredChatMessage = {
   id: string;
   role: "user" | "assistant" | "system";
-  parts: unknown[];
+  parts: JsonValue[];
 };
 
 export const loadChatHistory = createServerFn({ method: "GET" })
@@ -24,7 +26,7 @@ export const loadChatHistory = createServerFn({ method: "GET" })
         | "user"
         | "assistant"
         | "system",
-      parts: Array.isArray(row.parts) ? (row.parts as unknown[]) : [],
+      parts: (Array.isArray(row.parts) ? row.parts : []) as JsonValue[],
     }));
   });
 
