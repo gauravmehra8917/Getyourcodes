@@ -2,10 +2,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Search, Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home, Wand2 } from "lucide-react";
-import { sb, type Store, type Coupon, type Category } from "@/lib/db";
+import { sb, trackSearch, type Store, type Coupon, type Category } from "@/lib/db";
 import { StoreCard } from "@/components/store-card";
 import { CouponCard } from "@/components/coupon-card";
 import { GlobalDealsBanner } from "@/components/global-deals-banner";
+import { RecommendedForYou } from "@/components/recommended-for-you";
 import { useAssistant } from "@/components/ai-assistant-provider";
 
 export const Route = createFileRoute("/")({
