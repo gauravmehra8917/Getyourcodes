@@ -29,16 +29,21 @@ function AnalyticsPage() {
     });
   }, [navigate]);
 
-  const searches = useQuery({
-    queryKey: ["analytics", "searches"],
+  const topSearched = useQuery({
+    queryKey: ["analytics", "top-searches"],
     enabled: !!authed,
     queryFn: async () => {
-      const { data } = await sb
-        .from("search_queries")
-        .select("query, source")
-        .order("created_at", { ascending: false })
-        .limit(1000);
-      return (data ?? []) as SearchRow[];
+      const { data } = await sb.rpc("get_top_searches", { _limit: 10 });
+      return (data ?? []) as TopSearchRow[];
+    },
+  });
+
+  const topAi = useQuery({
+    queryKey: ["analytics", "top-ai-searches"],
+    enabled: !!authed,
+    queryFn: async () => {
+      const { data } = await sb.rpc("get_top_ai_searches", { _limit: 8 });
+      return (data ?? []) as TopSearchRow[];
     },
   });
 
