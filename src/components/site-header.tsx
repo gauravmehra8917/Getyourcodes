@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Search, Tag, User, LogOut, Heart, BarChart3 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { trackSearch } from "@/lib/db";
 import type { User as AuthUser } from "@supabase/supabase-js";
 
 export function SiteHeader() {
