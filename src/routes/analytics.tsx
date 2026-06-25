@@ -62,11 +62,11 @@ function AnalyticsPage() {
 
   if (authed === null) return <p className="py-16 text-center text-muted-foreground">Loading…</p>;
 
-  // Aggregate searches
-  const allSearches = searches.data ?? [];
-  const aiSearches = allSearches.filter((s) => s.source === "ai");
-  const topSearched = topN(allSearches.map((s) => s.query.toLowerCase().trim()), 10);
-  const topAi = topN(aiSearches.map((s) => s.query.toLowerCase().trim()), 8);
+  // Aggregate searches (server-side, via SECURITY DEFINER RPCs)
+  const topSearchedItems = (topSearched.data ?? []).map((r) => ({ label: r.query, count: Number(r.count) }));
+  const topAiItems = (topAi.data ?? []).map((r) => ({ label: r.query, count: Number(r.count) }));
+  const totalSearches = topSearchedItems.reduce((acc, it) => acc + it.count, 0);
+  const totalAi = topAiItems.reduce((acc, it) => acc + it.count, 0);
 
   // Aggregate clicks → coupons + stores
   const allClicks = clicks.data ?? [];
