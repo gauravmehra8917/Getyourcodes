@@ -24,6 +24,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminStoresRouteImport } from './routes/admin.stores'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
@@ -107,6 +108,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminStoresRoute = AdminStoresRouteImport.update({
   id: '/stores',
   path: '/stores',
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
   '/admin/stores': typeof AdminStoresRouteWithChildren
+  '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/coupons/$id': typeof AdminCouponsIdRoute
@@ -188,6 +195,7 @@ export interface FileRoutesByTo {
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
   '/admin/stores': typeof AdminStoresRouteWithChildren
+  '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
   '/admin': typeof AdminIndexRoute
   '/admin/coupons/$id': typeof AdminCouponsIdRoute
@@ -214,6 +222,7 @@ export interface FileRoutesById {
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
   '/admin/stores': typeof AdminStoresRouteWithChildren
+  '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/coupons/$id': typeof AdminCouponsIdRoute
@@ -240,6 +249,7 @@ export interface FileRouteTypes {
     | '/admin/categories'
     | '/admin/coupons'
     | '/admin/stores'
+    | '/admin/users'
     | '/api/chat'
     | '/admin/'
     | '/admin/coupons/$id'
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/admin/categories'
     | '/admin/coupons'
     | '/admin/stores'
+    | '/admin/users'
     | '/api/chat'
     | '/admin'
     | '/admin/coupons/$id'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/admin/categories'
     | '/admin/coupons'
     | '/admin/stores'
+    | '/admin/users'
     | '/api/chat'
     | '/admin/'
     | '/admin/coupons/$id'
@@ -420,6 +432,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/stores': {
       id: '/admin/stores'
       path: '/stores'
@@ -522,6 +541,7 @@ interface AdminRouteChildren {
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminCouponsRoute: typeof AdminCouponsRouteWithChildren
   AdminStoresRoute: typeof AdminStoresRouteWithChildren
+  AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -529,6 +549,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminCouponsRoute: AdminCouponsRouteWithChildren,
   AdminStoresRoute: AdminStoresRouteWithChildren,
+  AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
