@@ -314,7 +314,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_top_ai_searches: {
+        Args: { _limit?: number }
+        Returns: {
+          count: number
+          query: string
+        }[]
+      }
+      get_top_searches: {
+        Args: { _limit?: number }
+        Returns: {
+          count: number
+          query: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "user"

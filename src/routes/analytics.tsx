@@ -15,7 +15,7 @@ export const Route = createFileRoute("/analytics")({
   component: AnalyticsPage,
 });
 
-type SearchRow = { query: string; source: string };
+type TopSearchRow = { query: string; count: number };
 type ClickRow = { coupon_id: string; coupons: { title: string; stores: { name: string; slug: string } | null } | null };
 
 function AnalyticsPage() {
@@ -29,16 +29,21 @@ function AnalyticsPage() {
     });
   }, [navigate]);
 
-  const searches = useQuery({
-    queryKey: ["analytics", "searches"],
+  const topSearched = useQuery({
+    queryKey: ["analytics", "top-searches"],
     enabled: !!authed,
     queryFn: async () => {
-      const { data } = await sb
-        .from("search_queries")
-        .select("query, source")
-        .order("created_at", { ascending: false })
-        .limit(1000);
-      return (data ?? []) as SearchRow[];
+      const { data } = await sb.rpc("get_top_searches", { _limit: 10 });
+      return (data ?? []) as TopSearchRow[];
+    },
+  });
+
+  const topAi = useQuery({
+    queryKey: ["analytics", "top-ai-searches"],
+    enabled: !!authed,
+    queryFn: async () => {
+      const { data } = await sb.rpc("get_top_ai_searches", { _limit: 8 });
+      return (data ?? []) as TopSearchRow[];
     },
   });
 
@@ -57,11 +62,11 @@ function AnalyticsPage() {
 
   if (authed === null) return <p className="py-16 text-center text-muted-foreground">Loading…</p>;
 
-  // Aggregate searches
-  const allSearches = searches.data ?? [];
-  const aiSearches = allSearches.filter((s) => s.source === "ai");
-  const topSearched = topN(allSearches.map((s) => s.query.toLowerCase().trim()), 10);
-  const topAi = topN(aiSearches.map((s) => s.query.toLowerCase().trim()), 8);
+  // Aggregate searches (server-side, via SECURITY DEFINER RPCs)
+  const topSearchedItems = (topSearched.data ?? []).map((r) => ({ label: r.query, count: Number(r.count) }));
+  const topAiItems = (topAi.data ?? []).map((r) => ({ label: r.query, count: Number(r.count) }));
+  const totalSearches = topSearchedItems.reduce((acc, it) => acc + it.count, 0);
+  const totalAi = topAiItems.reduce((acc, it) => acc + it.count, 0);
 
   // Aggregate clicks → coupons + stores
   const allClicks = clicks.data ?? [];
@@ -99,12 +104,12 @@ function AnalyticsPage() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card icon={<SearchIcon className="h-4 w-4" />} title="Most searched" subtitle={`${allSearches.length.toLocaleString()} searches tracked`}>
-          <BarList items={topSearched} emptyText="No searches yet." />
+        <Card icon={<SearchIcon className="h-4 w-4" />} title="Most searched" subtitle={`${totalSearches.toLocaleString()} searches tracked`}>
+          <BarList items={topSearchedItems} emptyText="No searches yet." />
         </Card>
 
-        <Card icon={<Tag className="h-4 w-4" />} title="Top requested with Dealio AI" subtitle={`${aiSearches.length.toLocaleString()} AI conversations`}>
-          <BarList items={topAi} emptyText="No AI requests yet." />
+        <Card icon={<Tag className="h-4 w-4" />} title="Top requested with Dealio AI" subtitle={`${totalAi.toLocaleString()} AI conversations`}>
+          <BarList items={topAiItems} emptyText="No AI requests yet." />
         </Card>
 
         <Card icon={<TrendingUp className="h-4 w-4" />} title="Top converting coupons" subtitle="Most clicked codes & deals">
@@ -208,17 +213,4 @@ function BarList({ items, emptyText }: { items: { label: string; count: number }
       })}
     </ul>
   );
-}
-
-function topN(values: string[], n: number): { label: string; count: number }[] {
-  const counts = new Map<string, number>();
-  for (const v of values) {
-    const k = v.trim();
-    if (!k) continue;
-    counts.set(k, (counts.get(k) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, n);
 }
