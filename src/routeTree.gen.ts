@@ -26,6 +26,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AdminCouponsIdRouteImport } from './routes/admin.coupons.$id'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -111,6 +112,11 @@ const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AdminCouponsIdRoute = AdminCouponsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminCouponsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -126,9 +132,10 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account': typeof AuthenticatedAccountRoute
-  '/admin/coupons': typeof AdminCouponsRoute
+  '/admin/coupons': typeof AdminCouponsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/coupons/$id': typeof AdminCouponsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -143,9 +150,10 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account': typeof AuthenticatedAccountRoute
-  '/admin/coupons': typeof AdminCouponsRoute
+  '/admin/coupons': typeof AdminCouponsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/admin': typeof AdminIndexRoute
+  '/admin/coupons/$id': typeof AdminCouponsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -163,9 +171,10 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
-  '/admin/coupons': typeof AdminCouponsRoute
+  '/admin/coupons': typeof AdminCouponsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/coupons/$id': typeof AdminCouponsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
     | '/admin/coupons'
     | '/api/chat'
     | '/admin/'
+    | '/admin/coupons/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/admin/coupons'
     | '/api/chat'
     | '/admin'
+    | '/admin/coupons/$id'
   id:
     | '__root__'
     | '/'
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/admin/coupons'
     | '/api/chat'
     | '/admin/'
+    | '/admin/coupons/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -362,6 +374,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/admin/coupons/$id': {
+      id: '/admin/coupons/$id'
+      path: '/$id'
+      fullPath: '/admin/coupons/$id'
+      preLoaderRoute: typeof AdminCouponsIdRouteImport
+      parentRoute: typeof AdminCouponsRoute
+    }
   }
 }
 
@@ -376,13 +395,25 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface AdminCouponsRouteChildren {
+  AdminCouponsIdRoute: typeof AdminCouponsIdRoute
+}
+
+const AdminCouponsRouteChildren: AdminCouponsRouteChildren = {
+  AdminCouponsIdRoute: AdminCouponsIdRoute,
+}
+
+const AdminCouponsRouteWithChildren = AdminCouponsRoute._addFileChildren(
+  AdminCouponsRouteChildren,
+)
+
 interface AdminRouteChildren {
-  AdminCouponsRoute: typeof AdminCouponsRoute
+  AdminCouponsRoute: typeof AdminCouponsRouteWithChildren
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
-  AdminCouponsRoute: AdminCouponsRoute,
+  AdminCouponsRoute: AdminCouponsRouteWithChildren,
   AdminIndexRoute: AdminIndexRoute,
 }
 
