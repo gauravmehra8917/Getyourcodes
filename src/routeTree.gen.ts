@@ -27,6 +27,7 @@ import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminStoresRouteImport } from './routes/admin.stores'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AdminStoresIdRouteImport } from './routes/admin.stores.$id'
 import { Route as AdminCouponsNewRouteImport } from './routes/admin.coupons.new'
 import { Route as AdminCouponsIdRouteImport } from './routes/admin.coupons.$id'
 
@@ -119,6 +120,11 @@ const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AdminStoresIdRoute = AdminStoresIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminStoresRoute,
+} as any)
 const AdminCouponsNewRoute = AdminCouponsNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -145,11 +151,12 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account': typeof AuthenticatedAccountRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
-  '/admin/stores': typeof AdminStoresRoute
+  '/admin/stores': typeof AdminStoresRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/coupons/$id': typeof AdminCouponsIdRoute
   '/admin/coupons/new': typeof AdminCouponsNewRoute
+  '/admin/stores/$id': typeof AdminStoresIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -165,11 +172,12 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account': typeof AuthenticatedAccountRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
-  '/admin/stores': typeof AdminStoresRoute
+  '/admin/stores': typeof AdminStoresRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/admin': typeof AdminIndexRoute
   '/admin/coupons/$id': typeof AdminCouponsIdRoute
   '/admin/coupons/new': typeof AdminCouponsNewRoute
+  '/admin/stores/$id': typeof AdminStoresIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -188,11 +196,12 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
-  '/admin/stores': typeof AdminStoresRoute
+  '/admin/stores': typeof AdminStoresRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/coupons/$id': typeof AdminCouponsIdRoute
   '/admin/coupons/new': typeof AdminCouponsNewRoute
+  '/admin/stores/$id': typeof AdminStoresIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -216,6 +225,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/admin/coupons/$id'
     | '/admin/coupons/new'
+    | '/admin/stores/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -236,6 +246,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/coupons/$id'
     | '/admin/coupons/new'
+    | '/admin/stores/$id'
   id:
     | '__root__'
     | '/'
@@ -258,6 +269,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/admin/coupons/$id'
     | '/admin/coupons/new'
+    | '/admin/stores/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -405,6 +417,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/admin/stores/$id': {
+      id: '/admin/stores/$id'
+      path: '/$id'
+      fullPath: '/admin/stores/$id'
+      preLoaderRoute: typeof AdminStoresIdRouteImport
+      parentRoute: typeof AdminStoresRoute
+    }
     '/admin/coupons/new': {
       id: '/admin/coupons/new'
       path: '/new'
@@ -447,15 +466,27 @@ const AdminCouponsRouteWithChildren = AdminCouponsRoute._addFileChildren(
   AdminCouponsRouteChildren,
 )
 
+interface AdminStoresRouteChildren {
+  AdminStoresIdRoute: typeof AdminStoresIdRoute
+}
+
+const AdminStoresRouteChildren: AdminStoresRouteChildren = {
+  AdminStoresIdRoute: AdminStoresIdRoute,
+}
+
+const AdminStoresRouteWithChildren = AdminStoresRoute._addFileChildren(
+  AdminStoresRouteChildren,
+)
+
 interface AdminRouteChildren {
   AdminCouponsRoute: typeof AdminCouponsRouteWithChildren
-  AdminStoresRoute: typeof AdminStoresRoute
+  AdminStoresRoute: typeof AdminStoresRouteWithChildren
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminCouponsRoute: AdminCouponsRouteWithChildren,
-  AdminStoresRoute: AdminStoresRoute,
+  AdminStoresRoute: AdminStoresRouteWithChildren,
   AdminIndexRoute: AdminIndexRoute,
 }
 
