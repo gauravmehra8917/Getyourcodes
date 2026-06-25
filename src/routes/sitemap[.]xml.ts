@@ -20,33 +20,31 @@ export const Route = createFileRoute("/sitemap.xml")({
 
         try {
           const [{ data: stores }, { data: categories }, { data: posts }] = await Promise.all([
-            supabaseAdmin.from("stores").select("slug, updated_at"),
-            supabaseAdmin.from("categories").select("slug, updated_at"),
+            supabaseAdmin.from("stores").select("slug"),
+            supabaseAdmin.from("categories").select("slug"),
             supabaseAdmin
               .from("posts")
               .select("slug, updated_at, published_at")
               .eq("status", "published"),
           ]);
-          (stores ?? []).forEach((s: { slug: string; updated_at?: string }) =>
+          (stores ?? []).forEach((s) =>
             entries.push({
               path: `/${s.slug}-coupons`,
-              lastmod: s.updated_at?.slice(0, 10),
               changefreq: "daily",
               priority: "0.8",
             }),
           );
-          (categories ?? []).forEach((c: { slug: string; updated_at?: string }) =>
+          (categories ?? []).forEach((c) =>
             entries.push({
               path: `/${c.slug}-offers`,
-              lastmod: c.updated_at?.slice(0, 10),
               changefreq: "weekly",
               priority: "0.7",
             }),
           );
-          (posts ?? []).forEach((p: { slug: string; updated_at?: string; published_at?: string }) =>
+          (posts ?? []).forEach((p) =>
             entries.push({
               path: `/blog/${p.slug}`,
-              lastmod: (p.updated_at ?? p.published_at)?.slice(0, 10),
+              lastmod: (p.updated_at ?? p.published_at ?? undefined)?.slice(0, 10),
               changefreq: "monthly",
               priority: "0.6",
             }),
