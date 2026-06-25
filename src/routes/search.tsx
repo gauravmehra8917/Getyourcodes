@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { z } from "zod";
-import { sb, type Store, type Coupon, type Category } from "@/lib/db";
+import { sb, trackSearch, type Store, type Coupon, type Category } from "@/lib/db";
 import { StoreCard } from "@/components/store-card";
 import { CouponCard } from "@/components/coupon-card";
 
