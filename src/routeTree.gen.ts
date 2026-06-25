@@ -24,6 +24,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -100,6 +101,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminCouponsRoute = AdminCouponsRouteImport.update({
+  id: '/coupons',
+  path: '/coupons',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
   id: '/account',
   path: '/account',
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/admin/coupons': typeof AdminCouponsRoute
   '/api/chat': typeof ApiChatRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/admin/coupons': typeof AdminCouponsRoute
   '/api/chat': typeof ApiChatRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
+  '/admin/coupons': typeof AdminCouponsRoute
   '/api/chat': typeof ApiChatRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/sitemap.xml'
     | '/account'
+    | '/admin/coupons'
     | '/api/chat'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/sitemap.xml'
     | '/account'
+    | '/admin/coupons'
     | '/api/chat'
     | '/admin'
   id:
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/sitemap.xml'
     | '/_authenticated/account'
+    | '/admin/coupons'
     | '/api/chat'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -336,6 +348,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/coupons': {
+      id: '/admin/coupons'
+      path: '/coupons'
+      fullPath: '/admin/coupons'
+      preLoaderRoute: typeof AdminCouponsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_authenticated/account': {
       id: '/_authenticated/account'
       path: '/account'
@@ -358,10 +377,12 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 interface AdminRouteChildren {
+  AdminCouponsRoute: typeof AdminCouponsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminCouponsRoute: AdminCouponsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
