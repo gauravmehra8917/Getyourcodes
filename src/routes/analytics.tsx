@@ -214,16 +214,3 @@ function BarList({ items, emptyText }: { items: { label: string; count: number }
     </ul>
   );
 }
-
-function topN(values: string[], n: number): { label: string; count: number }[] {
-  const counts = new Map<string, number>();
-  for (const v of values) {
-    const k = v.trim();
-    if (!k) continue;
-    counts.set(k, (counts.get(k) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, n);
-}
