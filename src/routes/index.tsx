@@ -162,6 +162,10 @@ function HomePage() {
 
       <div className="mx-auto max-w-7xl space-y-20 px-4 py-16 sm:px-6">
 
+        {/* Personalized recommendations (signed-in only; renders nothing otherwise) */}
+        <RecommendedForYou />
+
+
         {/* Featured stores */}
         <Section title="Featured stores" subtitle="Top brands picked by our editors">
           {featured.data && featured.data.length > 0 ? (
