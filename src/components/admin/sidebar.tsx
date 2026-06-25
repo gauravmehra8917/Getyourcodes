@@ -5,7 +5,8 @@ import {
   Brush, Mail, Settings,
 } from "lucide-react";
 
-const ITEMS = [
+type Item = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
+const ITEMS: Item[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/admin/coupons", label: "Coupons", icon: Megaphone },
   { to: "/admin/categories", label: "Categories", icon: Tag },
@@ -21,7 +22,8 @@ const ITEMS = [
   { to: "/admin/theme", label: "Theme", icon: Brush },
   { to: "/admin/etemplates", label: "Email Templates", icon: Mail },
   { to: "/admin/settings", label: "Settings", icon: Settings },
-] as const;
+];
+
 
 export function AdminSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
