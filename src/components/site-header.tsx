@@ -88,6 +88,9 @@ export function SiteHeader() {
                   <Link to="/account" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary">
                     <Heart className="h-4 w-4" /> Saved
                   </Link>
+                  <Link to="/analytics" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary">
+                    <BarChart3 className="h-4 w-4" /> Deal analytics
+                  </Link>
                   <button onClick={signOut} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-destructive hover:bg-secondary">
                     <LogOut className="h-4 w-4" /> Sign out
                   </button>
