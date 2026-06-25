@@ -104,12 +104,12 @@ function AnalyticsPage() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card icon={<SearchIcon className="h-4 w-4" />} title="Most searched" subtitle={`${allSearches.length.toLocaleString()} searches tracked`}>
-          <BarList items={topSearched} emptyText="No searches yet." />
+        <Card icon={<SearchIcon className="h-4 w-4" />} title="Most searched" subtitle={`${totalSearches.toLocaleString()} searches tracked`}>
+          <BarList items={topSearchedItems} emptyText="No searches yet." />
         </Card>
 
-        <Card icon={<Tag className="h-4 w-4" />} title="Top requested with Dealio AI" subtitle={`${aiSearches.length.toLocaleString()} AI conversations`}>
-          <BarList items={topAi} emptyText="No AI requests yet." />
+        <Card icon={<Tag className="h-4 w-4" />} title="Top requested with Dealio AI" subtitle={`${totalAi.toLocaleString()} AI conversations`}>
+          <BarList items={topAiItems} emptyText="No AI requests yet." />
         </Card>
 
         <Card icon={<TrendingUp className="h-4 w-4" />} title="Top converting coupons" subtitle="Most clicked codes & deals">
