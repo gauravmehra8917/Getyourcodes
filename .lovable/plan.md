@@ -1,40 +1,78 @@
-## Best Deals Globe Banner — Homepage Carousel
+## Goal
 
-Add a bold, Slickdeals-style rotating carousel to the homepage that surfaces the best active deals worldwide. Dismissible with persistent memory.
+Close remaining Coupstop admin parity gaps and rebuild the public landing page in a Coupstop-style layout using a Midnight Indigo / Outfit + Figtree theme. Keep AI-assisted search, recommendations, and chat assistant intact.
 
-### Placement
-- Mount directly under the hero section on `/` (above "Featured stores"), so it's the first scroll-reveal moment.
-- Hidden once dismissed (per browser, via `localStorage`).
+## Part A — Admin parity (4 new module groups)
 
-### Content source
-- Top 8 active coupons from the existing `coupons` table.
-- Ranking signal: most clicks in the last 30 days (joined from `coupon_clicks`), with a fallback to most-recent active coupons if click data is sparse.
-- Each slide pulls store name + logo from `stores` for branding.
-- New read-only server function `getTopGlobalDeals` (public, admin-elevated, projects only safe columns) feeds the carousel via TanStack Query. No new tables required.
+### 1. Blog (Posts + Categories + Comments)
+- New tables: `blog_categories`, `posts`, `post_comments`.
+- Posts: title, slug, cover image, excerpt, body (markdown/HTML), category, status (draft/published), SEO title/description, author, published_at.
+- Admin routes: `/admin/posts`, `/admin/posts/new`, `/admin/posts/$id`, `/admin/blog-categories`, `/admin/comments` (moderation queue: approve / reject / spam).
+- Public routes: `/blog`, `/blog/$slug` with SEO head, OG image from cover.
+- RLS: admins full access; published posts/approved comments readable by anon.
 
-### Visual design (Slickdeals-inspired)
-- Full-width gradient band with a small "🌍 Best deals across the globe" eyebrow + count of live deals.
-- Horizontal scroll-snap rail of large deal tiles (3 visible on desktop, 1.2 on mobile):
-  - Store logo chip + store name
-  - Bold discount/title (e.g. "60% OFF Sitewide")
-  - Coupon code pill OR "Deal" badge
-  - "Get deal →" CTA that opens the affiliate URL and tracks a click
-- Auto-advance every 5s (pause on hover/focus), prev/next arrows, dot indicators.
-- Small close (×) button top-right; click sets `localStorage["savehub:global-banner-dismissed"] = "1"` and unmounts.
+### 2. Reviews & Ratings (per store)
+- New table: `store_reviews` (store_id, user_id, rating 1–5, title, body, status).
+- Admin route `/admin/reviews` with moderation (pending/approved/rejected) + delete.
+- Show approved reviews + average rating on store detail page.
+- Authenticated users can submit one review per store (RLS).
 
-### Files
-- **New** `src/components/global-deals-banner.tsx` — carousel UI, dismiss logic, click tracking via existing `trackClick`.
-- **New** `src/lib/deals.functions.ts` — `getTopGlobalDeals` server function (uses admin client inside handler, returns safe DTO: id, title, code, type, affiliate_url, store name/slug/logo, discount label).
-- **Edit** `src/routes/index.tsx` — render `<GlobalDealsBanner />` between hero `<section>` and the content container; prime its query in the route loader.
+### 3. Reports & Analytics + CSV export
+- Admin route `/admin/reports` with charts (Recharts) and date-range filter:
+  - Clicks per day, top 10 stores, top 10 coupons, conversion funnel (impressions → clicks), AI search top queries.
+- Server fn `exportReport({ kind, from, to })` returning CSV via a `/api/admin/reports/export` server route (admin-gated).
 
-### Technical notes
-- Animations use the existing `animate-fade-in` / `hover-scale` utilities.
-- Uses semantic tokens (`primary`, `accent`, `primary-soft`, `card`, `border`); no raw colors.
-- Carousel built with native scroll-snap + JS index state (no extra deps).
-- SSR-safe: dismiss flag read in a `useEffect` so server render always includes the banner; banner hides on hydrate if dismissed.
-- A small "Restore deals banner" link is NOT added — keeping it dismissible-forever per choice.
+### 4. Roles & Permissions + Activity Log
+- Extend `app_role` enum with `editor` and `moderator`.
+- New table: `admin_activity_log` (actor_id, action, entity, entity_id, meta jsonb, created_at).
+- Server-side helper `logAdminAction(...)` called by all admin mutations.
+- Admin route `/admin/roles` to assign roles (admin only).
+- Admin route `/admin/activity` showing recent actions with filters.
+- Sidebar gating: editors see content modules only; moderators see reviews/comments only.
 
-### Out of scope
-- No admin curation UI (uses live data).
-- No new DB tables or migrations.
-- No changes to other pages.
+### Sidebar additions
+Add 6 new items: Posts, Blog Categories, Comments, Reviews, Reports, Roles, Activity. Group by section header (Content / Catalog / Marketing / System).
+
+## Part B — Landing page redesign (Midnight Indigo)
+
+### Theme tokens (src/styles.css)
+- Background `#0a0a1a`, surface `#141432`, surface-2 `#1e1e5a`, primary `#4f46e5` (indigo-600), accent `#a78bfa` (violet glow).
+- Gradient `--gradient-primary: linear-gradient(135deg,#4f46e5,#a78bfa)`.
+- Fonts: Outfit (display) + Figtree (body) via `<link>` in `__root.tsx`, `--font-display`/`--font-sans` in `@theme`.
+- Glow shadows + soft noise overlay for premium dark feel.
+
+### Page layout (Coupstop section order, our look)
+```text
+[ Top utility bar: categories nav + login ]
+[ Hero: search bar + tagline + animated coupon stack ]
+[ Top Categories grid (8 tiles, icon + name) ]
+[ Featured Stores logo strip (marquee) ]
+[ Today's Top Offers (carousel of large deal cards) ]
+[ Trending Coupons (3-col grid) ]
+[ Editor's Picks / Hand-picked Deals ]
+[ Blog teasers (3 latest posts) ]
+[ Newsletter strip (subscribe) ]
+[ Footer: 4 columns + payment/partner logos ]
+```
+
+- Keep AI Assistant floating bubble + AI search bar in hero.
+- Keep `RecommendedForYou` rail (signed-in users) above Trending.
+- All sections SSR via server-fn loaders for SEO; lazy-load below-fold images.
+
+## Technical notes
+
+- DB: 5 migrations (blog set, reviews, activity log + role enum extension, posts/comments RLS, grants).
+- Server fns live in `src/lib/blog.functions.ts`, `reviews.functions.ts`, `reports.functions.ts`, `admin-log.functions.ts`. Privileged paths gated by `has_role(auth.uid(),'admin')`.
+- CSV export uses a TanStack server route at `src/routes/api/admin/reports/export.ts` with bearer-auth + role check inside handler.
+- Sidebar reads role from auth context to filter items.
+- Public blog/store-review pages use a server publishable client (anon SELECT policies).
+
+## Out of scope (can do later)
+Redirects manager, cache/sitemap tools (sitemap is already dynamic), currency/country/language, store SEO per-row editor, tag taxonomy. Will revisit after this batch ships.
+
+## Rollout order
+1. Migrations (blog, reviews, activity, role enum).
+2. Admin modules + sidebar groups.
+3. Public `/blog` + reviews on store page.
+4. Landing redesign (theme + sections).
+5. Reports dashboard + CSV.
