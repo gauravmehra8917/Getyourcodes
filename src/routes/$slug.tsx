@@ -4,6 +4,7 @@ import { Tag } from "lucide-react";
 import { sb, type Store, type Coupon, type Category } from "@/lib/db";
 import { CouponCard } from "@/components/coupon-card";
 import { StoreCard } from "@/components/store-card";
+import { abs, clip, SITE_NAME } from "@/lib/seo";
 
 type LoaderData =
   | { kind: "store"; store: Store; coupons: Coupon[] }
