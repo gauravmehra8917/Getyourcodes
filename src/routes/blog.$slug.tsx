@@ -1,8 +1,48 @@
-import { createFileRoute, Link, notFound, useParams } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { sb } from "@/lib/db";
+import { abs, clip, SITE_NAME } from "@/lib/seo";
+
+type Post = { id: string; title: string; slug: string; excerpt: string | null; body: string; cover_image: string | null; published_at: string | null; seo_title: string | null; seo_description: string | null };
 
 export const Route = createFileRoute("/blog/$slug")({
+  loader: async ({ params }): Promise<Post> => {
+    const { data } = await sb.from("posts").select("*").eq("slug", params.slug).eq("status", "published").maybeSingle();
+    if (!data) throw notFound();
+    return data as Post;
+  },
+  head: ({ loaderData, params }) => {
+    if (!loaderData) return { meta: [] };
+    const p = loaderData;
+    const url = abs(`/blog/${params.slug}`);
+    const title = `${p.seo_title ?? p.title} — ${SITE_NAME} Blog`;
+    const desc = clip(p.seo_description ?? p.excerpt ?? p.body);
+    const image = p.cover_image ?? undefined;
+    return {
+      meta: [
+        { title }, { name: "description", content: desc },
+        { property: "og:title", content: title },
+        { property: "og:description", content: desc },
+        { property: "og:type", content: "article" },
+        { property: "og:url", content: url },
+        ...(image ? [{ property: "og:image", content: image }, { name: "twitter:image", content: image }] : []),
+        { name: "twitter:card", content: "summary_large_image" },
+        ...(p.published_at ? [{ property: "article:published_time", content: p.published_at }] : []),
+      ],
+      links: [{ rel: "canonical", href: url }],
+      scripts: [{
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: p.title,
+          description: desc,
+          ...(image ? { image } : {}),
+          ...(p.published_at ? { datePublished: p.published_at } : {}),
+          mainEntityOfPage: url,
+        }),
+      }],
+    };
+  },
   component: BlogPost,
   notFoundComponent: () => (
     <div className="mx-auto max-w-2xl px-4 py-20 text-center">
@@ -12,21 +52,8 @@ export const Route = createFileRoute("/blog/$slug")({
   ),
 });
 
-type Post = { id: string; title: string; slug: string; excerpt: string | null; body: string; cover_image: string | null; published_at: string | null; seo_title: string | null; seo_description: string | null };
-
 function BlogPost() {
-  const { slug } = useParams({ from: "/blog/$slug" });
-  const { data: post, isLoading } = useQuery({
-    queryKey: ["public-post", slug],
-    queryFn: async () => {
-      const { data } = await sb.from("posts").select("*").eq("slug", slug).eq("status", "published").maybeSingle();
-      return data as Post | null;
-    },
-  });
-
-  if (isLoading) return <div className="mx-auto max-w-3xl px-4 py-20 text-center text-muted-foreground">Loading…</div>;
-  if (!post) throw notFound();
-
+  const post = Route.useLoaderData();
   return (
     <article className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
       <Link to="/blog" className="text-sm text-muted-foreground hover:text-primary">← Back to blog</Link>

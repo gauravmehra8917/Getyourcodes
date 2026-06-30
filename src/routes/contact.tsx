@@ -8,8 +8,9 @@ export const Route = createFileRoute("/contact")({
       { name: "description", content: "Get in touch with the SaveHub team. Reach our Singapore office for partnerships and support." },
       { property: "og:title", content: "Contact SaveHub" },
       { property: "og:description", content: "Reach our Singapore office for partnerships and support." },
+      { property: "og:url", content: "https://dealio-dash.lovable.app/contact" },
     ],
-    links: [{ rel: "canonical", href: "/contact" }],
+    links: [{ rel: "canonical", href: "https://dealio-dash.lovable.app/contact" }],
   }),
   component: ContactPage,
 });

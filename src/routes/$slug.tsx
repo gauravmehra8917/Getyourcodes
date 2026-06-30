@@ -4,6 +4,7 @@ import { Tag } from "lucide-react";
 import { sb, type Store, type Coupon, type Category } from "@/lib/db";
 import { CouponCard } from "@/components/coupon-card";
 import { StoreCard } from "@/components/store-card";
+import { abs, clip, SITE_NAME } from "@/lib/seo";
 
 type LoaderData =
   | { kind: "store"; store: Store; coupons: Coupon[] }
@@ -32,27 +33,57 @@ export const Route = createFileRoute("/$slug")({
     if (!loaderData) return { meta: [] };
     if (loaderData.kind === "store") {
       const s = loaderData.store;
-      const title = `${s.name} Coupons & Promo Codes — SaveHub`;
-      const desc = `Verified ${s.name} coupon codes and deals. ${s.description ?? "Save more on every order."}`.slice(0, 160);
+      const url = abs(`/${s.slug}-coupons`);
+      const title = `${s.name} Coupons, Promo Codes & Deals — ${SITE_NAME}`;
+      const desc = clip(`Verified ${s.name} coupon codes and deals${s.description ? `. ${s.description}` : "."} Save more on every order at ${s.name}.`);
+      const image = s.logo_url ?? undefined;
       return {
         meta: [
           { title }, { name: "description", content: desc },
-          { property: "og:title", content: title }, { property: "og:description", content: desc },
-          { property: "og:url", content: `/${s.slug}-coupons` },
+          { property: "og:title", content: title },
+          { property: "og:description", content: desc },
+          { property: "og:type", content: "website" },
+          { property: "og:url", content: url },
+          ...(image ? [{ property: "og:image", content: image }, { name: "twitter:image", content: image }] : []),
+          { name: "twitter:card", content: "summary_large_image" },
         ],
-        links: [{ rel: "canonical", href: `/${s.slug}-coupons` }],
+        links: [{ rel: "canonical", href: url }],
+        scripts: [{
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: s.name,
+            url,
+            ...(image ? { logo: image } : {}),
+            ...(s.description ? { description: s.description } : {}),
+          }),
+        }],
       };
     }
     const c = loaderData.category;
-    const title = `${c.name} Offers & Discounts — SaveHub`;
-    const desc = `Top ${c.name} coupons, promo codes and deals updated daily.`;
+    const url = abs(`/${c.slug}-offers`);
+    const title = `${c.name} Coupons, Offers & Discounts — ${SITE_NAME}`;
+    const desc = clip(`Top ${c.name} coupons, promo codes and deals updated daily. Shop the best ${c.name.toLowerCase()} offers at ${SITE_NAME}.`);
     return {
       meta: [
         { title }, { name: "description", content: desc },
-        { property: "og:title", content: title }, { property: "og:description", content: desc },
-        { property: "og:url", content: `/${c.slug}-offers` },
+        { property: "og:title", content: title },
+        { property: "og:description", content: desc },
+        { property: "og:type", content: "website" },
+        { property: "og:url", content: url },
       ],
-      links: [{ rel: "canonical", href: `/${c.slug}-offers` }],
+      links: [{ rel: "canonical", href: url }],
+      scripts: [{
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: `${c.name} Offers`,
+          url,
+          description: desc,
+        }),
+      }],
     };
   },
   component: SlugPage,
