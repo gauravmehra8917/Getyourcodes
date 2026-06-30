@@ -14,13 +14,29 @@ import { useAssistant } from "@/components/ai-assistant-provider";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SaveHub — Verified coupons, promo codes & deals" },
+      { title: "SaveHub — Verified Coupons, Promo Codes & Deals" },
       { name: "description", content: "Hand-picked coupons and deals from your favorite brands. Save more on fashion, food, electronics, travel and more." },
       { property: "og:title", content: "SaveHub — Verified coupons & deals" },
       { property: "og:description", content: "Save more on every order with verified promo codes." },
-      { property: "og:url", content: "/" },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://dealio-dash.lovable.app/" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
-    links: [{ rel: "canonical", href: "/" }],
+    links: [{ rel: "canonical", href: "https://dealio-dash.lovable.app/" }],
+    scripts: [{
+      type: "application/ld+json",
+      children: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: "SaveHub",
+        url: "https://dealio-dash.lovable.app/",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: "https://dealio-dash.lovable.app/search?q={search_term_string}",
+          "query-input": "required name=search_term_string",
+        },
+      }),
+    }],
   }),
   component: HomePage,
 });
