@@ -795,6 +795,7 @@ export type Database = {
           query: string
         }[]
       }
+      subscribe_email: { Args: { _email: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
