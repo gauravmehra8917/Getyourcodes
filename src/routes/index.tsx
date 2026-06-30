@@ -323,11 +323,10 @@ function NewsletterStrip() {
       return;
     }
     setBusy(true);
-    const { error } = await sb.from("subscribers").insert({ email: normalized });
+    const { error } = await sb.rpc("subscribe_email", { _email: normalized });
     setBusy(false);
     if (error) {
-      const dup = error.code === "23505" || /duplicate|unique/i.test(error.message);
-      setStatus({ kind: dup ? "ok" : "err", msg: dup ? "You're already subscribed — thanks!" : "Something went wrong. Try again." });
+      setStatus({ kind: "err", msg: "Please enter a valid email address." });
       return;
     }
     setEmail("");
