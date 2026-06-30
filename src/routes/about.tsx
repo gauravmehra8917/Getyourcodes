@@ -8,8 +8,9 @@ export const Route = createFileRoute("/about")({
       { name: "description", content: "SaveHub helps shoppers save more with hand-picked, verified coupons and deals from trusted brands worldwide." },
       { property: "og:title", content: "About SaveHub" },
       { property: "og:description", content: "Hand-picked, verified coupons and deals from trusted brands worldwide." },
+      { property: "og:url", content: "https://dealio-dash.lovable.app/about" },
     ],
-    links: [{ rel: "canonical", href: "/about" }],
+    links: [{ rel: "canonical", href: "https://dealio-dash.lovable.app/about" }],
   }),
   component: AboutPage,
 });
