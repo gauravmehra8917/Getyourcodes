@@ -21,9 +21,10 @@ function AdminLayout() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!mounted) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (cancelled) return;
       if (!data.user) { navigate({ to: "/login" }); return; }
       setUserName(
         (data.user.user_metadata?.display_name as string | undefined)
@@ -31,11 +32,14 @@ function AdminLayout() {
           || data.user.email?.split("@")[0]
           || "Admin"
       );
-      const { data: roles } = await sb.from("user_roles").select("role").eq("user_id", data.user.id);
+      const { data: roles, error } = await sb.from("user_roles").select("role").eq("user_id", data.user.id);
+      if (cancelled) return;
+      if (error) { console.error("role check failed", error); setIsAdmin(false); return; }
       setIsAdmin(Array.isArray(roles) && roles.some((r: { role: string }) => r.role === "admin"));
-    });
-    return () => { mounted = false; };
+    })();
+    return () => { cancelled = true; };
   }, [navigate]);
+
 
   if (isAdmin === null) {
     return (
