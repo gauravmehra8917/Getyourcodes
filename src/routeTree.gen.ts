@@ -30,7 +30,6 @@ import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminTranslationsRouteImport } from './routes/admin.translations'
 import { Route as AdminThemeRouteImport } from './routes/admin.theme'
 import { Route as AdminSubscribersRouteImport } from './routes/admin.subscribers'
-import { Route as AdminSubcategoriesRouteImport } from './routes/admin.subcategories'
 import { Route as AdminStoresRouteImport } from './routes/admin.stores'
 import { Route as AdminSlidersRouteImport } from './routes/admin.sliders'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
@@ -159,11 +158,6 @@ const AdminThemeRoute = AdminThemeRouteImport.update({
 const AdminSubscribersRoute = AdminSubscribersRouteImport.update({
   id: '/subscribers',
   path: '/subscribers',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSubcategoriesRoute = AdminSubcategoriesRouteImport.update({
-  id: '/subcategories',
-  path: '/subcategories',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminStoresRoute = AdminStoresRouteImport.update({
@@ -322,7 +316,6 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sliders': typeof AdminSlidersRoute
   '/admin/stores': typeof AdminStoresRouteWithChildren
-  '/admin/subcategories': typeof AdminSubcategoriesRoute
   '/admin/subscribers': typeof AdminSubscribersRoute
   '/admin/theme': typeof AdminThemeRoute
   '/admin/translations': typeof AdminTranslationsRoute
@@ -366,7 +359,6 @@ export interface FileRoutesByTo {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sliders': typeof AdminSlidersRoute
-  '/admin/subcategories': typeof AdminSubcategoriesRoute
   '/admin/subscribers': typeof AdminSubscribersRoute
   '/admin/theme': typeof AdminThemeRoute
   '/admin/translations': typeof AdminTranslationsRoute
@@ -416,7 +408,6 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sliders': typeof AdminSlidersRoute
   '/admin/stores': typeof AdminStoresRouteWithChildren
-  '/admin/subcategories': typeof AdminSubcategoriesRoute
   '/admin/subscribers': typeof AdminSubscribersRoute
   '/admin/theme': typeof AdminThemeRoute
   '/admin/translations': typeof AdminTranslationsRoute
@@ -466,7 +457,6 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/sliders'
     | '/admin/stores'
-    | '/admin/subcategories'
     | '/admin/subscribers'
     | '/admin/theme'
     | '/admin/translations'
@@ -510,7 +500,6 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/settings'
     | '/admin/sliders'
-    | '/admin/subcategories'
     | '/admin/subscribers'
     | '/admin/theme'
     | '/admin/translations'
@@ -559,7 +548,6 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/sliders'
     | '/admin/stores'
-    | '/admin/subcategories'
     | '/admin/subscribers'
     | '/admin/theme'
     | '/admin/translations'
@@ -743,13 +731,6 @@ declare module '@tanstack/react-router' {
       path: '/subscribers'
       fullPath: '/admin/subscribers'
       preLoaderRoute: typeof AdminSubscribersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/subcategories': {
-      id: '/admin/subcategories'
-      path: '/subcategories'
-      fullPath: '/admin/subcategories'
-      preLoaderRoute: typeof AdminSubcategoriesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/stores': {
@@ -1005,7 +986,6 @@ interface AdminRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSlidersRoute: typeof AdminSlidersRoute
   AdminStoresRoute: typeof AdminStoresRouteWithChildren
-  AdminSubcategoriesRoute: typeof AdminSubcategoriesRoute
   AdminSubscribersRoute: typeof AdminSubscribersRoute
   AdminThemeRoute: typeof AdminThemeRoute
   AdminTranslationsRoute: typeof AdminTranslationsRoute
@@ -1029,7 +1009,6 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSlidersRoute: AdminSlidersRoute,
   AdminStoresRoute: AdminStoresRouteWithChildren,
-  AdminSubcategoriesRoute: AdminSubcategoriesRoute,
   AdminSubscribersRoute: AdminSubscribersRoute,
   AdminThemeRoute: AdminThemeRoute,
   AdminTranslationsRoute: AdminTranslationsRoute,
@@ -1069,13 +1048,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
