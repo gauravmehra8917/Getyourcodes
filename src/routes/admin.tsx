@@ -23,9 +23,9 @@ function AdminLayout() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.auth.getUser();
+      const { data, error: userError } = await supabase.auth.getUser();
       if (cancelled) return;
-      if (!data.user) { navigate({ to: "/login" }); return; }
+      if (userError || !data.user) { navigate({ to: "/login" }); return; }
       setUserName(
         (data.user.user_metadata?.display_name as string | undefined)
           || (data.user.user_metadata?.full_name as string | undefined)
@@ -38,7 +38,7 @@ function AdminLayout() {
       setIsAdmin(Array.isArray(roles) && roles.some((r: { role: string }) => r.role === "admin"));
     })();
     return () => { cancelled = true; };
-  }, [navigate]);
+  }, []);
 
 
   if (isAdmin === null) {
