@@ -48,6 +48,7 @@ import { Route as AdminAdsRouteImport } from './routes/admin.ads'
 import { Route as AdminActivityRouteImport } from './routes/admin.activity'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AdminStoresIndexRouteImport } from './routes/admin.stores.index'
+import { Route as AdminPostsIndexRouteImport } from './routes/admin.posts.index'
 import { Route as AdminCouponsIndexRouteImport } from './routes/admin.coupons.index'
 import { Route as AdminStoresNewRouteImport } from './routes/admin.stores.new'
 import { Route as AdminStoresIdRouteImport } from './routes/admin.stores.$id'
@@ -250,6 +251,11 @@ const AdminStoresIndexRoute = AdminStoresIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminStoresRoute,
 } as any)
+const AdminPostsIndexRoute = AdminPostsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminPostsRoute,
+} as any)
 const AdminCouponsIndexRoute = AdminCouponsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -331,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/admin/stores/$id': typeof AdminStoresIdRoute
   '/admin/stores/new': typeof AdminStoresNewRoute
   '/admin/coupons/': typeof AdminCouponsIndexRoute
+  '/admin/posts/': typeof AdminPostsIndexRoute
   '/admin/stores/': typeof AdminStoresIndexRoute
 }
 export interface FileRoutesByTo {
@@ -355,7 +362,6 @@ export interface FileRoutesByTo {
   '/admin/etemplates': typeof AdminEtemplatesRoute
   '/admin/menus': typeof AdminMenusRoute
   '/admin/pages': typeof AdminPagesRoute
-  '/admin/posts': typeof AdminPostsRouteWithChildren
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -375,6 +381,7 @@ export interface FileRoutesByTo {
   '/admin/stores/$id': typeof AdminStoresIdRoute
   '/admin/stores/new': typeof AdminStoresNewRoute
   '/admin/coupons': typeof AdminCouponsIndexRoute
+  '/admin/posts': typeof AdminPostsIndexRoute
   '/admin/stores': typeof AdminStoresIndexRoute
 }
 export interface FileRoutesById {
@@ -424,6 +431,7 @@ export interface FileRoutesById {
   '/admin/stores/$id': typeof AdminStoresIdRoute
   '/admin/stores/new': typeof AdminStoresNewRoute
   '/admin/coupons/': typeof AdminCouponsIndexRoute
+  '/admin/posts/': typeof AdminPostsIndexRoute
   '/admin/stores/': typeof AdminStoresIndexRoute
 }
 export interface FileRouteTypes {
@@ -473,6 +481,7 @@ export interface FileRouteTypes {
     | '/admin/stores/$id'
     | '/admin/stores/new'
     | '/admin/coupons/'
+    | '/admin/posts/'
     | '/admin/stores/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -497,7 +506,6 @@ export interface FileRouteTypes {
     | '/admin/etemplates'
     | '/admin/menus'
     | '/admin/pages'
-    | '/admin/posts'
     | '/admin/reports'
     | '/admin/reviews'
     | '/admin/settings'
@@ -517,6 +525,7 @@ export interface FileRouteTypes {
     | '/admin/stores/$id'
     | '/admin/stores/new'
     | '/admin/coupons'
+    | '/admin/posts'
     | '/admin/stores'
   id:
     | '__root__'
@@ -565,6 +574,7 @@ export interface FileRouteTypes {
     | '/admin/stores/$id'
     | '/admin/stores/new'
     | '/admin/coupons/'
+    | '/admin/posts/'
     | '/admin/stores/'
   fileRoutesById: FileRoutesById
 }
@@ -861,6 +871,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminStoresIndexRouteImport
       parentRoute: typeof AdminStoresRoute
     }
+    '/admin/posts/': {
+      id: '/admin/posts/'
+      path: '/'
+      fullPath: '/admin/posts/'
+      preLoaderRoute: typeof AdminPostsIndexRouteImport
+      parentRoute: typeof AdminPostsRoute
+    }
     '/admin/coupons/': {
       id: '/admin/coupons/'
       path: '/'
@@ -943,11 +960,13 @@ const AdminCouponsRouteWithChildren = AdminCouponsRoute._addFileChildren(
 interface AdminPostsRouteChildren {
   AdminPostsIdRoute: typeof AdminPostsIdRoute
   AdminPostsNewRoute: typeof AdminPostsNewRoute
+  AdminPostsIndexRoute: typeof AdminPostsIndexRoute
 }
 
 const AdminPostsRouteChildren: AdminPostsRouteChildren = {
   AdminPostsIdRoute: AdminPostsIdRoute,
   AdminPostsNewRoute: AdminPostsNewRoute,
+  AdminPostsIndexRoute: AdminPostsIndexRoute,
 }
 
 const AdminPostsRouteWithChildren = AdminPostsRoute._addFileChildren(
@@ -1050,3 +1069,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
