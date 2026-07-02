@@ -34,15 +34,19 @@ function SubcategoriesPage() {
   const [editing, setEditing] = useState<Sub | null>(null);
   const [form, setForm] = useState({ name: "", slug: "", category_id: "" });
 
-  const startNew = () => { setEditing(null); setForm({ name: "", slug: "", category_id: cats[0]?.id ?? "" }); setOpen(true); };
-  const startEdit = (r: Sub) => { setEditing(r); setForm({ name: r.name, slug: r.slug, category_id: r.category_id }); setOpen(true); };
+  const [error, setError] = useState<string | null>(null);
+  const startNew = () => { setEditing(null); setForm({ name: "", slug: "", category_id: cats[0]?.id ?? "" }); setError(null); setOpen(true); };
+  const startEdit = (r: Sub) => { setEditing(r); setForm({ name: r.name, slug: r.slug, category_id: r.category_id }); setError(null); setOpen(true); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.category_id) return;
+    setError(null);
+    if (!form.name || !form.category_id) { setError("Name and parent category are required"); return; }
     const payload = { name: form.name, slug: form.slug || slugify(form.name), category_id: form.category_id };
-    if (editing) await sb.from("subcategories").update(payload).eq("id", editing.id);
-    else await sb.from("subcategories").insert(payload);
+    const { error: err } = editing
+      ? await sb.from("subcategories").update(payload).eq("id", editing.id)
+      : await sb.from("subcategories").insert(payload);
+    if (err) { setError(err.message); return; }
     qc.invalidateQueries({ queryKey: ["admin-subcategories"] });
     setOpen(false);
   };
@@ -83,6 +87,7 @@ function SubcategoriesPage() {
               <button onClick={() => setOpen(false)} className="rounded p-1 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button>
             </div>
             <form onSubmit={submit} className="space-y-4 p-5">
+              {error && <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>}
               <Field label="Parent Category" required>
                 <SelectInput value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} required>
                   {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
