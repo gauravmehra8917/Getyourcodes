@@ -54,9 +54,11 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
     });
   }, [id, mode]);
 
+  const [error, setError] = useState<string | null>(null);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.store_id || !form.title) { alert("Store and title are required"); return; }
+    setError(null);
+    if (!form.store_id || !form.title) { setError("Store and title are required"); return; }
     setBusy(true);
     const payload = {
       ...form,
@@ -66,12 +68,11 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
       description: form.description || null,
       terms: form.terms || null,
     };
-    if (mode === "edit" && id) {
-      await sb.from("coupons").update(payload).eq("id", id);
-    } else {
-      await sb.from("coupons").insert(payload);
-    }
+    const { error: err } = mode === "edit" && id
+      ? await sb.from("coupons").update(payload).eq("id", id)
+      : await sb.from("coupons").insert(payload);
     setBusy(false);
+    if (err) { setError(err.message); return; }
     navigate({ to: "/admin/coupons" });
   };
 
@@ -121,6 +122,7 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
 
         <aside className="space-y-6">
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+            {error && <div className="mb-3 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>}
             <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-600">Publish</h3>
             <Field label="Status">
               <SelectInput value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as typeof form.status })}>

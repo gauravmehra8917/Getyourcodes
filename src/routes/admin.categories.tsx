@@ -27,16 +27,20 @@ function CategoriesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState({ name: "", slug: "" });
+  const [error, setError] = useState<string | null>(null);
 
-  const startNew = () => { setEditing(null); setForm({ name: "", slug: "" }); setOpen(true); };
-  const startEdit = (c: Category) => { setEditing(c); setForm({ name: c.name, slug: c.slug }); setOpen(true); };
+  const startNew = () => { setEditing(null); setForm({ name: "", slug: "" }); setError(null); setOpen(true); };
+  const startEdit = (c: Category) => { setEditing(c); setForm({ name: c.name, slug: c.slug }); setError(null); setOpen(true); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name) return;
+    setError(null);
+    if (!form.name) { setError("Name is required"); return; }
     const payload = { name: form.name, slug: form.slug || slugify(form.name) };
-    if (editing) await sb.from("categories").update(payload).eq("id", editing.id);
-    else await sb.from("categories").insert(payload);
+    const { error: err } = editing
+      ? await sb.from("categories").update(payload).eq("id", editing.id)
+      : await sb.from("categories").insert(payload);
+    if (err) { setError(err.message); return; }
     qc.invalidateQueries({ queryKey: ["admin-categories"] });
     setOpen(false);
   };
@@ -86,6 +90,7 @@ function CategoriesPage() {
               <button onClick={() => setOpen(false)} className="rounded p-1 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button>
             </div>
             <form onSubmit={submit} className="space-y-4 p-5">
+              {error && <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>}
               <Field label="Name" required>
                 <TextInput value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, slug: form.slug || slugify(e.target.value) })} required />
               </Field>
