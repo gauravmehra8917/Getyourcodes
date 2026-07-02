@@ -30,6 +30,7 @@ import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminTranslationsRouteImport } from './routes/admin.translations'
 import { Route as AdminThemeRouteImport } from './routes/admin.theme'
 import { Route as AdminSubscribersRouteImport } from './routes/admin.subscribers'
+import { Route as AdminSubcategoriesRouteImport } from './routes/admin.subcategories'
 import { Route as AdminStoresRouteImport } from './routes/admin.stores'
 import { Route as AdminSlidersRouteImport } from './routes/admin.sliders'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
@@ -46,9 +47,12 @@ import { Route as AdminBlogCategoriesRouteImport } from './routes/admin.blog-cat
 import { Route as AdminAdsRouteImport } from './routes/admin.ads'
 import { Route as AdminActivityRouteImport } from './routes/admin.activity'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AdminSubcategoriesIndexRouteImport } from './routes/admin.subcategories.index'
 import { Route as AdminStoresIndexRouteImport } from './routes/admin.stores.index'
 import { Route as AdminPostsIndexRouteImport } from './routes/admin.posts.index'
 import { Route as AdminCouponsIndexRouteImport } from './routes/admin.coupons.index'
+import { Route as AdminSubcategoriesNewRouteImport } from './routes/admin.subcategories.new'
+import { Route as AdminSubcategoriesIdRouteImport } from './routes/admin.subcategories.$id'
 import { Route as AdminStoresNewRouteImport } from './routes/admin.stores.new'
 import { Route as AdminStoresIdRouteImport } from './routes/admin.stores.$id'
 import { Route as AdminPostsNewRouteImport } from './routes/admin.posts.new'
@@ -160,6 +164,11 @@ const AdminSubscribersRoute = AdminSubscribersRouteImport.update({
   path: '/subscribers',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSubcategoriesRoute = AdminSubcategoriesRouteImport.update({
+  id: '/subcategories',
+  path: '/subcategories',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminStoresRoute = AdminStoresRouteImport.update({
   id: '/stores',
   path: '/stores',
@@ -240,6 +249,11 @@ const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AdminSubcategoriesIndexRoute = AdminSubcategoriesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminSubcategoriesRoute,
+} as any)
 const AdminStoresIndexRoute = AdminStoresIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -254,6 +268,16 @@ const AdminCouponsIndexRoute = AdminCouponsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminCouponsRoute,
+} as any)
+const AdminSubcategoriesNewRoute = AdminSubcategoriesNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AdminSubcategoriesRoute,
+} as any)
+const AdminSubcategoriesIdRoute = AdminSubcategoriesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminSubcategoriesRoute,
 } as any)
 const AdminStoresNewRoute = AdminStoresNewRouteImport.update({
   id: '/new',
@@ -316,6 +340,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sliders': typeof AdminSlidersRoute
   '/admin/stores': typeof AdminStoresRouteWithChildren
+  '/admin/subcategories': typeof AdminSubcategoriesRouteWithChildren
   '/admin/subscribers': typeof AdminSubscribersRoute
   '/admin/theme': typeof AdminThemeRoute
   '/admin/translations': typeof AdminTranslationsRoute
@@ -329,9 +354,12 @@ export interface FileRoutesByFullPath {
   '/admin/posts/new': typeof AdminPostsNewRoute
   '/admin/stores/$id': typeof AdminStoresIdRoute
   '/admin/stores/new': typeof AdminStoresNewRoute
+  '/admin/subcategories/$id': typeof AdminSubcategoriesIdRoute
+  '/admin/subcategories/new': typeof AdminSubcategoriesNewRoute
   '/admin/coupons/': typeof AdminCouponsIndexRoute
   '/admin/posts/': typeof AdminPostsIndexRoute
   '/admin/stores/': typeof AdminStoresIndexRoute
+  '/admin/subcategories/': typeof AdminSubcategoriesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -372,9 +400,12 @@ export interface FileRoutesByTo {
   '/admin/posts/new': typeof AdminPostsNewRoute
   '/admin/stores/$id': typeof AdminStoresIdRoute
   '/admin/stores/new': typeof AdminStoresNewRoute
+  '/admin/subcategories/$id': typeof AdminSubcategoriesIdRoute
+  '/admin/subcategories/new': typeof AdminSubcategoriesNewRoute
   '/admin/coupons': typeof AdminCouponsIndexRoute
   '/admin/posts': typeof AdminPostsIndexRoute
   '/admin/stores': typeof AdminStoresIndexRoute
+  '/admin/subcategories': typeof AdminSubcategoriesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -408,6 +439,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sliders': typeof AdminSlidersRoute
   '/admin/stores': typeof AdminStoresRouteWithChildren
+  '/admin/subcategories': typeof AdminSubcategoriesRouteWithChildren
   '/admin/subscribers': typeof AdminSubscribersRoute
   '/admin/theme': typeof AdminThemeRoute
   '/admin/translations': typeof AdminTranslationsRoute
@@ -421,9 +453,12 @@ export interface FileRoutesById {
   '/admin/posts/new': typeof AdminPostsNewRoute
   '/admin/stores/$id': typeof AdminStoresIdRoute
   '/admin/stores/new': typeof AdminStoresNewRoute
+  '/admin/subcategories/$id': typeof AdminSubcategoriesIdRoute
+  '/admin/subcategories/new': typeof AdminSubcategoriesNewRoute
   '/admin/coupons/': typeof AdminCouponsIndexRoute
   '/admin/posts/': typeof AdminPostsIndexRoute
   '/admin/stores/': typeof AdminStoresIndexRoute
+  '/admin/subcategories/': typeof AdminSubcategoriesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -457,6 +492,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/sliders'
     | '/admin/stores'
+    | '/admin/subcategories'
     | '/admin/subscribers'
     | '/admin/theme'
     | '/admin/translations'
@@ -470,9 +506,12 @@ export interface FileRouteTypes {
     | '/admin/posts/new'
     | '/admin/stores/$id'
     | '/admin/stores/new'
+    | '/admin/subcategories/$id'
+    | '/admin/subcategories/new'
     | '/admin/coupons/'
     | '/admin/posts/'
     | '/admin/stores/'
+    | '/admin/subcategories/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -513,9 +552,12 @@ export interface FileRouteTypes {
     | '/admin/posts/new'
     | '/admin/stores/$id'
     | '/admin/stores/new'
+    | '/admin/subcategories/$id'
+    | '/admin/subcategories/new'
     | '/admin/coupons'
     | '/admin/posts'
     | '/admin/stores'
+    | '/admin/subcategories'
   id:
     | '__root__'
     | '/'
@@ -548,6 +590,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/sliders'
     | '/admin/stores'
+    | '/admin/subcategories'
     | '/admin/subscribers'
     | '/admin/theme'
     | '/admin/translations'
@@ -561,9 +604,12 @@ export interface FileRouteTypes {
     | '/admin/posts/new'
     | '/admin/stores/$id'
     | '/admin/stores/new'
+    | '/admin/subcategories/$id'
+    | '/admin/subcategories/new'
     | '/admin/coupons/'
     | '/admin/posts/'
     | '/admin/stores/'
+    | '/admin/subcategories/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -733,6 +779,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSubscribersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/subcategories': {
+      id: '/admin/subcategories'
+      path: '/subcategories'
+      fullPath: '/admin/subcategories'
+      preLoaderRoute: typeof AdminSubcategoriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/stores': {
       id: '/admin/stores'
       path: '/stores'
@@ -845,6 +898,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/admin/subcategories/': {
+      id: '/admin/subcategories/'
+      path: '/'
+      fullPath: '/admin/subcategories/'
+      preLoaderRoute: typeof AdminSubcategoriesIndexRouteImport
+      parentRoute: typeof AdminSubcategoriesRoute
+    }
     '/admin/stores/': {
       id: '/admin/stores/'
       path: '/'
@@ -865,6 +925,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/coupons/'
       preLoaderRoute: typeof AdminCouponsIndexRouteImport
       parentRoute: typeof AdminCouponsRoute
+    }
+    '/admin/subcategories/new': {
+      id: '/admin/subcategories/new'
+      path: '/new'
+      fullPath: '/admin/subcategories/new'
+      preLoaderRoute: typeof AdminSubcategoriesNewRouteImport
+      parentRoute: typeof AdminSubcategoriesRoute
+    }
+    '/admin/subcategories/$id': {
+      id: '/admin/subcategories/$id'
+      path: '/$id'
+      fullPath: '/admin/subcategories/$id'
+      preLoaderRoute: typeof AdminSubcategoriesIdRouteImport
+      parentRoute: typeof AdminSubcategoriesRoute
     }
     '/admin/stores/new': {
       id: '/admin/stores/new'
@@ -970,6 +1044,21 @@ const AdminStoresRouteWithChildren = AdminStoresRoute._addFileChildren(
   AdminStoresRouteChildren,
 )
 
+interface AdminSubcategoriesRouteChildren {
+  AdminSubcategoriesIdRoute: typeof AdminSubcategoriesIdRoute
+  AdminSubcategoriesNewRoute: typeof AdminSubcategoriesNewRoute
+  AdminSubcategoriesIndexRoute: typeof AdminSubcategoriesIndexRoute
+}
+
+const AdminSubcategoriesRouteChildren: AdminSubcategoriesRouteChildren = {
+  AdminSubcategoriesIdRoute: AdminSubcategoriesIdRoute,
+  AdminSubcategoriesNewRoute: AdminSubcategoriesNewRoute,
+  AdminSubcategoriesIndexRoute: AdminSubcategoriesIndexRoute,
+}
+
+const AdminSubcategoriesRouteWithChildren =
+  AdminSubcategoriesRoute._addFileChildren(AdminSubcategoriesRouteChildren)
+
 interface AdminRouteChildren {
   AdminActivityRoute: typeof AdminActivityRoute
   AdminAdsRoute: typeof AdminAdsRoute
@@ -986,6 +1075,7 @@ interface AdminRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSlidersRoute: typeof AdminSlidersRoute
   AdminStoresRoute: typeof AdminStoresRouteWithChildren
+  AdminSubcategoriesRoute: typeof AdminSubcategoriesRouteWithChildren
   AdminSubscribersRoute: typeof AdminSubscribersRoute
   AdminThemeRoute: typeof AdminThemeRoute
   AdminTranslationsRoute: typeof AdminTranslationsRoute
@@ -1009,6 +1099,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSlidersRoute: AdminSlidersRoute,
   AdminStoresRoute: AdminStoresRouteWithChildren,
+  AdminSubcategoriesRoute: AdminSubcategoriesRouteWithChildren,
   AdminSubscribersRoute: AdminSubscribersRoute,
   AdminThemeRoute: AdminThemeRoute,
   AdminTranslationsRoute: AdminTranslationsRoute,
