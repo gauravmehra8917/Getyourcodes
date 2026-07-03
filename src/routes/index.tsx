@@ -114,7 +114,7 @@ function HomePage() {
           <div className="absolute left-1/2 top-0 h-[600px] w-[1200px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(79,70,229,0.35),transparent_60%)] blur-3xl" />
           <div className="absolute right-0 top-40 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.3),transparent_70%)] blur-3xl" />
         </div>
-        <div className="mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 sm:py-28">
+        <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 sm:py-20">
           <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-white/80 backdrop-blur">
             <Sparkles className="h-3.5 w-3.5 text-glow" /> Updated daily · 10,000+ verified deals
           </div>
