@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -60,6 +61,11 @@ import { Route as AdminPostsIdRouteImport } from './routes/admin.posts.$id'
 import { Route as AdminCouponsNewRouteImport } from './routes/admin.coupons.new'
 import { Route as AdminCouponsIdRouteImport } from './routes/admin.coupons.$id'
 
+const UnsubscribeRoute = UnsubscribeRouteImport.update({
+  id: '/unsubscribe',
+  path: '/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -324,6 +330,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/account': typeof AuthenticatedAccountRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/ads': typeof AdminAdsRoute
@@ -374,6 +381,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/account': typeof AuthenticatedAccountRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/ads': typeof AdminAdsRoute
@@ -423,6 +431,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/ads': typeof AdminAdsRoute
@@ -476,6 +485,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/search'
     | '/sitemap.xml'
+    | '/unsubscribe'
     | '/account'
     | '/admin/activity'
     | '/admin/ads'
@@ -526,6 +536,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/search'
     | '/sitemap.xml'
+    | '/unsubscribe'
     | '/account'
     | '/admin/activity'
     | '/admin/ads'
@@ -574,6 +585,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/search'
     | '/sitemap.xml'
+    | '/unsubscribe'
     | '/_authenticated/account'
     | '/admin/activity'
     | '/admin/ads'
@@ -627,11 +639,19 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SearchRoute: typeof SearchRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  UnsubscribeRoute: typeof UnsubscribeRoute
   ApiChatRoute: typeof ApiChatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/unsubscribe': {
+      id: '/unsubscribe'
+      path: '/unsubscribe'
+      fullPath: '/unsubscribe'
+      preLoaderRoute: typeof UnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -1134,6 +1154,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SearchRoute: SearchRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  UnsubscribeRoute: UnsubscribeRoute,
   ApiChatRoute: ApiChatRoute,
 }
 export const routeTree = rootRouteImport
