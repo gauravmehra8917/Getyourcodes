@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  Search, Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home,
+  Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home,
   Wand2, Tag, Gift, TrendingUp, Mail, ArrowRight,
 } from "lucide-react";
 import { sb, trackSearch, type Store, type Coupon, type Category } from "@/lib/db";
@@ -46,7 +46,6 @@ const ICONS = [ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home, Gift, Tag]
 function HomePage() {
   const navigate = useNavigate();
   const assistant = useAssistant();
-  const [q, setQ] = useState("");
   const [aiQ, setAiQ] = useState("");
 
   const featured = useQuery({
@@ -115,7 +114,7 @@ function HomePage() {
           <div className="absolute left-1/2 top-0 h-[600px] w-[1200px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(79,70,229,0.35),transparent_60%)] blur-3xl" />
           <div className="absolute right-0 top-40 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.3),transparent_70%)] blur-3xl" />
         </div>
-        <div className="mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 sm:py-28">
+        <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 sm:py-20">
           <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-white/80 backdrop-blur">
             <Sparkles className="h-3.5 w-3.5 text-glow" /> Updated daily · 10,000+ verified deals
           </div>
@@ -126,30 +125,6 @@ function HomePage() {
           <p className="mx-auto mt-6 max-w-xl text-base text-white/70 sm:text-lg">
             Hand-picked coupons, cashback offers and flash deals from thousands of stores — refreshed every hour.
           </p>
-
-          <form
-            className="mx-auto mt-10 max-w-2xl"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const term = q.trim();
-              if (!term) return;
-              trackSearch(term, "search");
-              navigate({ to: "/search", search: { q: term } });
-            }}
-          >
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search 12,000+ stores and offers…"
-                className="h-14 w-full rounded-full border border-white/10 bg-white/5 pl-14 pr-36 text-base text-white placeholder:text-white/40 outline-none backdrop-blur transition focus:border-primary focus:bg-white/10"
-              />
-              <button className="absolute right-2 top-1/2 -translate-y-1/2 gradient-primary rounded-full px-6 py-2.5 text-sm font-semibold text-white shadow-glow">
-                Search
-              </button>
-            </div>
-          </form>
 
           {/* AI Deal Assistant */}
           <div className="mx-auto mt-6 max-w-2xl">
