@@ -126,30 +126,6 @@ function HomePage() {
             Hand-picked coupons, cashback offers and flash deals from thousands of stores — refreshed every hour.
           </p>
 
-          <form
-            className="mx-auto mt-10 max-w-2xl"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const term = q.trim();
-              if (!term) return;
-              trackSearch(term, "search");
-              navigate({ to: "/search", search: { q: term } });
-            }}
-          >
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search 12,000+ stores and offers…"
-                className="h-14 w-full rounded-full border border-white/10 bg-white/5 pl-14 pr-36 text-base text-white placeholder:text-white/40 outline-none backdrop-blur transition focus:border-primary focus:bg-white/10"
-              />
-              <button className="absolute right-2 top-1/2 -translate-y-1/2 gradient-primary rounded-full px-6 py-2.5 text-sm font-semibold text-white shadow-glow">
-                Search
-              </button>
-            </div>
-          </form>
-
           {/* AI Deal Assistant */}
           <div className="mx-auto mt-6 max-w-2xl">
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur sm:p-5">
