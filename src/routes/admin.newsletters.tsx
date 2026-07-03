@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { Users, UserCheck, Mail, Send, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Users, UserCheck, Mail, Send, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
 import { sb } from "@/lib/db";
+import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/admin/page-header";
 
 export const Route = createFileRoute("/admin/newsletters")({ component: NewslettersPage });
