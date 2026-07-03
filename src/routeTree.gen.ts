@@ -39,6 +39,7 @@ import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
 import { Route as AdminPostsRouteImport } from './routes/admin.posts'
 import { Route as AdminPagesRouteImport } from './routes/admin.pages'
+import { Route as AdminNewslettersRouteImport } from './routes/admin.newsletters'
 import { Route as AdminMenusRouteImport } from './routes/admin.menus'
 import { Route as AdminEtemplatesRouteImport } from './routes/admin.etemplates'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
@@ -210,6 +211,11 @@ const AdminPagesRoute = AdminPagesRouteImport.update({
   path: '/pages',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminNewslettersRoute = AdminNewslettersRouteImport.update({
+  id: '/newsletters',
+  path: '/newsletters',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMenusRoute = AdminMenusRouteImport.update({
   id: '/menus',
   path: '/menus',
@@ -340,6 +346,7 @@ export interface FileRoutesByFullPath {
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
   '/admin/etemplates': typeof AdminEtemplatesRoute
   '/admin/menus': typeof AdminMenusRoute
+  '/admin/newsletters': typeof AdminNewslettersRoute
   '/admin/pages': typeof AdminPagesRoute
   '/admin/posts': typeof AdminPostsRouteWithChildren
   '/admin/reports': typeof AdminReportsRoute
@@ -390,6 +397,7 @@ export interface FileRoutesByTo {
   '/admin/comments': typeof AdminCommentsRoute
   '/admin/etemplates': typeof AdminEtemplatesRoute
   '/admin/menus': typeof AdminMenusRoute
+  '/admin/newsletters': typeof AdminNewslettersRoute
   '/admin/pages': typeof AdminPagesRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
@@ -441,6 +449,7 @@ export interface FileRoutesById {
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
   '/admin/etemplates': typeof AdminEtemplatesRoute
   '/admin/menus': typeof AdminMenusRoute
+  '/admin/newsletters': typeof AdminNewslettersRoute
   '/admin/pages': typeof AdminPagesRoute
   '/admin/posts': typeof AdminPostsRouteWithChildren
   '/admin/reports': typeof AdminReportsRoute
@@ -495,6 +504,7 @@ export interface FileRouteTypes {
     | '/admin/coupons'
     | '/admin/etemplates'
     | '/admin/menus'
+    | '/admin/newsletters'
     | '/admin/pages'
     | '/admin/posts'
     | '/admin/reports'
@@ -545,6 +555,7 @@ export interface FileRouteTypes {
     | '/admin/comments'
     | '/admin/etemplates'
     | '/admin/menus'
+    | '/admin/newsletters'
     | '/admin/pages'
     | '/admin/reports'
     | '/admin/reviews'
@@ -595,6 +606,7 @@ export interface FileRouteTypes {
     | '/admin/coupons'
     | '/admin/etemplates'
     | '/admin/menus'
+    | '/admin/newsletters'
     | '/admin/pages'
     | '/admin/posts'
     | '/admin/reports'
@@ -855,6 +867,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPagesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/newsletters': {
+      id: '/admin/newsletters'
+      path: '/newsletters'
+      fullPath: '/admin/newsletters'
+      preLoaderRoute: typeof AdminNewslettersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/menus': {
       id: '/admin/menus'
       path: '/menus'
@@ -1088,6 +1107,7 @@ interface AdminRouteChildren {
   AdminCouponsRoute: typeof AdminCouponsRouteWithChildren
   AdminEtemplatesRoute: typeof AdminEtemplatesRoute
   AdminMenusRoute: typeof AdminMenusRoute
+  AdminNewslettersRoute: typeof AdminNewslettersRoute
   AdminPagesRoute: typeof AdminPagesRoute
   AdminPostsRoute: typeof AdminPostsRouteWithChildren
   AdminReportsRoute: typeof AdminReportsRoute
@@ -1112,6 +1132,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCouponsRoute: AdminCouponsRouteWithChildren,
   AdminEtemplatesRoute: AdminEtemplatesRoute,
   AdminMenusRoute: AdminMenusRoute,
+  AdminNewslettersRoute: AdminNewslettersRoute,
   AdminPagesRoute: AdminPagesRoute,
   AdminPostsRoute: AdminPostsRouteWithChildren,
   AdminReportsRoute: AdminReportsRoute,

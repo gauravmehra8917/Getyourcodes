@@ -32,6 +32,7 @@ const GROUPS: Group[] = [
   { title: "Audience", items: [
     { to: "/admin/users", label: "Users", icon: Users },
     { to: "/admin/subscribers", label: "Subscribers", icon: Bell },
+    { to: "/admin/newsletters", label: "Newsletters", icon: Mail },
   ]},
   { title: "System", items: [
     { to: "/admin/menus", label: "Menus", icon: ListOrdered },
