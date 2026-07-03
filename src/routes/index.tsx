@@ -46,7 +46,6 @@ const ICONS = [ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home, Gift, Tag]
 function HomePage() {
   const navigate = useNavigate();
   const assistant = useAssistant();
-  const [q, setQ] = useState("");
   const [aiQ, setAiQ] = useState("");
 
   const featured = useQuery({
