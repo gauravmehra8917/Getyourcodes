@@ -713,18 +713,24 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          unsubscribe_token: string
+          verified: boolean
         }
         Insert: {
           active?: boolean
           created_at?: string
           email: string
           id?: string
+          unsubscribe_token?: string
+          verified?: boolean
         }
         Update: {
           active?: boolean
           created_at?: string
           email?: string
           id?: string
+          unsubscribe_token?: string
+          verified?: boolean
         }
         Relationships: []
       }
@@ -796,6 +802,7 @@ export type Database = {
         }[]
       }
       subscribe_email: { Args: { _email: string }; Returns: undefined }
+      unsubscribe_by_token: { Args: { _token: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
