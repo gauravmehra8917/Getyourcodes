@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { Users, UserCheck, Mail, Send, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Users, UserCheck, Mail, Send, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
 import { sb } from "@/lib/db";
+import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/admin/page-header";
 
 export const Route = createFileRoute("/admin/newsletters")({ component: NewslettersPage });
@@ -50,9 +52,54 @@ function NewslettersPage() {
     },
   });
 
+  const qc = useQueryClient();
+  const [sending, setSending] = useState(false);
+  const [flash, setFlash] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
+
+  const sendNow = async () => {
+    if (sending) return;
+    setSending(true);
+    setFlash(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-newsletter", { body: {} });
+      if (error) throw error;
+      const r = data as { status?: string; reason?: string; successful?: number; failed?: number; coupons?: number; dry_run?: boolean };
+      const msg = r.reason === "no_new_coupons"
+        ? "No new coupons since the last newsletter — nothing sent."
+        : r.reason === "no_subscribers"
+          ? "No active subscribers to send to."
+          : `${r.status ?? "done"} — ${r.successful ?? 0} sent, ${r.failed ?? 0} failed (${r.coupons ?? 0} coupons)${r.dry_run ? " · dry-run: add RESEND_API_KEY & NEWSLETTER_FROM_EMAIL to send" : ""}`;
+      setFlash({ kind: "ok", msg });
+      qc.invalidateQueries({ queryKey: ["admin-newsletter-stats"] });
+      qc.invalidateQueries({ queryKey: ["admin-newsletter-logs"] });
+    } catch (e) {
+      setFlash({ kind: "err", msg: (e as Error).message ?? "Send failed" });
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div>
-      <PageHeader title="Newsletters" />
+      <PageHeader
+        title="Newsletters"
+        action={
+          <button
+            onClick={sendNow}
+            disabled={sending}
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 disabled:opacity-60"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {sending ? "Sending…" : "Send Newsletter Now"}
+          </button>
+        }
+      />
+
+      {flash && (
+        <div className={`mb-4 rounded-md border px-4 py-3 text-sm ${flash.kind === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+          {flash.msg}
+        </div>
+      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Subscribers" value={stats.data?.total ?? 0} icon={<Users className="h-5 w-5" />} tint="bg-indigo-50 text-indigo-600" />
