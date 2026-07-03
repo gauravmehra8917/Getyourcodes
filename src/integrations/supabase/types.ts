@@ -297,6 +297,45 @@ export type Database = {
         }
         Relationships: []
       }
+      newsletter_logs: {
+        Row: {
+          coupons_sent: number
+          created_at: string
+          error_message: string | null
+          execution_time: number
+          failed: number
+          id: string
+          sent_at: string
+          status: string
+          subscribers_count: number
+          successful: number
+        }
+        Insert: {
+          coupons_sent?: number
+          created_at?: string
+          error_message?: string | null
+          execution_time?: number
+          failed?: number
+          id?: string
+          sent_at?: string
+          status?: string
+          subscribers_count?: number
+          successful?: number
+        }
+        Update: {
+          coupons_sent?: number
+          created_at?: string
+          error_message?: string | null
+          execution_time?: number
+          failed?: number
+          id?: string
+          sent_at?: string
+          status?: string
+          subscribers_count?: number
+          successful?: number
+        }
+        Relationships: []
+      }
       pages: {
         Row: {
           content: string | null
