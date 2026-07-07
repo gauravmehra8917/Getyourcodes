@@ -61,6 +61,8 @@ function SearchPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search stores, coupons, categories…"
+            aria-label="Search stores, coupons and categories"
+            type="search"
             className="h-12 w-full rounded-full border border-border bg-card pl-12 pr-4 outline-none focus:border-primary"
           />
         </div>

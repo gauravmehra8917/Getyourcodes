@@ -30,7 +30,7 @@ function Feature({ icon: Icon, title, children }: { icon: any; title: string; ch
       <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary-soft text-primary">
         <Icon className="h-5 w-5" />
       </div>
-      <h3 className="mt-4 font-display text-lg font-semibold">{title}</h3>
+      <h2 className="mt-4 font-display text-lg font-semibold">{title}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{children}</p>
     </div>
   );
