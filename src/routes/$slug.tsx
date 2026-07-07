@@ -58,8 +58,8 @@ export const Route = createFileRoute("/$slug")({
         url,
         seller: { "@type": "Organization", name: s.name, ...(image ? { logo: image } : {}) },
         availability: "https://schema.org/InStock",
-        ...(c.expires_at ? { validThrough: c.expires_at } : {}),
-        ...(c.code ? { priceSpecification: { "@type": "UnitPriceSpecification", priceCurrency: "USD", price: 0 } } : {}),
+        ...(c.expiry_date ? { validThrough: c.expiry_date } : {}),
+        ...(c.coupon_code ? { priceSpecification: { "@type": "UnitPriceSpecification", priceCurrency: "USD", price: 0 } } : {}),
         category: cat?.name ?? undefined,
       }));
 
