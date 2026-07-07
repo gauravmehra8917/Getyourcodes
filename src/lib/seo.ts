@@ -1,4 +1,4 @@
-export const SITE_URL = "https://dealio-dash.lovable.app";
+export const SITE_URL = "https://getyourcodes.com";
 export const SITE_NAME = "SaveHub";
 
 export const abs = (path: string) =>

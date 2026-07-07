@@ -4,7 +4,7 @@ import { Tag } from "lucide-react";
 import { sb, type Store, type Coupon, type Category } from "@/lib/db";
 import { CouponCard } from "@/components/coupon-card";
 import { StoreCard } from "@/components/store-card";
-import { abs, clip, SITE_NAME } from "@/lib/seo";
+import { abs, clip, SITE_NAME, SITE_URL } from "@/lib/seo";
 
 type LoaderData =
   | { kind: "store"; store: Store; coupons: Coupon[] }
@@ -15,11 +15,11 @@ export const Route = createFileRoute("/$slug")({
     const slug = params.slug;
     if (slug.endsWith("-coupons")) {
       const storeSlug = slug.slice(0, -"-coupons".length);
-      const { data: store } = await sb.from("stores").select("*").eq("slug", storeSlug).maybeSingle();
+      const { data: store } = await sb.from("stores").select("*, categories(name, slug)").eq("slug", storeSlug).maybeSingle();
       if (!store) throw notFound();
       const { data: coupons } = await sb
         .from("coupons").select("*").eq("store_id", store.id).eq("status", "active").order("created_at", { ascending: false });
-      return { kind: "store", store: store as Store, coupons: (coupons ?? []) as Coupon[] };
+      return { kind: "store", store: store as Store & { categories?: { name: string; slug: string } | null }, coupons: (coupons ?? []) as Coupon[] };
     }
     if (slug.endsWith("-offers")) {
       const catSlug = slug.slice(0, -"-offers".length);
@@ -32,58 +32,106 @@ export const Route = createFileRoute("/$slug")({
   head: ({ loaderData }) => {
     if (!loaderData) return { meta: [] };
     if (loaderData.kind === "store") {
-      const s = loaderData.store;
+      const s = loaderData.store as Store & { categories?: { name: string; slug: string } | null };
       const url = abs(`/${s.slug}-coupons`);
       const title = `${s.name} Coupons, Promo Codes & Deals — ${SITE_NAME}`;
       const desc = clip(`Verified ${s.name} coupon codes and deals${s.description ? `. ${s.description}` : "."} Save more on every order at ${s.name}.`);
       const image = s.logo_url ?? undefined;
+      const coupons = loaderData.coupons;
+      const cat = s.categories ?? null;
+
+      const breadcrumb = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+          ...(cat ? [{ "@type": "ListItem", position: 2, name: cat.name, item: abs(`/${cat.slug}-offers`) }] : []),
+          { "@type": "ListItem", position: cat ? 3 : 2, name: s.name, item: url },
+        ],
+      };
+
+      const offers = coupons.slice(0, 20).map((c) => ({
+        "@context": "https://schema.org",
+        "@type": "Offer",
+        name: c.title,
+        description: c.description ?? undefined,
+        url,
+        seller: { "@type": "Organization", name: s.name, ...(image ? { logo: image } : {}) },
+        availability: "https://schema.org/InStock",
+        ...(c.expiry_date ? { validThrough: c.expiry_date } : {}),
+        ...(c.coupon_code ? { priceSpecification: { "@type": "UnitPriceSpecification", priceCurrency: "USD", price: 0 } } : {}),
+        category: cat?.name ?? undefined,
+      }));
+
       return {
         meta: [
           { title }, { name: "description", content: desc },
+          { name: "robots", content: "index,follow" },
           { property: "og:title", content: title },
           { property: "og:description", content: desc },
           { property: "og:type", content: "website" },
           { property: "og:url", content: url },
+          { name: "twitter:title", content: title },
+          { name: "twitter:description", content: desc },
           ...(image ? [{ property: "og:image", content: image }, { name: "twitter:image", content: image }] : []),
           { name: "twitter:card", content: "summary_large_image" },
         ],
         links: [{ rel: "canonical", href: url }],
-        scripts: [{
-          type: "application/ld+json",
-          children: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            name: s.name,
-            url,
-            ...(image ? { logo: image } : {}),
-            ...(s.description ? { description: s.description } : {}),
-          }),
-        }],
+        scripts: [
+          {
+            type: "application/ld+json",
+            children: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: s.name,
+              url,
+              ...(image ? { logo: image } : {}),
+              ...(s.description ? { description: s.description } : {}),
+            }),
+          },
+          { type: "application/ld+json", children: JSON.stringify(breadcrumb) },
+          ...offers.map((o) => ({ type: "application/ld+json" as const, children: JSON.stringify(o) })),
+        ],
       };
     }
     const c = loaderData.category;
     const url = abs(`/${c.slug}-offers`);
     const title = `${c.name} Coupons, Offers & Discounts — ${SITE_NAME}`;
     const desc = clip(`Top ${c.name} coupons, promo codes and deals updated daily. Shop the best ${c.name.toLowerCase()} offers at ${SITE_NAME}.`);
+    const breadcrumb = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: c.name, item: url },
+      ],
+    };
     return {
       meta: [
         { title }, { name: "description", content: desc },
+        { name: "robots", content: "index,follow" },
         { property: "og:title", content: title },
         { property: "og:description", content: desc },
         { property: "og:type", content: "website" },
         { property: "og:url", content: url },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: desc },
+        { name: "twitter:card", content: "summary_large_image" },
       ],
       links: [{ rel: "canonical", href: url }],
-      scripts: [{
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "CollectionPage",
-          name: `${c.name} Offers`,
-          url,
-          description: desc,
-        }),
-      }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: `${c.name} Offers`,
+            url,
+            description: desc,
+          }),
+        },
+        { type: "application/ld+json", children: JSON.stringify(breadcrumb) },
+      ],
     };
   },
   component: SlugPage,

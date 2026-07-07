@@ -16,7 +16,7 @@ export const Route = createFileRoute("/unsubscribe")({
       { name: "description", content: "Unsubscribe from SaveHub newsletter." },
       { name: "robots", content: "noindex, nofollow" },
     ],
-    links: [{ rel: "canonical", href: "https://dealio-dash.lovable.app/unsubscribe" }],
+    links: [{ rel: "canonical", href: "https://getyourcodes.com/unsubscribe" }],
   }),
   component: UnsubscribePage,
 });
