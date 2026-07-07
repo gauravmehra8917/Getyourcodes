@@ -10,9 +10,9 @@ export const Route = createFileRoute("/blog")({
       { property: "og:title", content: "Deals Blog — SaveHub" },
       { property: "og:description", content: "Guides and stories about saving money on the brands you love." },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://dealio-dash.lovable.app/blog" },
+      { property: "og:url", content: "https://getyourcodes.com/blog" },
     ],
-    links: [{ rel: "canonical", href: "https://dealio-dash.lovable.app/blog" }],
+    links: [{ rel: "canonical", href: "https://getyourcodes.com/blog" }],
   }),
   component: BlogIndex,
 });

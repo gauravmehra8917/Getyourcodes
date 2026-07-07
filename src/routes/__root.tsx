@@ -53,13 +53,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { property: "og:site_name", content: "SaveHub" },
+      { name: "robots", content: "index,follow" },
+      { name: "theme-color", content: "#0F0A1F" },
+      { property: "og:site_name", content: "GetYourCodes" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:site", content: "@getyourcodes" },
       { name: "google-site-verification", content: "Ow_7FR3k57CCSHvT7EMJWaR_3FJgra9yDeC8ctsp4wY" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "alternate icon", href: "/favicon.ico" },
+      { rel: "apple-touch-icon", href: "/favicon.svg" },
       // Font loading: preconnect to Google's CDNs (DNS+TLS upfront),
       // preload the CSS so it doesn't render-block on discovery, then
       // the actual stylesheet with display=swap to avoid FOIT/CLS.
@@ -73,6 +79,33 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap",
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "GetYourCodes",
+          url: "https://getyourcodes.com",
+          logo: "https://getyourcodes.com/favicon.svg",
+          sameAs: [] as string[],
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "GetYourCodes",
+          url: "https://getyourcodes.com",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "https://getyourcodes.com/search?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }),
       },
     ],
   }),
