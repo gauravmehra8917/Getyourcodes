@@ -61,6 +61,8 @@ export function SiteHeader() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search stores, brands, deals…"
+              aria-label="Search stores, brands and deals"
+              type="search"
               className="h-10 w-full rounded-full border border-input bg-secondary pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-card"
             />
           </div>

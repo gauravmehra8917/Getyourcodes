@@ -53,17 +53,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SaveHub — Verified coupons, promo codes & deals" },
-      { name: "description", content: "Save money on your favorite brands with hand-picked coupons, promo codes and deals updated daily." },
       { property: "og:site_name", content: "SaveHub" },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { property: "og:title", content: "SaveHub — Verified coupons, promo codes & deals" },
-      { name: "twitter:title", content: "SaveHub — Verified coupons, promo codes & deals" },
-      { property: "og:description", content: "Save money on your favorite brands with hand-picked coupons, promo codes and deals updated daily." },
-      { name: "twitter:description", content: "Save money on your favorite brands with hand-picked coupons, promo codes and deals updated daily." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/48d51b3c-73ea-4d3c-b6da-11bf7fc93a34" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/48d51b3c-73ea-4d3c-b6da-11bf7fc93a34" },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "google-site-verification", content: "Ow_7FR3k57CCSHvT7EMJWaR_3FJgra9yDeC8ctsp4wY" },
     ],
     links: [

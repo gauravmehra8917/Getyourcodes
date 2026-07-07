@@ -6,5 +6,6 @@ Disallow: /auth
 Disallow: /account
 Disallow: /forgot-password
 Disallow: /reset-password
+Disallow: /analytics
 
-Sitemap: https://dealio-dash.lovable.app/sitemap.xml
+Sitemap: https://getyourcodes.com/sitemap.xml

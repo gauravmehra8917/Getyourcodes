@@ -147,6 +147,7 @@ function HomePage() {
                   value={aiQ}
                   onChange={(e) => setAiQ(e.target.value)}
                   placeholder="What deal are you looking for? e.g. Nike sneakers under $100"
+                  aria-label="Ask Dealio: describe the deal you're looking for"
                   className="h-12 flex-1 rounded-full border border-white/10 bg-background/40 px-5 text-sm text-white placeholder:text-white/40 outline-none focus:border-primary"
                 />
                 <button
