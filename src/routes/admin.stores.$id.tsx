@@ -4,7 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { Field, TextInput, TextArea, SelectInput, FieldSet } from "@/components/admin/form-fields";
+import { SeoSettings, emptySeo, fromRow, toPayload, autofillSeo, type SeoValues } from "@/components/admin/seo-settings";
 import { uploadStoreLogo } from "@/lib/admin.functions";
+
 
 export const Route = createFileRoute("/admin/stores/$id")({
   component: () => <StoreForm mode="edit" />,
@@ -35,23 +37,28 @@ export function StoreForm({ mode }: { mode: "new" | "edit" }) {
     featured: false,
     category_id: "" as string,
   });
+  const [seo, setSeo] = useState<SeoValues>(emptySeo);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (mode !== "edit" || !id) return;
-    sb.from("stores").select("*").eq("id", id).maybeSingle().then(({ data }: { data: typeof form | null }) => {
-      if (data) setForm({
-        name: data.name ?? "",
-        slug: data.slug ?? "",
-        description: data.description ?? "",
-        logo_url: data.logo_url ?? "",
-        affiliate_url: data.affiliate_url ?? "",
-        featured: Boolean(data.featured),
-        category_id: data.category_id ?? "",
-      });
+    sb.from("stores").select("*").eq("id", id).maybeSingle().then(({ data }: { data: Record<string, unknown> | null }) => {
+      if (data) {
+        setForm({
+          name: (data.name as string) ?? "",
+          slug: (data.slug as string) ?? "",
+          description: (data.description as string) ?? "",
+          logo_url: (data.logo_url as string) ?? "",
+          affiliate_url: (data.affiliate_url as string) ?? "",
+          featured: Boolean(data.featured),
+          category_id: (data.category_id as string) ?? "",
+        });
+        setSeo(fromRow(data as Record<string, string | null>));
+      }
     });
   }, [id, mode]);
+
 
   const onFile = async (file: File) => {
     setUploading(true);
@@ -79,14 +86,18 @@ export function StoreForm({ mode }: { mode: "new" | "edit" }) {
     setError(null);
     if (!form.name) { setError("Name is required"); return; }
     setBusy(true);
+    const slug = form.slug || slugify(form.name);
+    const seoFilled = autofillSeo(seo, { name: form.name, description: form.description, slug, pathPrefix: "" });
     const payload = {
       ...form,
-      slug: form.slug || slugify(form.name),
+      slug,
       description: form.description || null,
       logo_url: form.logo_url || null,
       affiliate_url: form.affiliate_url || null,
       category_id: form.category_id || null,
+      ...toPayload(seoFilled),
     };
+
     const { error: err } = mode === "edit" && id
       ? await sb.from("stores").update(payload).eq("id", id)
       : await sb.from("stores").insert(payload);
@@ -124,10 +135,21 @@ export function StoreForm({ mode }: { mode: "new" | "edit" }) {
               </SelectInput>
             </Field>
           </FieldSet>
+          <SeoSettings
+            value={seo}
+            onChange={setSeo}
+            previewFallback={{
+              title: form.name,
+              description: form.description,
+              url: `${typeof window !== "undefined" ? window.location.origin : ""}/${form.slug || slugify(form.name)}`,
+            }}
+          />
         </div>
+
 
         <aside className="space-y-6">
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+
             <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-600">Logo</h3>
             <div className="flex items-center gap-3">
               {form.logo_url ? (

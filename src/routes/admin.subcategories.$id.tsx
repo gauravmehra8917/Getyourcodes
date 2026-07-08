@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { sb, type Category } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { Field, TextInput, SelectInput, FieldSet } from "@/components/admin/form-fields";
+import { SeoSettings, emptySeo, fromRow, toPayload, autofillSeo, type SeoValues } from "@/components/admin/seo-settings";
+
 
 export const Route = createFileRoute("/admin/subcategories/$id")({
   component: () => <SubcategoryForm mode="edit" />,
@@ -26,13 +28,17 @@ export function SubcategoryForm({ mode }: { mode: "new" | "edit" }) {
   });
 
   const [form, setForm] = useState({ name: "", slug: "", category_id: "" });
+  const [seo, setSeo] = useState<SeoValues>(emptySeo);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (mode !== "edit" || !id) return;
-    sb.from("subcategories").select("*").eq("id", id).maybeSingle().then(({ data }: { data: { name: string; slug: string; category_id: string } | null }) => {
-      if (data) setForm({ name: data.name ?? "", slug: data.slug ?? "", category_id: data.category_id ?? "" });
+    sb.from("subcategories").select("*").eq("id", id).maybeSingle().then(({ data }: { data: Record<string, string | null> | null }) => {
+      if (data) {
+        setForm({ name: (data.name as string) ?? "", slug: (data.slug as string) ?? "", category_id: (data.category_id as string) ?? "" });
+        setSeo(fromRow(data));
+      }
     });
   }, [id, mode]);
 
@@ -48,7 +54,9 @@ export function SubcategoryForm({ mode }: { mode: "new" | "edit" }) {
     if (!form.name) { setError("Name is required"); return; }
     if (!form.category_id) { setError("Parent category is required"); return; }
     setBusy(true);
-    const payload = { name: form.name, slug: form.slug || slugify(form.name), category_id: form.category_id };
+    const slug = form.slug || slugify(form.name);
+    const seoFilled = autofillSeo(seo, { name: form.name, slug, pathPrefix: "/subcategory" });
+    const payload = { name: form.name, slug, category_id: form.category_id, ...toPayload(seoFilled) };
     const { error: err } = mode === "edit" && id
       ? await sb.from("subcategories").update(payload).eq("id", id)
       : await sb.from("subcategories").insert(payload);
@@ -56,6 +64,7 @@ export function SubcategoryForm({ mode }: { mode: "new" | "edit" }) {
     if (err) { setError(err.message); return; }
     navigate({ to: "/admin/subcategories" });
   };
+
 
   return (
     <div>
@@ -76,9 +85,11 @@ export function SubcategoryForm({ mode }: { mode: "new" | "edit" }) {
               <TextInput value={form.slug} onChange={(e) => setForm({ ...form, slug: slugify(e.target.value) })} placeholder="auto-generated" />
             </Field>
           </FieldSet>
+          <SeoSettings value={seo} onChange={setSeo} previewFallback={{ title: form.name, url: `${typeof window !== "undefined" ? window.location.origin : ""}/subcategory/${form.slug || slugify(form.name)}` }} />
         </div>
         <aside className="space-y-6">
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+
             {error && <div className="mb-3 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>}
             <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-600">Publish</h3>
             <div className="flex items-center gap-2">

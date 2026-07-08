@@ -4,14 +4,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { DataTable, type Column } from "@/components/admin/data-table";
-import { Field, TextInput, TextArea, FieldSet } from "@/components/admin/form-fields";
+import { Field, TextInput, TextArea } from "@/components/admin/form-fields";
 import { Pencil, Trash2, Plus, X, Check } from "lucide-react";
+import { SeoSettings, emptySeo, fromRow, toPayload, autofillSeo, type SeoValues } from "@/components/admin/seo-settings";
 
 export const Route = createFileRoute("/admin/pages")({ component: PagesPage });
 
-type Page = { id: string; title: string; slug: string; content: string | null; meta_title: string | null; meta_description: string | null; published: boolean };
+type Page = { id: string; title: string; slug: string; content: string | null; meta_title: string | null; meta_description: string | null; published: boolean; seo_title: string | null; seo_description: string | null; seo_canonical_url: string | null; seo_robots: string | null; seo_og_image: string | null };
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-const empty = { title: "", slug: "", content: "", meta_title: "", meta_description: "", published: true };
+const empty = { title: "", slug: "", content: "", published: true };
+
 
 function PagesPage() {
   const qc = useQueryClient();
@@ -26,19 +28,35 @@ function PagesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Page | null>(null);
   const [form, setForm] = useState(empty);
+  const [seo, setSeo] = useState<SeoValues>(emptySeo);
 
-  const startNew = () => { setEditing(null); setForm(empty); setOpen(true); };
-  const startEdit = (r: Page) => { setEditing(r); setForm({ title: r.title, slug: r.slug, content: r.content ?? "", meta_title: r.meta_title ?? "", meta_description: r.meta_description ?? "", published: r.published }); setOpen(true); };
+  const startNew = () => { setEditing(null); setForm(empty); setSeo(emptySeo); setOpen(true); };
+  const startEdit = (r: Page) => {
+    setEditing(r);
+    setForm({ title: r.title, slug: r.slug, content: r.content ?? "", published: r.published });
+    // Fall back to legacy meta_title/meta_description so old records show in the SEO panel.
+    setSeo(fromRow({
+      seo_title: r.seo_title ?? r.meta_title ?? null,
+      seo_description: r.seo_description ?? r.meta_description ?? null,
+      seo_canonical_url: r.seo_canonical_url,
+      seo_robots: r.seo_robots,
+      seo_og_image: r.seo_og_image,
+    }));
+    setOpen(true);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title) return;
-    const payload = { ...form, slug: form.slug || slugify(form.title) };
+    const slug = form.slug || slugify(form.title);
+    const seoFilled = autofillSeo(seo, { name: form.title, description: form.content, slug, pathPrefix: "" });
+    const payload = { ...form, slug, ...toPayload(seoFilled) };
     if (editing) await sb.from("pages").update(payload).eq("id", editing.id);
     else await sb.from("pages").insert(payload);
     qc.invalidateQueries({ queryKey: ["admin-pages"] });
     setOpen(false);
   };
+
   const onDelete = async (id: string) => {
     if (!confirm("Delete this page?")) return;
     await sb.from("pages").delete().eq("id", id);
@@ -79,10 +97,12 @@ function PagesPage() {
               <Field label="Title" required><TextInput value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value, slug: form.slug || slugify(e.target.value) })} required /></Field>
               <Field label="Slug"><TextInput value={form.slug} onChange={(e) => setForm({ ...form, slug: slugify(e.target.value) })} /></Field>
               <Field label="Content"><TextArea rows={8} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} /></Field>
-              <FieldSet title="SEO">
-                <Field label="Meta Title"><TextInput value={form.meta_title} onChange={(e) => setForm({ ...form, meta_title: e.target.value })} /></Field>
-                <Field label="Meta Description"><TextArea value={form.meta_description} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} /></Field>
-              </FieldSet>
+              <SeoSettings
+                value={seo}
+                onChange={setSeo}
+                previewFallback={{ title: form.title, description: form.content, url: `${typeof window !== "undefined" ? window.location.origin : ""}/${form.slug || slugify(form.title)}` }}
+              />
+
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" checked={form.published} onChange={(e) => setForm({ ...form, published: e.target.checked })} className="h-4 w-4 rounded border-slate-300" />
                 Published

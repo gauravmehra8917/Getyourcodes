@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { Field, TextInput, TextArea, SelectInput as Select } from "@/components/admin/form-fields";
+import { SeoSettings, fromRow, toPayload, autofillSeo, type SeoValues } from "@/components/admin/seo-settings";
+
 
 type PostRow = {
   id?: string;
@@ -30,6 +32,13 @@ const blank: PostRow = {
 export function PostForm({ initial, onSaved }: { initial?: PostRow; onSaved: () => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState<PostRow>(initial ?? blank);
+  const [seo, setSeo] = useState<SeoValues>(fromRow({
+    seo_title: initial?.seo_title ?? null,
+    seo_description: initial?.seo_description ?? null,
+    seo_canonical_url: (initial as unknown as { seo_canonical_url?: string | null })?.seo_canonical_url ?? null,
+    seo_robots: (initial as unknown as { seo_robots?: string | null })?.seo_robots ?? null,
+    seo_og_image: (initial as unknown as { seo_og_image?: string | null })?.seo_og_image ?? null,
+  }));
   const [saving, setSaving] = useState(false);
 
   const { data: cats = [] } = useQuery({
@@ -47,16 +56,17 @@ export function PostForm({ initial, onSaved }: { initial?: PostRow; onSaved: () 
     if (saving) return;
     setSaving(true);
     const status = publish ? "published" : form.status;
+    const slug = form.slug || slugify(form.title);
+    const seoFilled = autofillSeo(seo, { name: form.title, description: form.excerpt, slug, pathPrefix: "/blog" });
     const payload = {
       title: form.title,
-      slug: form.slug || slugify(form.title),
+      slug,
       excerpt: form.excerpt || null,
       body: form.body,
       cover_image: form.cover_image || null,
       category_id: form.category_id || null,
       status,
-      seo_title: form.seo_title || null,
-      seo_description: form.seo_description || null,
+      ...toPayload(seoFilled),
       published_at: status === "published" ? (form.published_at ?? new Date().toISOString()) : form.published_at,
     };
     const { data: { user } } = await sb.auth.getUser();
@@ -66,6 +76,7 @@ export function PostForm({ initial, onSaved }: { initial?: PostRow; onSaved: () 
     setSaving(false);
     onSaved();
   };
+
 
   return (
     <form onSubmit={submit} className="space-y-5">
@@ -101,11 +112,16 @@ export function PostForm({ initial, onSaved }: { initial?: PostRow; onSaved: () 
             </Field>
             <Field label="Cover image URL"><TextInput value={form.cover_image ?? ""} onChange={(e) => set("cover_image", e.target.value)} placeholder="https://…" /></Field>
           </div>
-          <div className="rounded-md border border-slate-200 bg-white p-5 space-y-4">
-            <h4 className="text-sm font-semibold text-slate-700">SEO</h4>
-            <Field label="SEO Title"><TextInput value={form.seo_title ?? ""} onChange={(e) => set("seo_title", e.target.value)} /></Field>
-            <Field label="SEO Description"><TextArea value={form.seo_description ?? ""} onChange={(e) => set("seo_description", e.target.value)} rows={3} /></Field>
-          </div>
+          <SeoSettings
+            value={seo}
+            onChange={setSeo}
+            previewFallback={{
+              title: form.title,
+              description: form.excerpt ?? "",
+              url: `${typeof window !== "undefined" ? window.location.origin : ""}/blog/${form.slug || slugify(form.title)}`,
+            }}
+          />
+
         </div>
       </div>
     </form>
