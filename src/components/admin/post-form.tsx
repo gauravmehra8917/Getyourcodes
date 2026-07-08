@@ -112,11 +112,16 @@ export function PostForm({ initial, onSaved }: { initial?: PostRow; onSaved: () 
             </Field>
             <Field label="Cover image URL"><TextInput value={form.cover_image ?? ""} onChange={(e) => set("cover_image", e.target.value)} placeholder="https://…" /></Field>
           </div>
-          <div className="rounded-md border border-slate-200 bg-white p-5 space-y-4">
-            <h4 className="text-sm font-semibold text-slate-700">SEO</h4>
-            <Field label="SEO Title"><TextInput value={form.seo_title ?? ""} onChange={(e) => set("seo_title", e.target.value)} /></Field>
-            <Field label="SEO Description"><TextArea value={form.seo_description ?? ""} onChange={(e) => set("seo_description", e.target.value)} rows={3} /></Field>
-          </div>
+          <SeoSettings
+            value={seo}
+            onChange={setSeo}
+            previewFallback={{
+              title: form.title,
+              description: form.excerpt ?? "",
+              url: `${typeof window !== "undefined" ? window.location.origin : ""}/blog/${form.slug || slugify(form.title)}`,
+            }}
+          />
+
         </div>
       </div>
     </form>
