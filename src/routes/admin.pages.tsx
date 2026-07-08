@@ -28,19 +28,35 @@ function PagesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Page | null>(null);
   const [form, setForm] = useState(empty);
+  const [seo, setSeo] = useState<SeoValues>(emptySeo);
 
-  const startNew = () => { setEditing(null); setForm(empty); setOpen(true); };
-  const startEdit = (r: Page) => { setEditing(r); setForm({ title: r.title, slug: r.slug, content: r.content ?? "", meta_title: r.meta_title ?? "", meta_description: r.meta_description ?? "", published: r.published }); setOpen(true); };
+  const startNew = () => { setEditing(null); setForm(empty); setSeo(emptySeo); setOpen(true); };
+  const startEdit = (r: Page) => {
+    setEditing(r);
+    setForm({ title: r.title, slug: r.slug, content: r.content ?? "", published: r.published });
+    // Fall back to legacy meta_title/meta_description so old records show in the SEO panel.
+    setSeo(fromRow({
+      seo_title: r.seo_title ?? r.meta_title ?? null,
+      seo_description: r.seo_description ?? r.meta_description ?? null,
+      seo_canonical_url: r.seo_canonical_url,
+      seo_robots: r.seo_robots,
+      seo_og_image: r.seo_og_image,
+    }));
+    setOpen(true);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title) return;
-    const payload = { ...form, slug: form.slug || slugify(form.title) };
+    const slug = form.slug || slugify(form.title);
+    const seoFilled = autofillSeo(seo, { name: form.title, description: form.content, slug, pathPrefix: "" });
+    const payload = { ...form, slug, ...toPayload(seoFilled) };
     if (editing) await sb.from("pages").update(payload).eq("id", editing.id);
     else await sb.from("pages").insert(payload);
     qc.invalidateQueries({ queryKey: ["admin-pages"] });
     setOpen(false);
   };
+
   const onDelete = async (id: string) => {
     if (!confirm("Delete this page?")) return;
     await sb.from("pages").delete().eq("id", id);
