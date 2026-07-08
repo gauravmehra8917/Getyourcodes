@@ -29,16 +29,19 @@ function CategoriesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState({ name: "", slug: "" });
+  const [seo, setSeo] = useState<SeoValues>(emptySeo);
   const [error, setError] = useState<string | null>(null);
 
-  const startNew = () => { setEditing(null); setForm({ name: "", slug: "" }); setError(null); setOpen(true); };
-  const startEdit = (c: Category) => { setEditing(c); setForm({ name: c.name, slug: c.slug }); setError(null); setOpen(true); };
+  const startNew = () => { setEditing(null); setForm({ name: "", slug: "" }); setSeo(emptySeo); setError(null); setOpen(true); };
+  const startEdit = (c: Category) => { setEditing(c); setForm({ name: c.name, slug: c.slug }); setSeo(fromRow(c as unknown as Record<string, string | null>)); setError(null); setOpen(true); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!form.name) { setError("Name is required"); return; }
-    const payload = { name: form.name, slug: form.slug || slugify(form.name) };
+    const slug = form.slug || slugify(form.name);
+    const seoFilled = autofillSeo(seo, { name: form.name, slug, pathPrefix: "/category" });
+    const payload = { name: form.name, slug, ...toPayload(seoFilled) };
     const { error: err } = editing
       ? await sb.from("categories").update(payload).eq("id", editing.id)
       : await sb.from("categories").insert(payload);
@@ -46,6 +49,7 @@ function CategoriesPage() {
     qc.invalidateQueries({ queryKey: ["admin-categories"] });
     setOpen(false);
   };
+
 
   const onDelete = async (id: string) => {
     if (!confirm("Delete this category?")) return;
