@@ -89,8 +89,8 @@ function CategoriesPage() {
       <DataTable rows={rows} columns={cols} />
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-md rounded-md bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4" onClick={() => setOpen(false)}>
+          <div className="my-8 w-full max-w-xl rounded-md bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
               <h3 className="font-semibold text-slate-800">{editing ? "Edit Category" : "New Category"}</h3>
               <button onClick={() => setOpen(false)} className="rounded p-1 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button>
@@ -103,6 +103,11 @@ function CategoriesPage() {
               <Field label="Slug">
                 <TextInput value={form.slug} onChange={(e) => setForm({ ...form, slug: slugify(e.target.value) })} />
               </Field>
+              <SeoSettings
+                value={seo}
+                onChange={setSeo}
+                previewFallback={{ title: form.name, url: `${window.location.origin}/category/${form.slug || slugify(form.name)}` }}
+              />
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Cancel</button>
                 <button type="submit" className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
@@ -112,6 +117,7 @@ function CategoriesPage() {
             </form>
           </div>
         </div>
+
       )}
     </div>
   );
