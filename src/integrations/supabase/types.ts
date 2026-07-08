@@ -112,18 +112,33 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          seo_canonical_url: string | null
+          seo_description: string | null
+          seo_og_image: string | null
+          seo_robots: string
+          seo_title: string | null
           slug: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          seo_canonical_url?: string | null
+          seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
+          seo_title?: string | null
           slug: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          seo_canonical_url?: string | null
+          seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
+          seo_title?: string | null
           slug?: string
         }
         Relationships: []
@@ -344,6 +359,11 @@ export type Database = {
           meta_description: string | null
           meta_title: string | null
           published: boolean
+          seo_canonical_url: string | null
+          seo_description: string | null
+          seo_og_image: string | null
+          seo_robots: string
+          seo_title: string | null
           slug: string
           title: string
           updated_at: string
@@ -355,6 +375,11 @@ export type Database = {
           meta_description?: string | null
           meta_title?: string | null
           published?: boolean
+          seo_canonical_url?: string | null
+          seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
+          seo_title?: string | null
           slug: string
           title: string
           updated_at?: string
@@ -366,6 +391,11 @@ export type Database = {
           meta_description?: string | null
           meta_title?: string | null
           published?: boolean
+          seo_canonical_url?: string | null
+          seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
+          seo_title?: string | null
           slug?: string
           title?: string
           updated_at?: string
@@ -423,7 +453,10 @@ export type Database = {
           excerpt: string | null
           id: string
           published_at: string | null
+          seo_canonical_url: string | null
           seo_description: string | null
+          seo_og_image: string | null
+          seo_robots: string
           seo_title: string | null
           slug: string
           status: string
@@ -439,7 +472,10 @@ export type Database = {
           excerpt?: string | null
           id?: string
           published_at?: string | null
+          seo_canonical_url?: string | null
           seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
           seo_title?: string | null
           slug: string
           status?: string
@@ -455,7 +491,10 @@ export type Database = {
           excerpt?: string | null
           id?: string
           published_at?: string | null
+          seo_canonical_url?: string | null
           seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
           seo_title?: string | null
           slug?: string
           status?: string
@@ -677,6 +716,11 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          seo_canonical_url: string | null
+          seo_description: string | null
+          seo_og_image: string | null
+          seo_robots: string
+          seo_title: string | null
           slug: string
         }
         Insert: {
@@ -688,6 +732,11 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          seo_canonical_url?: string | null
+          seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
+          seo_title?: string | null
           slug: string
         }
         Update: {
@@ -699,6 +748,11 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          seo_canonical_url?: string | null
+          seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
+          seo_title?: string | null
           slug?: string
         }
         Relationships: [
@@ -717,6 +771,11 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          seo_canonical_url: string | null
+          seo_description: string | null
+          seo_og_image: string | null
+          seo_robots: string
+          seo_title: string | null
           slug: string
           updated_at: string
         }
@@ -725,6 +784,11 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          seo_canonical_url?: string | null
+          seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
+          seo_title?: string | null
           slug: string
           updated_at?: string
         }
@@ -733,6 +797,11 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          seo_canonical_url?: string | null
+          seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
+          seo_title?: string | null
           slug?: string
           updated_at?: string
         }
