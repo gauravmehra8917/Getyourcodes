@@ -4,14 +4,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { DataTable, type Column } from "@/components/admin/data-table";
-import { Field, TextInput, TextArea, FieldSet } from "@/components/admin/form-fields";
+import { Field, TextInput, TextArea } from "@/components/admin/form-fields";
 import { Pencil, Trash2, Plus, X, Check } from "lucide-react";
+import { SeoSettings, emptySeo, fromRow, toPayload, autofillSeo, type SeoValues } from "@/components/admin/seo-settings";
 
 export const Route = createFileRoute("/admin/pages")({ component: PagesPage });
 
-type Page = { id: string; title: string; slug: string; content: string | null; meta_title: string | null; meta_description: string | null; published: boolean };
+type Page = { id: string; title: string; slug: string; content: string | null; meta_title: string | null; meta_description: string | null; published: boolean; seo_title: string | null; seo_description: string | null; seo_canonical_url: string | null; seo_robots: string | null; seo_og_image: string | null };
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-const empty = { title: "", slug: "", content: "", meta_title: "", meta_description: "", published: true };
+const empty = { title: "", slug: "", content: "", published: true };
+
 
 function PagesPage() {
   const qc = useQueryClient();
