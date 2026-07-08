@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { Field, TextInput, TextArea, SelectInput, FieldSet } from "@/components/admin/form-fields";
+import { SeoSettings, emptySeo, fromRow, toPayload, autofillSeo, type SeoValues } from "@/components/admin/seo-settings";
+
 
 export const Route = createFileRoute("/admin/coupons/$id")({
   component: () => <CouponForm mode="edit" />,
