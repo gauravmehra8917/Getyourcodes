@@ -36,7 +36,7 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const staticEntries: Entry[] = Object.values(STATIC_SLUG_TO_PATH).map(
+        const entries: Entry[] = Object.values(STATIC_SLUG_TO_PATH).map(
           (path) => ({ path }),
         );
 
@@ -65,7 +65,7 @@ export const Route = createFileRoute("/sitemap.xml")({
             if (!path) return;
             const lastmod = isValidLastmod(p.updated_at);
             if (!lastmod) return;
-            const entry = staticEntries.find((e) => e.path === path);
+            const entry = entries.find((e) => e.path === path);
             if (entry) entry.lastmod = lastmod;
           });
 
