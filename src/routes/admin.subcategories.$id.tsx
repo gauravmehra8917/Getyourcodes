@@ -28,13 +28,17 @@ export function SubcategoryForm({ mode }: { mode: "new" | "edit" }) {
   });
 
   const [form, setForm] = useState({ name: "", slug: "", category_id: "" });
+  const [seo, setSeo] = useState<SeoValues>(emptySeo);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (mode !== "edit" || !id) return;
-    sb.from("subcategories").select("*").eq("id", id).maybeSingle().then(({ data }: { data: { name: string; slug: string; category_id: string } | null }) => {
-      if (data) setForm({ name: data.name ?? "", slug: data.slug ?? "", category_id: data.category_id ?? "" });
+    sb.from("subcategories").select("*").eq("id", id).maybeSingle().then(({ data }: { data: Record<string, string | null> | null }) => {
+      if (data) {
+        setForm({ name: (data.name as string) ?? "", slug: (data.slug as string) ?? "", category_id: (data.category_id as string) ?? "" });
+        setSeo(fromRow(data));
+      }
     });
   }, [id, mode]);
 
@@ -50,7 +54,9 @@ export function SubcategoryForm({ mode }: { mode: "new" | "edit" }) {
     if (!form.name) { setError("Name is required"); return; }
     if (!form.category_id) { setError("Parent category is required"); return; }
     setBusy(true);
-    const payload = { name: form.name, slug: form.slug || slugify(form.name), category_id: form.category_id };
+    const slug = form.slug || slugify(form.name);
+    const seoFilled = autofillSeo(seo, { name: form.name, slug, pathPrefix: "/subcategory" });
+    const payload = { name: form.name, slug, category_id: form.category_id, ...toPayload(seoFilled) };
     const { error: err } = mode === "edit" && id
       ? await sb.from("subcategories").update(payload).eq("id", id)
       : await sb.from("subcategories").insert(payload);
@@ -58,6 +64,7 @@ export function SubcategoryForm({ mode }: { mode: "new" | "edit" }) {
     if (err) { setError(err.message); return; }
     navigate({ to: "/admin/subcategories" });
   };
+
 
   return (
     <div>
