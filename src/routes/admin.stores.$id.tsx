@@ -37,23 +37,28 @@ export function StoreForm({ mode }: { mode: "new" | "edit" }) {
     featured: false,
     category_id: "" as string,
   });
+  const [seo, setSeo] = useState<SeoValues>(emptySeo);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (mode !== "edit" || !id) return;
-    sb.from("stores").select("*").eq("id", id).maybeSingle().then(({ data }: { data: typeof form | null }) => {
-      if (data) setForm({
-        name: data.name ?? "",
-        slug: data.slug ?? "",
-        description: data.description ?? "",
-        logo_url: data.logo_url ?? "",
-        affiliate_url: data.affiliate_url ?? "",
-        featured: Boolean(data.featured),
-        category_id: data.category_id ?? "",
-      });
+    sb.from("stores").select("*").eq("id", id).maybeSingle().then(({ data }: { data: Record<string, unknown> | null }) => {
+      if (data) {
+        setForm({
+          name: (data.name as string) ?? "",
+          slug: (data.slug as string) ?? "",
+          description: (data.description as string) ?? "",
+          logo_url: (data.logo_url as string) ?? "",
+          affiliate_url: (data.affiliate_url as string) ?? "",
+          featured: Boolean(data.featured),
+          category_id: (data.category_id as string) ?? "",
+        });
+        setSeo(fromRow(data as Record<string, string | null>));
+      }
     });
   }, [id, mode]);
+
 
   const onFile = async (file: File) => {
     setUploading(true);
