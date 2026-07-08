@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/admin/page-header";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { Field, TextInput } from "@/components/admin/form-fields";
 import { Pencil, Trash2, Plus, X } from "lucide-react";
+import { SeoSettings, emptySeo, fromRow, toPayload, autofillSeo, type SeoValues } from "@/components/admin/seo-settings";
+
 
 export const Route = createFileRoute("/admin/categories")({
   component: CategoriesPage,
