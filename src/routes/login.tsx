@@ -3,7 +3,13 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Admin login — SaveHub" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin login — SaveHub" },
+      { name: "description", content: "Sign in to manage stores, coupons & categories. Admin accounts are provisioned by invitation only." },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
   component: LoginPage,
 });
 
