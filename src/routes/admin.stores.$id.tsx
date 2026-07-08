@@ -86,14 +86,18 @@ export function StoreForm({ mode }: { mode: "new" | "edit" }) {
     setError(null);
     if (!form.name) { setError("Name is required"); return; }
     setBusy(true);
+    const slug = form.slug || slugify(form.name);
+    const seoFilled = autofillSeo(seo, { name: form.name, description: form.description, slug, pathPrefix: "" });
     const payload = {
       ...form,
-      slug: form.slug || slugify(form.name),
+      slug,
       description: form.description || null,
       logo_url: form.logo_url || null,
       affiliate_url: form.affiliate_url || null,
       category_id: form.category_id || null,
+      ...toPayload(seoFilled),
     };
+
     const { error: err } = mode === "edit" && id
       ? await sb.from("stores").update(payload).eq("id", id)
       : await sb.from("stores").insert(payload);
