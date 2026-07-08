@@ -67,6 +67,7 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
     setError(null);
     if (!form.store_id || !form.title) { setError("Store and title are required"); return; }
     setBusy(true);
+    const seoFilled = autofillSeo(seo, { name: form.title, description: form.description });
     const payload = {
       ...form,
       expiry_date: form.expiry_date || null,
@@ -74,7 +75,9 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
       affiliate_url: form.affiliate_url || null,
       description: form.description || null,
       terms: form.terms || null,
+      ...toPayload(seoFilled),
     };
+
     const { error: err } = mode === "edit" && id
       ? await sb.from("coupons").update(payload).eq("id", id)
       : await sb.from("coupons").insert(payload);
