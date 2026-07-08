@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { Field, TextInput, TextArea, SelectInput as Select } from "@/components/admin/form-fields";
+import { SeoSettings, fromRow, toPayload, autofillSeo, type SeoValues } from "@/components/admin/seo-settings";
+
 
 type PostRow = {
   id?: string;
