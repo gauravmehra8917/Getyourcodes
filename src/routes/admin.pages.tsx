@@ -97,10 +97,12 @@ function PagesPage() {
               <Field label="Title" required><TextInput value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value, slug: form.slug || slugify(e.target.value) })} required /></Field>
               <Field label="Slug"><TextInput value={form.slug} onChange={(e) => setForm({ ...form, slug: slugify(e.target.value) })} /></Field>
               <Field label="Content"><TextArea rows={8} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} /></Field>
-              <FieldSet title="SEO">
-                <Field label="Meta Title"><TextInput value={form.meta_title} onChange={(e) => setForm({ ...form, meta_title: e.target.value })} /></Field>
-                <Field label="Meta Description"><TextArea value={form.meta_description} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} /></Field>
-              </FieldSet>
+              <SeoSettings
+                value={seo}
+                onChange={setSeo}
+                previewFallback={{ title: form.title, description: form.content, url: `${typeof window !== "undefined" ? window.location.origin : ""}/${form.slug || slugify(form.title)}` }}
+              />
+
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" checked={form.published} onChange={(e) => setForm({ ...form, published: e.target.checked })} className="h-4 w-4 rounded border-slate-300" />
                 Published
