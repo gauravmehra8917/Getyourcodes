@@ -36,25 +36,30 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
     terms: "",
     featured_in_banner: false,
   });
+  const [seo, setSeo] = useState<SeoValues>(emptySeo);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (mode !== "edit" || !id) return;
-    sb.from("coupons").select("*").eq("id", id).maybeSingle().then(({ data }: { data: typeof form | null }) => {
-      if (data) setForm({
-        store_id: data.store_id ?? "",
-        title: data.title ?? "",
-        description: data.description ?? "",
-        coupon_code: data.coupon_code ?? "",
-        coupon_type: (data.coupon_type as "deal" | "code") ?? "deal",
-        affiliate_url: data.affiliate_url ?? "",
-        expiry_date: data.expiry_date ? String(data.expiry_date).slice(0, 10) : "",
-        status: (data.status as typeof form.status) ?? "active",
-        terms: data.terms ?? "",
-        featured_in_banner: Boolean(data.featured_in_banner),
-      });
+    sb.from("coupons").select("*").eq("id", id).maybeSingle().then(({ data }: { data: Record<string, unknown> | null }) => {
+      if (data) {
+        setForm({
+          store_id: (data.store_id as string) ?? "",
+          title: (data.title as string) ?? "",
+          description: (data.description as string) ?? "",
+          coupon_code: (data.coupon_code as string) ?? "",
+          coupon_type: ((data.coupon_type as "deal" | "code") ?? "deal"),
+          affiliate_url: (data.affiliate_url as string) ?? "",
+          expiry_date: data.expiry_date ? String(data.expiry_date).slice(0, 10) : "",
+          status: ((data.status as typeof form.status) ?? "active"),
+          terms: (data.terms as string) ?? "",
+          featured_in_banner: Boolean(data.featured_in_banner),
+        });
+        setSeo(fromRow(data as Record<string, string | null>));
+      }
     });
   }, [id, mode]);
+
 
   const [error, setError] = useState<string | null>(null);
   const submit = async (e: React.FormEvent) => {
