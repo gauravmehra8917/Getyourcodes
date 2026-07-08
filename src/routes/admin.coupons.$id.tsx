@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { Field, TextInput, TextArea, SelectInput, FieldSet } from "@/components/admin/form-fields";
+import { SeoSettings, emptySeo, fromRow, toPayload, autofillSeo, type SeoValues } from "@/components/admin/seo-settings";
+
 
 export const Route = createFileRoute("/admin/coupons/$id")({
   component: () => <CouponForm mode="edit" />,
@@ -34,25 +36,30 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
     terms: "",
     featured_in_banner: false,
   });
+  const [seo, setSeo] = useState<SeoValues>(emptySeo);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (mode !== "edit" || !id) return;
-    sb.from("coupons").select("*").eq("id", id).maybeSingle().then(({ data }: { data: typeof form | null }) => {
-      if (data) setForm({
-        store_id: data.store_id ?? "",
-        title: data.title ?? "",
-        description: data.description ?? "",
-        coupon_code: data.coupon_code ?? "",
-        coupon_type: (data.coupon_type as "deal" | "code") ?? "deal",
-        affiliate_url: data.affiliate_url ?? "",
-        expiry_date: data.expiry_date ? String(data.expiry_date).slice(0, 10) : "",
-        status: (data.status as typeof form.status) ?? "active",
-        terms: data.terms ?? "",
-        featured_in_banner: Boolean(data.featured_in_banner),
-      });
+    sb.from("coupons").select("*").eq("id", id).maybeSingle().then(({ data }: { data: Record<string, unknown> | null }) => {
+      if (data) {
+        setForm({
+          store_id: (data.store_id as string) ?? "",
+          title: (data.title as string) ?? "",
+          description: (data.description as string) ?? "",
+          coupon_code: (data.coupon_code as string) ?? "",
+          coupon_type: ((data.coupon_type as "deal" | "code") ?? "deal"),
+          affiliate_url: (data.affiliate_url as string) ?? "",
+          expiry_date: data.expiry_date ? String(data.expiry_date).slice(0, 10) : "",
+          status: ((data.status as typeof form.status) ?? "active"),
+          terms: (data.terms as string) ?? "",
+          featured_in_banner: Boolean(data.featured_in_banner),
+        });
+        setSeo(fromRow(data as Record<string, string | null>));
+      }
     });
   }, [id, mode]);
+
 
   const [error, setError] = useState<string | null>(null);
   const submit = async (e: React.FormEvent) => {
@@ -60,6 +67,7 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
     setError(null);
     if (!form.store_id || !form.title) { setError("Store and title are required"); return; }
     setBusy(true);
+    const seoFilled = autofillSeo(seo, { name: form.title, description: form.description });
     const payload = {
       ...form,
       expiry_date: form.expiry_date || null,
@@ -67,7 +75,9 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
       affiliate_url: form.affiliate_url || null,
       description: form.description || null,
       terms: form.terms || null,
+      ...toPayload(seoFilled),
     };
+
     const { error: err } = mode === "edit" && id
       ? await sb.from("coupons").update(payload).eq("id", id)
       : await sb.from("coupons").insert(payload);
@@ -118,7 +128,17 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
               <TextArea value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} />
             </Field>
           </FieldSet>
+          <SeoSettings
+            value={seo}
+            onChange={setSeo}
+            previewFallback={{
+              title: form.title,
+              description: form.description,
+              url: `${typeof window !== "undefined" ? window.location.origin : ""}/coupons/${id ?? ""}`,
+            }}
+          />
         </div>
+
 
         <aside className="space-y-6">
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">

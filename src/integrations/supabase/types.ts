@@ -209,6 +209,11 @@ export type Database = {
           expiry_date: string | null
           featured_in_banner: boolean
           id: string
+          seo_canonical_url: string | null
+          seo_description: string | null
+          seo_og_image: string | null
+          seo_robots: string
+          seo_title: string | null
           status: Database["public"]["Enums"]["coupon_status"]
           store_id: string
           terms: string | null
@@ -223,6 +228,11 @@ export type Database = {
           expiry_date?: string | null
           featured_in_banner?: boolean
           id?: string
+          seo_canonical_url?: string | null
+          seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
+          seo_title?: string | null
           status?: Database["public"]["Enums"]["coupon_status"]
           store_id: string
           terms?: string | null
@@ -237,6 +247,11 @@ export type Database = {
           expiry_date?: string | null
           featured_in_banner?: boolean
           id?: string
+          seo_canonical_url?: string | null
+          seo_description?: string | null
+          seo_og_image?: string | null
+          seo_robots?: string
+          seo_title?: string | null
           status?: Database["public"]["Enums"]["coupon_status"]
           store_id?: string
           terms?: string | null
