@@ -137,8 +137,20 @@ export function StoreForm({ mode }: { mode: "new" | "edit" }) {
           </FieldSet>
         </div>
 
+          <SeoSettings
+            value={seo}
+            onChange={setSeo}
+            previewFallback={{
+              title: form.name,
+              description: form.description,
+              url: `${typeof window !== "undefined" ? window.location.origin : ""}/${form.slug || slugify(form.name)}`,
+            }}
+          />
+        </div>
+
         <aside className="space-y-6">
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+
             <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-600">Logo</h3>
             <div className="flex items-center gap-3">
               {form.logo_url ? (
