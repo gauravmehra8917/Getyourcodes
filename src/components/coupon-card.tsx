@@ -31,7 +31,7 @@ export function CouponCard({ coupon, store }: Props) {
     <>
       <article className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition hover:border-primary/30 hover:shadow-sm sm:p-5">
         {store?.logo_url ? (
-          <img src={store.logo_url} alt={`${store.name} logo`} width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded-xl border border-border bg-background object-contain p-1.5" />
+          <img src={store.logo_url} alt={`${store.name} official store logo`} width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded-xl border border-border bg-background object-contain p-1.5" />
         ) : (
           <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
             <Tag className="h-6 w-6" />

@@ -91,10 +91,10 @@ export function GlobalDealsBanner() {
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="mb-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-card px-3 py-1 text-xs font-semibold text-primary">
+            <h2 className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-card px-3 py-1 text-xs font-semibold text-primary">
               <Globe2 className="h-3.5 w-3.5" />
               Best deals across the globe
-            </span>
+            </h2>
             <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
               <Sparkles className="h-3 w-3" /> {total} live offers
             </span>
@@ -166,7 +166,7 @@ function DealTile({ deal }: { deal: DealRow }) {
       <div className="flex items-center gap-3">
         <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-secondary">
           {store?.logo_url ? (
-            <img src={store.logo_url} alt={store.name} width={44} height={44} loading="lazy" decoding="async" className="h-full w-full object-contain" />
+            <img src={store.logo_url} alt={`${store.name} logo and coupon deals`} width={44} height={44} loading="lazy" decoding="async" className="h-full w-full object-contain" />
           ) : (
             <span className="text-sm font-bold text-muted-foreground">
               {(store?.name ?? "?").charAt(0)}
