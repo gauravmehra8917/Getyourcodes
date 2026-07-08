@@ -13,7 +13,7 @@ export const Route = createFileRoute("/unsubscribe")({
   head: () => ({
     meta: [
       { title: "Unsubscribe — SaveHub" },
-      { name: "description", content: "Unsubscribe from SaveHub newsletter." },
+      { name: "description", content: "Unsubscribe from the SaveHub newsletter to stop receiving verified coupon codes and daily deal alerts." },
       { name: "robots", content: "noindex, nofollow" },
     ],
     links: [{ rel: "canonical", href: "https://getyourcodes.com/unsubscribe" }],
