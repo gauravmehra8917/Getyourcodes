@@ -128,7 +128,17 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
               <TextArea value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} />
             </Field>
           </FieldSet>
+          <SeoSettings
+            value={seo}
+            onChange={setSeo}
+            previewFallback={{
+              title: form.title,
+              description: form.description,
+              url: `${typeof window !== "undefined" ? window.location.origin : ""}/coupons/${id ?? ""}`,
+            }}
+          />
         </div>
+
 
         <aside className="space-y-6">
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
