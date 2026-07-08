@@ -135,8 +135,6 @@ export function StoreForm({ mode }: { mode: "new" | "edit" }) {
               </SelectInput>
             </Field>
           </FieldSet>
-        </div>
-
           <SeoSettings
             value={seo}
             onChange={setSeo}
@@ -147,6 +145,7 @@ export function StoreForm({ mode }: { mode: "new" | "edit" }) {
             }}
           />
         </div>
+
 
         <aside className="space-y-6">
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
