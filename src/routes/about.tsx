@@ -4,9 +4,9 @@ import { BadgeCheck, Sparkles, Users, ShieldCheck, Tag, HeartHandshake } from "l
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About Us — SaveHub" },
-      { name: "description", content: "SaveHub helps shoppers save more with hand-picked, verified coupons and deals from trusted brands worldwide." },
-      { property: "og:title", content: "About SaveHub" },
+      { title: "About Us — Getyourcodes" },
+      { name: "description", content: "Getyourcodes helps shoppers save more with hand-picked, verified coupons and deals from trusted brands worldwide." },
+      { property: "og:title", content: "About Getyourcodes" },
       { property: "og:description", content: "Hand-picked, verified coupons and deals from trusted brands worldwide." },
       { property: "og:url", content: "https://getyourcodes.com/about" },
     ],
@@ -41,11 +41,11 @@ function AboutPage() {
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
       <section className="text-center">
         <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
-          <Sparkles className="h-3.5 w-3.5" /> About SaveHub
+          <Sparkles className="h-3.5 w-3.5" /> About Getyourcodes
         </span>
         <h1 className="mt-4 font-display text-4xl font-bold sm:text-5xl">Smarter savings, every single day.</h1>
         <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-          SaveHub is a destination for savvy shoppers — a curated home for verified coupons, promo codes,
+          Getyourcodes is a destination for savvy shoppers — a curated home for verified coupons, promo codes,
           and deals from the brands you love. Our mission is simple: help you never pay full price again.
         </p>
       </section>
@@ -67,7 +67,7 @@ function AboutPage() {
           We surface the deals worth your time, across fashion, food, electronics, travel and more.
         </Feature>
         <Feature icon={HeartHandshake} title="Built for shoppers">
-          Save favorites, get the freshest drops first, and shop with confidence — SaveHub is on your side.
+          Save favorites, get the freshest drops first, and shop with confidence — Getyourcodes is on your side.
         </Feature>
       </section>
 
@@ -79,7 +79,7 @@ function AboutPage() {
           <div>
             <h2 className="font-display text-2xl font-semibold">Our story</h2>
             <p className="mt-3 text-muted-foreground">
-              SaveHub started with a small team obsessed with finding the best deals on the internet — and frustrated
+              Getyourcodes started with a small team obsessed with finding the best deals on the internet — and frustrated
               by sites cluttered with expired codes. We built the experience we wanted: clean, fast, honest, and free.
               Today, shoppers from around the world rely on us to stretch their budgets a little further.
             </p>

@@ -5,9 +5,9 @@ import { sb } from "@/lib/db";
 export const Route = createFileRoute("/blog")({
   head: () => ({
     meta: [
-      { title: "Deals Blog — SaveHub" },
-      { name: "description", content: "Money-saving guides, deal alerts, and brand-by-brand promo breakdowns from SaveHub." },
-      { property: "og:title", content: "Deals Blog — SaveHub" },
+      { title: "Deals Blog — Getyourcodes" },
+      { name: "description", content: "Money-saving guides, deal alerts, and brand-by-brand promo breakdowns from Getyourcodes." },
+      { property: "og:title", content: "Deals Blog — Getyourcodes" },
       { property: "og:description", content: "Guides and stories about saving money on the brands you love." },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://getyourcodes.com/blog" },
@@ -36,7 +36,7 @@ function BlogIndex() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
       <header className="mb-12 text-center">
-        <h1 className="font-display text-4xl font-bold sm:text-5xl">The SaveHub Blog</h1>
+        <h1 className="font-display text-4xl font-bold sm:text-5xl">The Getyourcodes Blog</h1>
         <p className="mx-auto mt-3 max-w-xl text-muted-foreground">Buying guides, deal alerts, and money-saving stories.</p>
       </header>
       {posts.length === 0 ? (

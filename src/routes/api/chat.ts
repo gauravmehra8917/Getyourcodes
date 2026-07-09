@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 
-const SYSTEM_PROMPT = `You are Dealio, an AI Deal Discovery Assistant for the SaveHub coupon site.
+const SYSTEM_PROMPT = `You are Dealio, an AI Deal Discovery Assistant for the Getyourcodes coupon site.
 
 Your job: help users find the best coupons, promo codes, and store deals.
 

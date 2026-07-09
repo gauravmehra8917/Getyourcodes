@@ -12,8 +12,8 @@ export const Route = createFileRoute("/unsubscribe")({
   validateSearch: (search) => searchSchema.parse(search),
   head: () => ({
     meta: [
-      { title: "Unsubscribe — SaveHub" },
-      { name: "description", content: "Unsubscribe from the SaveHub newsletter to stop receiving verified coupon codes and daily deal alerts." },
+      { title: "Unsubscribe — Getyourcodes" },
+      { name: "description", content: "Unsubscribe from the Getyourcodes newsletter to stop receiving verified coupon codes and daily deal alerts." },
       { name: "robots", content: "noindex, nofollow" },
     ],
     links: [{ rel: "canonical", href: "https://getyourcodes.com/unsubscribe" }],

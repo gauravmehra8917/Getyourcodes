@@ -4,9 +4,9 @@ import { MapPin, Mail, Building2, Handshake } from "lucide-react";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact Us — SaveHub" },
-      { name: "description", content: "Get in touch with the SaveHub team. Reach our Singapore office for partnerships and support." },
-      { property: "og:title", content: "Contact SaveHub" },
+      { title: "Contact Us — Getyourcodes" },
+      { name: "description", content: "Get in touch with the Getyourcodes team. Reach our Singapore office for partnerships and support." },
+      { property: "og:title", content: "Contact Getyourcodes" },
       { property: "og:description", content: "Reach our Singapore office for partnerships and support." },
       { property: "og:url", content: "https://getyourcodes.com/contact" },
     ],
@@ -63,7 +63,7 @@ function ContactPage() {
       </section>
 
       <section className="mt-10 rounded-3xl border border-border bg-secondary/40 p-8 text-center sm:p-10">
-        <h2 className="font-display text-xl font-semibold">Partner with SaveHub</h2>
+        <h2 className="font-display text-xl font-semibold">Partner with Getyourcodes</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
           Want to feature your brand's offers to a community of deal-hungry shoppers? Drop us a line and our team will get back to you within 2 business days.
         </p>

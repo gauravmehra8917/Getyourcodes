@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LogOut, Tag, Heart } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/account")({
-  head: () => ({ meta: [{ title: "My account — SaveHub" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "My account — Getyourcodes" }, { name: "robots", content: "noindex" }] }),
   component: AccountPage,
 });
 

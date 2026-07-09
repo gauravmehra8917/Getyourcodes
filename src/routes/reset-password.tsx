@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tag } from "lucide-react";
 
 export const Route = createFileRoute("/reset-password")({
-  head: () => ({ meta: [{ title: "Reset password — SaveHub" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Reset password — Getyourcodes" }, { name: "robots", content: "noindex" }] }),
   component: ResetPasswordPage,
 });
 
@@ -49,7 +49,7 @@ function ResetPasswordPage() {
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
           <Tag className="h-5 w-5" />
         </span>
-        SaveHub
+        Getyourcodes
       </Link>
 
       <h1 className="font-display text-3xl font-bold">Set a new password</h1>

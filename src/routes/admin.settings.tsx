@@ -16,13 +16,13 @@ function SettingsPage() {
       >
         <div className="space-y-6 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
           <FieldSet title="Site">
-            <Field label="Site Name"><TextInput defaultValue="SaveHub" /></Field>
+            <Field label="Site Name"><TextInput defaultValue="Getyourcodes" /></Field>
             <Field label="Tagline"><TextInput defaultValue="Best deals & coupons across the globe" /></Field>
             <Field label="Contact Email"><TextInput defaultValue="partner@pixorads.com" /></Field>
             <Field label="Office Address"><TextArea defaultValue="68 Circular Road, #02-01, Singapore 049422" /></Field>
           </FieldSet>
           <FieldSet title="SEO Defaults">
-            <Field label="Meta Title"><TextInput defaultValue="SaveHub — Coupons & Deals" /></Field>
+            <Field label="Meta Title"><TextInput defaultValue="Getyourcodes — Coupons & Deals" /></Field>
             <Field label="Meta Description"><TextArea defaultValue="Find verified coupons, promo codes and the best deals from your favourite brands." /></Field>
             <Field label="Meta Keywords"><TextInput defaultValue="coupons, deals, promo codes" /></Field>
           </FieldSet>

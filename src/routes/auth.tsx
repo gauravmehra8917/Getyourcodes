@@ -7,8 +7,8 @@ import { Tag } from "lucide-react";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in or sign up — SaveHub" },
-      { name: "description", content: "Sign in to save your favorite coupons and stores on SaveHub." },
+      { title: "Sign in or sign up — Getyourcodes" },
+      { name: "description", content: "Sign in to save your favorite coupons and stores on Getyourcodes." },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -85,7 +85,7 @@ function AuthPage() {
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
           <Tag className="h-5 w-5" />
         </span>
-        SaveHub
+        Getyourcodes
       </Link>
 
       <h1 className="font-display text-3xl font-bold">

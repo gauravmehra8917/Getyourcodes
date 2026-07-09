@@ -8,7 +8,7 @@ import { AdminTopbar } from "@/components/admin/topbar";
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Admin — SaveHub" },
+      { title: "Admin — Getyourcodes" },
       { name: "robots", content: "noindex,nofollow" },
     ],
   }),
