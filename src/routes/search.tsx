@@ -11,8 +11,8 @@ export const Route = createFileRoute("/search")({
   validateSearch: z.object({ q: z.string().optional().default("") }),
   head: () => ({
     meta: [
-      { title: "Search coupons & stores — SaveHub" },
-      { name: "description", content: "Search verified coupons, stores and categories on SaveHub." },
+      { title: "Search coupons & stores — Getyourcodes" },
+      { name: "description", content: "Search verified coupons, stores and categories on Getyourcodes." },
       { name: "robots", content: "noindex" },
     ],
   }),

@@ -1,5 +1,5 @@
 export const SITE_URL = "https://getyourcodes.com";
-export const SITE_NAME = "SaveHub";
+export const SITE_NAME = "Getyourcodes";
 
 export const abs = (path: string) =>
   `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;

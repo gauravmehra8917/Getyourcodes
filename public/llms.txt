@@ -1,8 +1,8 @@
-# SaveHub
+# Getyourcodes
 
 > Verified coupons, promo codes and deals from thousands of brands, updated daily.
 
-SaveHub helps shoppers save money with hand-picked coupon codes and deals across categories like fashion, food, electronics, travel and more.
+Getyourcodes helps shoppers save money with hand-picked coupon codes and deals across categories like fashion, food, electronics, travel and more.
 
 ## Pages
 

@@ -8,7 +8,7 @@ import { sb } from "@/lib/db";
 export const Route = createFileRoute("/analytics")({
   head: () => ({
     meta: [
-      { title: "Deal Analytics — SaveHub" },
+      { title: "Deal Analytics — Getyourcodes" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -99,7 +99,7 @@ function AnalyticsPage() {
         </div>
         <h1 className="mt-3 font-display text-3xl font-bold sm:text-4xl">Deal Analytics</h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          What everyone on SaveHub is searching for, asking Dealio about, and clicking on right now. Aggregated across all users.
+          What everyone on Getyourcodes is searching for, asking Dealio about, and clicking on right now. Aggregated across all users.
         </p>
       </header>
 

@@ -14,9 +14,9 @@ import { useAssistant } from "@/components/ai-assistant-provider";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SaveHub — Verified Coupons, Promo Codes & Deals" },
+      { title: "Getyourcodes — Verified Coupons, Promo Codes & Deals" },
       { name: "description", content: "Hand-picked coupons and deals from your favorite brands. Save more on fashion, food, electronics, travel and more." },
-      { property: "og:title", content: "SaveHub — Verified coupons & deals" },
+      { property: "og:title", content: "Getyourcodes — Verified coupons & deals" },
       { property: "og:description", content: "Save more on every order with verified promo codes." },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://getyourcodes.com/" },
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/")({
       children: JSON.stringify({
         "@context": "https://schema.org",
         "@type": "WebSite",
-        name: "SaveHub",
+        name: "Getyourcodes",
         url: "https://getyourcodes.com/",
         potentialAction: {
           "@type": "SearchAction",

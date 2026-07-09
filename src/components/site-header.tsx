@@ -42,7 +42,7 @@ export function SiteHeader() {
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Tag className="h-5 w-5" />
           </span>
-          <span>SaveHub</span>
+          <span>Getyourcodes</span>
         </Link>
 
         <form

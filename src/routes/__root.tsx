@@ -55,7 +55,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "robots", content: "index,follow" },
       { name: "theme-color", content: "#0F0A1F" },
-      { property: "og:site_name", content: "SaveHub" },
+      { property: "og:site_name", content: "Getyourcodes" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@getyourcodes" },
@@ -87,7 +87,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "Organization",
-          name: "SaveHub",
+          name: "Getyourcodes",
           url: "https://getyourcodes.com",
           logo: "https://getyourcodes.com/favicon.svg",
           sameAs: [] as string[],
@@ -98,7 +98,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "WebSite",
-          name: "SaveHub",
+          name: "Getyourcodes",
           url: "https://getyourcodes.com",
           potentialAction: {
             "@type": "SearchAction",
