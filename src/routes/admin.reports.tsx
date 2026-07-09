@@ -171,25 +171,87 @@ function RankTable({ title, rows, emptyLabel }: { title: string; rows: [string, 
 }
 
 function SparkBars({ data }: { data: { day: string; count: number }[] }) {
-  const max = Math.max(1, ...data.map((d) => d.count));
   if (!data.length) return <div className="py-8 text-center text-sm text-slate-500">No data.</div>;
+
+  const max = Math.max(1, ...data.map((d) => d.count));
+  // Y-axis: 4 evenly spaced ticks (0..max), rounded up nicely
+  const niceMax = niceCeil(max);
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(niceMax * f));
+
+  // X-axis label density: aim for ~7 labels max
+  const step = Math.max(1, Math.ceil(data.length / 7));
+  const fmt = (iso: string) => {
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
+
+  // Center a single bar so it doesn't stretch to full width
+  const singleDay = data.length === 1;
+
   return (
-    <div className="flex h-32 items-end gap-1">
-      {data.map((d) => {
-        const pct = (d.count / max) * 100;
-        return (
-          <div key={d.day} className="flex flex-1 flex-col items-center gap-1" title={`${d.day}: ${d.count}`}>
-            <div className="flex w-full flex-1 items-end">
-              <div
-                className="w-full rounded-t bg-indigo-500/80"
-                style={{ height: `${pct}%`, minHeight: d.count > 0 ? 2 : 0 }}
-              />
-            </div>
+    <div>
+      <div className="flex gap-2">
+        {/* Y-axis */}
+        <div className="flex h-32 w-8 flex-col-reverse justify-between py-0 text-[10px] text-slate-500">
+          {ticks.map((t) => (
+            <div key={t} className="-translate-y-1/2 text-right leading-none">{t}</div>
+          ))}
+        </div>
+        {/* Chart area */}
+        <div className="relative flex-1">
+          <div className="pointer-events-none absolute inset-0 flex flex-col-reverse justify-between">
+            {ticks.map((t) => (
+              <div key={t} className="border-t border-dashed border-slate-100" />
+            ))}
           </div>
-        );
-      })}
+          <div className={`relative flex h-32 items-end gap-1 ${singleDay ? "justify-center" : ""}`}>
+            {data.map((d) => {
+              const pct = (d.count / niceMax) * 100;
+              return (
+                <div
+                  key={d.day}
+                  className={`group relative flex flex-col items-center ${singleDay ? "w-16" : "flex-1"}`}
+                  title={`${d.day}: ${d.count} click${d.count === 1 ? "" : "s"}`}
+                >
+                  <div className="flex w-full flex-1 items-end">
+                    <div
+                      className="w-full rounded-t bg-indigo-500/80 transition-colors group-hover:bg-indigo-600"
+                      style={{ height: `${pct}%`, minHeight: d.count > 0 ? 2 : 0 }}
+                    />
+                  </div>
+                  <div className="pointer-events-none absolute -top-6 hidden rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-white group-hover:block">
+                    {d.count}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      {/* X-axis */}
+      <div className="mt-2 flex gap-2">
+        <div className="w-8" />
+        <div className={`flex flex-1 ${singleDay ? "justify-center" : ""}`}>
+          {data.map((d, i) => (
+            <div
+              key={d.day}
+              className={`text-center text-[10px] text-slate-500 ${singleDay ? "w-16" : "flex-1"}`}
+            >
+              {i % step === 0 || i === data.length - 1 ? fmt(d.day) : ""}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
+}
+
+function niceCeil(n: number) {
+  if (n <= 1) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(n)));
+  const norm = n / pow;
+  const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+  return nice * pow;
 }
 
 function aggregate(
