@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/admin/page-header";
 
 export const Route = createFileRoute("/admin/reports")({ component: ReportsPage });
 
-type ClickRow = { id: string; coupon_id: string; source_page: string | null; created_at: string };
+type ClickRow = { id: string; coupon_id: string; source_page: string | null; clicked_at: string };
 
 function ReportsPage() {
   const [days, setDays] = useState(30);
@@ -15,7 +15,13 @@ function ReportsPage() {
   const { data: clicks = [] } = useQuery({
     queryKey: ["admin-clicks", days],
     queryFn: async () => {
-      const { data } = await sb.from("coupon_clicks").select("id,coupon_id,source_page,created_at").gte("created_at", from).limit(5000);
+      const { data, error } = await sb
+        .from("coupon_clicks")
+        .select("id,coupon_id,source_page,clicked_at")
+        .gte("clicked_at", from)
+        .order("clicked_at", { ascending: false })
+        .limit(5000);
+      if (error) console.error("[reports] coupon_clicks query failed:", error);
       return (data ?? []) as ClickRow[];
     },
   });
@@ -24,7 +30,7 @@ function ReportsPage() {
 
   const exportCsv = () => {
     const headers = ["created_at", "coupon_id", "source_page"];
-    const rows = clicks.map((c) => [c.created_at, c.coupon_id, c.source_page ?? ""].join(","));
+    const rows = clicks.map((c) => [c.clicked_at, c.coupon_id, c.source_page ?? ""].join(","));
     const csv = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -102,7 +108,7 @@ function aggregate(rows: ClickRow[]) {
   const byDayMap = new Map<string, number>();
   const byCouponMap = new Map<string, number>();
   for (const r of rows) {
-    const day = r.created_at.slice(0, 10);
+    const day = r.clicked_at.slice(0, 10);
     byDayMap.set(day, (byDayMap.get(day) ?? 0) + 1);
     byCouponMap.set(r.coupon_id, (byCouponMap.get(r.coupon_id) ?? 0) + 1);
   }

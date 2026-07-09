@@ -29,7 +29,7 @@ export function GlobalDealsBanner() {
       const { data: clicks } = await sb
         .from("coupon_clicks")
         .select("coupon_id")
-        .gte("created_at", since);
+        .gte("clicked_at", since);
       const counts = new Map<string, number>();
       (clicks ?? []).forEach((c: { coupon_id: string }) => {
         counts.set(c.coupon_id, (counts.get(c.coupon_id) ?? 0) + 1);
