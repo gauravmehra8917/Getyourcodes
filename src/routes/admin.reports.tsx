@@ -30,7 +30,7 @@ function ReportsPage() {
 
   const exportCsv = () => {
     const headers = ["created_at", "coupon_id", "source_page"];
-    const rows = clicks.map((c) => [c.created_at, c.coupon_id, c.source_page ?? ""].join(","));
+    const rows = clicks.map((c) => [c.clicked_at, c.coupon_id, c.source_page ?? ""].join(","));
     const csv = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -108,7 +108,7 @@ function aggregate(rows: ClickRow[]) {
   const byDayMap = new Map<string, number>();
   const byCouponMap = new Map<string, number>();
   for (const r of rows) {
-    const day = r.created_at.slice(0, 10);
+    const day = r.clicked_at.slice(0, 10);
     byDayMap.set(day, (byDayMap.get(day) ?? 0) + 1);
     byCouponMap.set(r.coupon_id, (byCouponMap.get(r.coupon_id) ?? 0) + 1);
   }
