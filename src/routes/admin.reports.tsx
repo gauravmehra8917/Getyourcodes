@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/admin/page-header";
 
 export const Route = createFileRoute("/admin/reports")({ component: ReportsPage });
 
-type ClickRow = { id: string; coupon_id: string; source_page: string | null; created_at: string };
+type ClickRow = { id: string; coupon_id: string; source_page: string | null; clicked_at: string };
 
 function ReportsPage() {
   const [days, setDays] = useState(30);
@@ -15,7 +15,13 @@ function ReportsPage() {
   const { data: clicks = [] } = useQuery({
     queryKey: ["admin-clicks", days],
     queryFn: async () => {
-      const { data } = await sb.from("coupon_clicks").select("id,coupon_id,source_page,created_at").gte("created_at", from).limit(5000);
+      const { data, error } = await sb
+        .from("coupon_clicks")
+        .select("id,coupon_id,source_page,clicked_at")
+        .gte("clicked_at", from)
+        .order("clicked_at", { ascending: false })
+        .limit(5000);
+      if (error) console.error("[reports] coupon_clicks query failed:", error);
       return (data ?? []) as ClickRow[];
     },
   });
