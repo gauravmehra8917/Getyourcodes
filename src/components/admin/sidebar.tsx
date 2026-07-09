@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { SITE_URL, SITE_NAME } from "@/lib/seo";
 import {
   LayoutDashboard, Megaphone, Tag, Tags, Store, GalleryHorizontal,
   FileText, Users, Bell, Languages, ListOrdered, Image as ImageIcon,
