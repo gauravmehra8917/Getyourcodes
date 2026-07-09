@@ -48,9 +48,13 @@ export function AdminSidebar() {
   return (
     <aside className="hidden w-[230px] shrink-0 flex-col bg-[#2f3e51] text-slate-200 md:flex">
       <div className="flex h-16 items-center justify-center border-b border-white/5">
-        <Link to="/admin" className="font-display text-xl font-extrabold tracking-tight text-white">
-          SAVE<span className="italic font-light">HUB</span><sup className="text-xs">®</sup>
-        </Link>
+        <a
+          href={SITE_URL}
+          className="font-display text-xl font-extrabold tracking-tight text-white"
+          aria-label={`${SITE_NAME} — go to homepage`}
+        >
+          GET<span className="italic font-light">YOURCODES</span><sup className="text-xs">®</sup>
+        </a>
       </div>
       <nav className="flex-1 overflow-y-auto py-2 text-[13px]">
         {GROUPS.map((g) => (
