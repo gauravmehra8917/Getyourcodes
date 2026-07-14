@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { Sparkles, Send, X, Trash2, MessageCircle, Loader2, Tag, Store as StoreIcon } from "lucide-react";
+import { Sparkles, Send, X, Trash2, MessageCircle, Loader2, Tag, Store as StoreIcon, Minus, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { loadChatHistory, saveChatMessages, clearChatHistory } from "@/lib/chat.functions";
