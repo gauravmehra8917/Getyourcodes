@@ -198,7 +198,6 @@ Deno.serve(async (req) => {
       coupons: coupons.length,
       successful,
       failed,
-      dry_run: !canSend,
     });
   } catch (e) {
     const message = (e as Error).message ?? "unknown_error";
