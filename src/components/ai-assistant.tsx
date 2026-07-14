@@ -396,15 +396,224 @@ function renderMarkdownLite(text: string) {
   });
 }
 
-export function FloatingAssistantTrigger({ onClick }: { onClick: () => void }) {
+type FloatingWidgetProps = {
+  onClick: () => void;
+  label?: string;
+  footerSelector?: string;
+  bottomOffset?: number;
+  rightOffset?: number;
+  footerGap?: number;
+  storageKey?: string;
+};
+
+/**
+ * Reusable floating assistant trigger.
+ * - Adaptive positioning: lifts above the footer via IntersectionObserver.
+ * - Auto-collapses to an icon when footer is visible.
+ * - Manual dock/collapse control persisted for the session.
+ * - Pure CSS transforms for 60fps animation. No scroll listeners.
+ */
+export function FloatingAssistantTrigger({
+  onClick,
+  label = "Ask Dealio",
+  footerSelector = "[data-site-footer], #site-footer, footer",
+  bottomOffset = 32,
+  rightOffset = 32,
+  footerGap = 32,
+  storageKey = "dealio-widget-docked",
+}: FloatingWidgetProps) {
+  const [footerVisible, setFooterVisible] = useState(false);
+  const [liftPx, setLiftPx] = useState(0);
+  const [hovered, setHovered] = useState(false);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [userDocked, setUserDocked] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return sessionStorage.getItem(storageKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const rafRef = useRef<number | null>(null);
+
+  // Observe footer visibility to lift widget and auto-collapse.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const footer = document.querySelector(footerSelector) as HTMLElement | null;
+    if (!footer) return;
+
+    const compute = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        const rect = footer.getBoundingClientRect();
+        const vh = window.innerHeight;
+        // How much the footer intrudes into the viewport from the bottom.
+        const intrusion = Math.max(0, vh - rect.top);
+        setLiftPx(intrusion > 0 ? intrusion + footerGap - bottomOffset : 0);
+      });
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          setFooterVisible(e.isIntersecting);
+        }
+        compute();
+      },
+      { threshold: [0, 0.01, 0.5, 1], rootMargin: `0px 0px ${footerGap}px 0px` },
+    );
+    io.observe(footer);
+
+    // Recompute on resize (no scroll listener; IO fires on scroll-visibility).
+    const onResize = () => compute();
+    window.addEventListener("resize", onResize, { passive: true });
+    // Also recompute periodically while footer is in view via a lightweight IO on scroll frames.
+    const scrollIO = new IntersectionObserver(() => compute(), { threshold: [0, 1] });
+    scrollIO.observe(footer);
+
+    compute();
+    return () => {
+      io.disconnect();
+      scrollIO.disconnect();
+      window.removeEventListener("resize", onResize);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [footerSelector, footerGap, bottomOffset]);
+
+  // Recompute lift on every animation frame while footer is visible (cheap, avoids scroll listeners).
+  useEffect(() => {
+    if (!footerVisible) return;
+    let running = true;
+    const footer = document.querySelector(footerSelector) as HTMLElement | null;
+    if (!footer) return;
+    const tick = () => {
+      if (!running) return;
+      const rect = footer.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const intrusion = Math.max(0, vh - rect.top);
+      setLiftPx(intrusion > 0 ? intrusion + footerGap - bottomOffset : 0);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      running = false;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [footerVisible, footerSelector, footerGap, bottomOffset]);
+
+  const toggleDock = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setUserDocked((v) => {
+        const next = !v;
+        try {
+          sessionStorage.setItem(storageKey, next ? "1" : "0");
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+    },
+    [storageKey],
+  );
+
+  // Collapsed if: user manually docked, OR footer is visible (auto-collapse).
+  const collapsed = userDocked || footerVisible;
+  // Expand affordance: hover (desktop) or first tap (mobile).
+  const expanded = !collapsed || hovered || mobileExpanded;
+
+  const handleClick = () => {
+    // Mobile: first tap expands, second opens. Detect via matchMedia.
+    if (
+      collapsed &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: none)").matches &&
+      !mobileExpanded
+    ) {
+      setMobileExpanded(true);
+      // Auto-collapse after a moment if not clicked again.
+      window.setTimeout(() => setMobileExpanded(false), 2500);
+      return;
+    }
+    setMobileExpanded(false);
+    onClick();
+  };
+
   return (
-    <button
-      onClick={onClick}
-      aria-label="Open AI deal assistant"
-      className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-gradient-to-br from-primary to-accent-foreground px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition hover:scale-105"
+    <div
+      aria-hidden={false}
+      style={{
+        position: "fixed",
+        right: `max(${rightOffset}px, env(safe-area-inset-right))`,
+        bottom: `max(${bottomOffset}px, env(safe-area-inset-bottom))`,
+        transform: `translateY(-${liftPx}px)`,
+        transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+        zIndex: 50,
+        willChange: "transform",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <MessageCircle className="h-4 w-4" />
-      <span className="hidden sm:inline">Ask Dealio</span>
-    </button>
+      <div className="relative flex items-center">
+        <button
+          ref={btnRef}
+          onClick={handleClick}
+          onFocus={() => setHovered(true)}
+          onBlur={() => setHovered(false)}
+          aria-label={collapsed && !expanded ? `Open ${label}` : `Open ${label} chat`}
+          aria-expanded={expanded}
+          className="group flex items-center gap-2 rounded-full bg-gradient-to-br from-primary to-accent-foreground font-semibold text-primary-foreground shadow-lg shadow-primary/30 outline-none ring-primary/40 transition-[padding,width,box-shadow] duration-300 ease-out hover:shadow-xl focus-visible:ring-2"
+          style={{
+            minHeight: 44,
+            minWidth: 44,
+            paddingLeft: expanded ? 18 : 12,
+            paddingRight: expanded ? (collapsed ? 18 : 40) : 12,
+            paddingTop: 12,
+            paddingBottom: 12,
+          }}
+        >
+          {collapsed && !expanded ? (
+            <Sparkles className="h-5 w-5" />
+          ) : (
+            <MessageCircle className="h-4 w-4 shrink-0" />
+          )}
+          <span
+            className="overflow-hidden whitespace-nowrap text-sm transition-[max-width,opacity] duration-300"
+            style={{
+              maxWidth: expanded ? 200 : 0,
+              opacity: expanded ? 1 : 0,
+            }}
+          >
+            {label}
+          </span>
+        </button>
+
+        {/* Manual dock / expand control — only visible when the pill is expanded */}
+        {expanded && !collapsed && (
+          <button
+            type="button"
+            onClick={toggleDock}
+            aria-label={userDocked ? "Expand assistant widget" : "Collapse assistant widget"}
+            title={userDocked ? "Expand" : "Collapse"}
+            className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-primary-foreground/90 backdrop-blur transition hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          >
+            {userDocked ? <Plus className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
+          </button>
+        )}
+
+        {/* When docked/collapsed, still allow user to un-dock via a small floating pip */}
+        {userDocked && !footerVisible && (
+          <button
+            type="button"
+            onClick={toggleDock}
+            aria-label="Expand assistant widget"
+            className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full border border-background bg-foreground/80 text-[10px] text-background shadow"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
