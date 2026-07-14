@@ -267,13 +267,13 @@ function renderNewsletterHtml(coupons: Coupon[], unsubscribeToken: string): stri
 
   return `<!doctype html>
 <html>
-<head><meta charset="utf-8"><title>New deals on Dealio</title></head>
+<head><meta charset="utf-8"><title>New deals on Getyourcodes</title></head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:24px 12px">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;padding:28px 28px 20px;box-shadow:0 1px 3px rgba(15,23,42,.06)">
         <tr><td>
-          <div style="font-size:20px;font-weight:700;color:#4f46e5">Dealio</div>
+          <div style="font-size:20px;font-weight:700;color:#4f46e5">Getyourcodes</div>
           <h1 style="margin:12px 0 4px;font-size:22px;color:#0f172a">Fresh deals for you</h1>
           <p style="margin:0;color:#475569;font-size:14px">Here are the newest coupons we've added since our last update.</p>
         </td></tr>
@@ -282,10 +282,10 @@ function renderNewsletterHtml(coupons: Coupon[], unsubscribeToken: string): stri
         </td></tr>
         <tr><td style="padding-top:20px">
           <div style="text-align:center;font-size:12px;color:#94a3b8">
-            You're receiving this because you subscribed on Dealio.<br/>
+            You're receiving this because you subscribed on Getyourcodes.<br/>
             <a href="${esc(unsubscribeUrl)}" style="color:#6366f1;text-decoration:underline">Unsubscribe</a>
             &nbsp;·&nbsp;
-            <a href="${esc(SITE_URL)}" style="color:#6366f1;text-decoration:underline">Visit Dealio</a>
+            <a href="${esc(SITE_URL)}" style="color:#6366f1;text-decoration:underline">Visit Getyourcodes</a>
           </div>
         </td></tr>
       </table>

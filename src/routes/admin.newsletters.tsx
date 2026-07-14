@@ -63,12 +63,12 @@ function NewslettersPage() {
     try {
       const { data, error } = await supabase.functions.invoke("send-newsletter", { body: {} });
       if (error) throw error;
-      const r = data as { status?: string; reason?: string; successful?: number; failed?: number; coupons?: number; dry_run?: boolean };
+      const r = data as { status?: string; reason?: string; successful?: number; failed?: number; coupons?: number };
       const msg = r.reason === "no_new_coupons"
         ? "No new coupons since the last newsletter — nothing sent."
         : r.reason === "no_subscribers"
           ? "No active subscribers to send to."
-          : `${r.status ?? "done"} — ${r.successful ?? 0} sent, ${r.failed ?? 0} failed (${r.coupons ?? 0} coupons)${r.dry_run ? " · dry-run: add RESEND_API_KEY & NEWSLETTER_FROM_EMAIL to send" : ""}`;
+          : `${r.status ?? "done"} — ${r.successful ?? 0} sent, ${r.failed ?? 0} failed (${r.coupons ?? 0} coupons)`;
       setFlash({ kind: "ok", msg });
       qc.invalidateQueries({ queryKey: ["admin-newsletter-stats"] });
       qc.invalidateQueries({ queryKey: ["admin-newsletter-logs"] });
