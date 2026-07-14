@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { Sparkles, Send, X, Trash2, MessageCircle, Loader2, Tag, Store as StoreIcon } from "lucide-react";
