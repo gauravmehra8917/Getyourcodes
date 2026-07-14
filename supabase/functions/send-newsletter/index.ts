@@ -1,15 +1,12 @@
 // Supabase Edge Function: send-newsletter
 // Fetches active+verified subscribers, gathers newly-added active coupons since
 // the last successful newsletter (max 15, expired ignored), renders an HTML
-// email, sends via Resend (placeholder until secrets are configured), and
-// writes a row into public.newsletter_logs.
+// email, sends via Resend, and writes a row into public.newsletter_logs.
 //
-// Secrets required to actually send email (add later via Supabase secrets):
+// Required secrets:
 //   - RESEND_API_KEY         Resend account API key
-//   - NEWSLETTER_FROM_EMAIL  Verified sender, e.g. "Dealio <news@yourdomain.com>"
-//
-// Until both secrets are set, the function still runs the full pipeline and
-// writes a log row (status "dry_run") so the dashboard stays accurate.
+//   - NEWSLETTER_FROM_EMAIL  Verified sender, e.g. "Getyourcodes <news@getyourcodes.com>"
+//   - SITE_URL               Public site URL (e.g. https://getyourcodes.com)
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -20,7 +17,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SITE_URL = Deno.env.get("SITE_URL") ?? "https://dealio-dash.lovable.app";
+const SITE_URL = Deno.env.get("SITE_URL") ?? "https://getyourcodes.com";
 const MAX_COUPONS = 15;
 
 type Coupon = {
