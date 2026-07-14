@@ -120,29 +120,36 @@ Deno.serve(async (req) => {
       return json({ ok: true, reason: "no_subscribers", coupons: coupons.length });
     }
 
-    // 5. Send emails (or dry-run if Resend is not configured yet).
+    // 5. Send emails via Resend.
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const NEWSLETTER_FROM_EMAIL = Deno.env.get("NEWSLETTER_FROM_EMAIL");
-    const canSend = Boolean(RESEND_API_KEY && NEWSLETTER_FROM_EMAIL);
+    if (!RESEND_API_KEY || !NEWSLETTER_FROM_EMAIL) {
+      const missing = [
+        !RESEND_API_KEY && "RESEND_API_KEY",
+        !NEWSLETTER_FROM_EMAIL && "NEWSLETTER_FROM_EMAIL",
+      ].filter(Boolean).join(", ");
+      const msg = `Missing required secret(s): ${missing}`;
+      await admin.from("newsletter_logs").insert({
+        subscribers_count: subscribers.length,
+        coupons_sent: coupons.length,
+        successful: 0,
+        failed: 0,
+        execution_time: Date.now() - startedAt,
+        status: "failed",
+        error_message: msg,
+      });
+      return json({ error: msg }, 500);
+    }
 
     let successful = 0;
     let failed = 0;
     const errors: string[] = [];
 
-    const subject = `${coupons.length} new deal${coupons.length === 1 ? "" : "s"} on Dealio`;
+    const subject = `${coupons.length} new deal${coupons.length === 1 ? "" : "s"} on Getyourcodes`;
 
     for (const sub of subscribers) {
       const html = renderNewsletterHtml(coupons, sub.unsubscribe_token);
-      if (!canSend) {
-        // TODO: Once RESEND_API_KEY and NEWSLETTER_FROM_EMAIL are set in
-        // Supabase Edge Function secrets, this branch is skipped and the
-        // real Resend send below runs for each subscriber.
-        successful++; // count the dry-run as processed but not delivered
-        continue;
-      }
-
       try {
-        // TODO: Resend integration active — remove/adjust once verified in prod.
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -161,7 +168,8 @@ Deno.serve(async (req) => {
         });
         if (!res.ok) {
           failed++;
-          errors.push(`${sub.email}: ${res.status}`);
+          const body = await res.text().catch(() => "");
+          errors.push(`${sub.email}: ${res.status} ${body.slice(0, 200)}`);
         } else {
           successful++;
         }
@@ -171,13 +179,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const status = !canSend
-      ? "dry_run"
-      : failed === 0
-        ? "success"
-        : successful === 0
-          ? "failed"
-          : "partial";
+    const status = failed === 0 ? "success" : successful === 0 ? "failed" : "partial";
 
     await admin.from("newsletter_logs").insert({
       subscribers_count: subscribers.length,
