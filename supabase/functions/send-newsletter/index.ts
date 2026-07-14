@@ -1,15 +1,12 @@
 // Supabase Edge Function: send-newsletter
 // Fetches active+verified subscribers, gathers newly-added active coupons since
 // the last successful newsletter (max 15, expired ignored), renders an HTML
-// email, sends via Resend (placeholder until secrets are configured), and
-// writes a row into public.newsletter_logs.
+// email, sends via Resend, and writes a row into public.newsletter_logs.
 //
-// Secrets required to actually send email (add later via Supabase secrets):
+// Required secrets:
 //   - RESEND_API_KEY         Resend account API key
-//   - NEWSLETTER_FROM_EMAIL  Verified sender, e.g. "Dealio <news@yourdomain.com>"
-//
-// Until both secrets are set, the function still runs the full pipeline and
-// writes a log row (status "dry_run") so the dashboard stays accurate.
+//   - NEWSLETTER_FROM_EMAIL  Verified sender, e.g. "Getyourcodes <news@getyourcodes.com>"
+//   - SITE_URL               Public site URL (e.g. https://getyourcodes.com)
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -20,7 +17,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SITE_URL = Deno.env.get("SITE_URL") ?? "https://dealio-dash.lovable.app";
+const SITE_URL = Deno.env.get("SITE_URL") ?? "https://getyourcodes.com";
 const MAX_COUPONS = 15;
 
 type Coupon = {
@@ -123,29 +120,36 @@ Deno.serve(async (req) => {
       return json({ ok: true, reason: "no_subscribers", coupons: coupons.length });
     }
 
-    // 5. Send emails (or dry-run if Resend is not configured yet).
+    // 5. Send emails via Resend.
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const NEWSLETTER_FROM_EMAIL = Deno.env.get("NEWSLETTER_FROM_EMAIL");
-    const canSend = Boolean(RESEND_API_KEY && NEWSLETTER_FROM_EMAIL);
+    if (!RESEND_API_KEY || !NEWSLETTER_FROM_EMAIL) {
+      const missing = [
+        !RESEND_API_KEY && "RESEND_API_KEY",
+        !NEWSLETTER_FROM_EMAIL && "NEWSLETTER_FROM_EMAIL",
+      ].filter(Boolean).join(", ");
+      const msg = `Missing required secret(s): ${missing}`;
+      await admin.from("newsletter_logs").insert({
+        subscribers_count: subscribers.length,
+        coupons_sent: coupons.length,
+        successful: 0,
+        failed: 0,
+        execution_time: Date.now() - startedAt,
+        status: "failed",
+        error_message: msg,
+      });
+      return json({ error: msg }, 500);
+    }
 
     let successful = 0;
     let failed = 0;
     const errors: string[] = [];
 
-    const subject = `${coupons.length} new deal${coupons.length === 1 ? "" : "s"} on Dealio`;
+    const subject = `${coupons.length} new deal${coupons.length === 1 ? "" : "s"} on Getyourcodes`;
 
     for (const sub of subscribers) {
       const html = renderNewsletterHtml(coupons, sub.unsubscribe_token);
-      if (!canSend) {
-        // TODO: Once RESEND_API_KEY and NEWSLETTER_FROM_EMAIL are set in
-        // Supabase Edge Function secrets, this branch is skipped and the
-        // real Resend send below runs for each subscriber.
-        successful++; // count the dry-run as processed but not delivered
-        continue;
-      }
-
       try {
-        // TODO: Resend integration active — remove/adjust once verified in prod.
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -164,7 +168,8 @@ Deno.serve(async (req) => {
         });
         if (!res.ok) {
           failed++;
-          errors.push(`${sub.email}: ${res.status}`);
+          const body = await res.text().catch(() => "");
+          errors.push(`${sub.email}: ${res.status} ${body.slice(0, 200)}`);
         } else {
           successful++;
         }
@@ -174,13 +179,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const status = !canSend
-      ? "dry_run"
-      : failed === 0
-        ? "success"
-        : successful === 0
-          ? "failed"
-          : "partial";
+    const status = failed === 0 ? "success" : successful === 0 ? "failed" : "partial";
 
     await admin.from("newsletter_logs").insert({
       subscribers_count: subscribers.length,
@@ -199,7 +198,6 @@ Deno.serve(async (req) => {
       coupons: coupons.length,
       successful,
       failed,
-      dry_run: !canSend,
     });
   } catch (e) {
     const message = (e as Error).message ?? "unknown_error";
@@ -269,13 +267,13 @@ function renderNewsletterHtml(coupons: Coupon[], unsubscribeToken: string): stri
 
   return `<!doctype html>
 <html>
-<head><meta charset="utf-8"><title>New deals on Dealio</title></head>
+<head><meta charset="utf-8"><title>New deals on Getyourcodes</title></head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:24px 12px">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;padding:28px 28px 20px;box-shadow:0 1px 3px rgba(15,23,42,.06)">
         <tr><td>
-          <div style="font-size:20px;font-weight:700;color:#4f46e5">Dealio</div>
+          <div style="font-size:20px;font-weight:700;color:#4f46e5">Getyourcodes</div>
           <h1 style="margin:12px 0 4px;font-size:22px;color:#0f172a">Fresh deals for you</h1>
           <p style="margin:0;color:#475569;font-size:14px">Here are the newest coupons we've added since our last update.</p>
         </td></tr>
@@ -284,10 +282,10 @@ function renderNewsletterHtml(coupons: Coupon[], unsubscribeToken: string): stri
         </td></tr>
         <tr><td style="padding-top:20px">
           <div style="text-align:center;font-size:12px;color:#94a3b8">
-            You're receiving this because you subscribed on Dealio.<br/>
+            You're receiving this because you subscribed on Getyourcodes.<br/>
             <a href="${esc(unsubscribeUrl)}" style="color:#6366f1;text-decoration:underline">Unsubscribe</a>
             &nbsp;·&nbsp;
-            <a href="${esc(SITE_URL)}" style="color:#6366f1;text-decoration:underline">Visit Dealio</a>
+            <a href="${esc(SITE_URL)}" style="color:#6366f1;text-decoration:underline">Visit Getyourcodes</a>
           </div>
         </td></tr>
       </table>
