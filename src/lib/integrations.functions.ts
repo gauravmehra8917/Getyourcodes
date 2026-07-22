@@ -59,7 +59,7 @@ export const listIntegrations = createServerFn({ method: "GET" })
     const { data, error } = await ctx.supabase
       .from("affiliate_integrations")
       .select(
-        "id, integration_name, provider_name, provider_type, description, authentication_type, base_url, api_version, timeout_seconds, retry_attempts, custom_headers, endpoint_configuration, is_enabled, last_tested_at, created_at, updated_at"
+        "id, integration_name, provider_name, provider_type, description, authentication_type, base_url, api_version, timeout_seconds, retry_attempts, custom_headers, endpoint_configuration, is_enabled, status, environment, last_test_result, last_tested_at, created_at, updated_at"
       )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
