@@ -127,13 +127,66 @@ function mask(v: string) {
   return "•".repeat(Math.min(12, Math.max(6, v.length)));
 }
 
-export function IntegrationWizard({ onClose }: { onClose: () => void }) {
+export type IntegrationRecord = {
+  id: string;
+  integration_name: string;
+  provider_name: string;
+  provider_type: string;
+  description: string | null;
+  authentication_type: string;
+  base_url: string;
+  api_version: string | null;
+  timeout_seconds: number;
+  retry_attempts: number;
+  custom_headers: { key: string; value: string }[] | null;
+  endpoint_configuration: Record<string, string> | null;
+  is_enabled: boolean;
+};
+
+function fromRecord(rec: IntegrationRecord): WizardData {
+  const ep = rec.endpoint_configuration ?? {};
+  return {
+    ...INITIAL,
+    name: rec.integration_name,
+    provider: rec.provider_name,
+    description: rec.description ?? "",
+    providerType: (rec.provider_type as ProviderType) || "",
+    authType: (rec.authentication_type as AuthType) || "api_key",
+    baseUrl: rec.base_url,
+    apiVersion: rec.api_version ?? "",
+    timeout: String(rec.timeout_seconds ?? 30),
+    retries: String(rec.retry_attempts ?? 3),
+    healthEndpoint: ep.health ?? "",
+    storesEndpoint: ep.stores ?? "",
+    couponsEndpoint: ep.coupons ?? "",
+    dealsEndpoint: ep.deals ?? "",
+    customHeaders: Array.isArray(rec.custom_headers) && rec.custom_headers.length
+      ? rec.custom_headers
+      : [{ key: "", value: "" }],
+  };
+}
+
+export function IntegrationWizard({
+  onClose,
+  onSaved,
+  editing,
+}: {
+  onClose: () => void;
+  onSaved?: () => void;
+  editing?: IntegrationRecord | null;
+}) {
+  const isEdit = !!editing;
+  const initial = useMemo(() => (editing ? fromRecord(editing) : INITIAL), [editing]);
   const [step, setStep] = useState(0);
-  const [data, setData] = useState<WizardData>(INITIAL);
+  const [data, setData] = useState<WizardData>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showDiscard, setShowDiscard] = useState(false);
+  const [saving, setSaving] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const dirty = useMemo(() => JSON.stringify(data) !== JSON.stringify(INITIAL) || step > 0, [data, step]);
+  const dirty = useMemo(() => JSON.stringify(data) !== JSON.stringify(initial) || step > 0, [data, initial, step]);
+  const createFn = useServerFn(createIntegration);
+  const updateFn = useServerFn(updateIntegration);
+
 
   // Escape to close, focus trap basics
   useEffect(() => {
