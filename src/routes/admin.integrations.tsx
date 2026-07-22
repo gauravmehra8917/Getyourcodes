@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plug, Plus, Pencil, Zap, Power, Trash2, X } from "lucide-react";
+import { Plug, Plus, Pencil, Zap, Power, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
+import { IntegrationWizard } from "@/components/admin/integration-wizard";
 
 export const Route = createFileRoute("/admin/integrations")({
   head: () => ({
