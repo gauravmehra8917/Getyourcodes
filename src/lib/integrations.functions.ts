@@ -50,6 +50,41 @@ async function requireAdmin(supabase: any, userId: string) {
   if (error || !data) throw new Error("Forbidden: admin only");
 }
 
+function mapDupError(err: any): string {
+  const msg = err?.message ?? "Failed to save integration";
+  if (err?.code === "23505" || /duplicate key|unique/i.test(msg)) {
+    if (/name_unique/.test(msg)) return "An integration with this name already exists";
+    if (/provider_baseurl_unique/.test(msg)) return "An integration for this provider + base URL already exists";
+    return "Duplicate integration (name or provider + base URL already exists)";
+  }
+  return msg;
+}
+
+async function assertUnique(
+  supabaseAdmin: any,
+  meta: { integration_name: string; provider_name: string; base_url: string },
+  excludeId: string | null,
+) {
+  const q1 = supabaseAdmin
+    .from("affiliate_integrations")
+    .select("id")
+    .ilike("integration_name", meta.integration_name)
+    .limit(1);
+  const { data: byName } = await q1;
+  if (byName?.length && byName[0].id !== excludeId) {
+    throw new Error("An integration with this name already exists");
+  }
+  const { data: byPair } = await supabaseAdmin
+    .from("affiliate_integrations")
+    .select("id")
+    .ilike("provider_name", meta.provider_name)
+    .ilike("base_url", meta.base_url)
+    .limit(1);
+  if (byPair?.length && byPair[0].id !== excludeId) {
+    throw new Error("An integration for this provider + base URL already exists");
+  }
+}
+
 
 export const listIntegrations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -59,7 +94,7 @@ export const listIntegrations = createServerFn({ method: "GET" })
     const { data, error } = await ctx.supabase
       .from("affiliate_integrations")
       .select(
-        "id, integration_name, provider_name, provider_type, description, authentication_type, base_url, api_version, timeout_seconds, retry_attempts, custom_headers, endpoint_configuration, is_enabled, last_tested_at, created_at, updated_at"
+        "id, integration_name, provider_name, provider_type, description, authentication_type, base_url, api_version, timeout_seconds, retry_attempts, custom_headers, endpoint_configuration, is_enabled, status, environment, last_test_result, last_tested_at, created_at, updated_at"
       )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -76,6 +111,8 @@ export const createIntegration = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { encryptCredentials } = await import("@/lib/integration-crypto.server");
 
+    await assertUnique(supabaseAdmin, data.meta, null);
+
     const { data: inserted, error: insertErr } = await supabaseAdmin
       .from("affiliate_integrations")
       .insert({
@@ -84,7 +121,7 @@ export const createIntegration = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
-    if (insertErr || !inserted) throw new Error(insertErr?.message ?? "Failed to create integration");
+    if (insertErr || !inserted) throw new Error(mapDupError(insertErr));
 
     const ciphertext = encryptCredentials(JSON.stringify(data.credentials));
     const { data: credRow, error: credErr } = await supabaseAdmin
@@ -123,11 +160,13 @@ export const updateIntegration = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { encryptCredentials } = await import("@/lib/integration-crypto.server");
 
+    await assertUnique(supabaseAdmin, data.meta, data.id);
+
     const { error: upErr } = await supabaseAdmin
       .from("affiliate_integrations")
       .update(data.meta)
       .eq("id", data.id);
-    if (upErr) throw new Error(upErr.message);
+    if (upErr) throw new Error(mapDupError(upErr));
 
     if (data.credentials) {
       const ciphertext = encryptCredentials(JSON.stringify(data.credentials));
@@ -174,9 +213,18 @@ export const toggleIntegration = createServerFn({ method: "POST" })
     const ctx = context as typeof context & { supabase: any; userId: string };
     await requireAdmin(ctx.supabase, ctx.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: current } = await supabaseAdmin
+      .from("affiliate_integrations")
+      .select("last_test_result")
+      .eq("id", data.id)
+      .maybeSingle();
+    const prior = (current?.last_test_result as { status?: string } | null)?.status;
+    const nextStatus = data.enabled
+      ? (prior && ["connected", "warning", "failed"].includes(prior) ? prior : "never_tested")
+      : "disabled";
     const { error } = await supabaseAdmin
       .from("affiliate_integrations")
-      .update({ is_enabled: data.enabled })
+      .update({ is_enabled: data.enabled, status: nextStatus })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { id: data.id, is_enabled: data.enabled };
@@ -193,4 +241,208 @@ export const deleteIntegration = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.from("affiliate_integrations").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { id: data.id };
+  });
+
+export const getTestHistory = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ id: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const ctx = context as typeof context & { supabase: any; userId: string };
+    await requireAdmin(ctx.supabase, ctx.userId);
+    const { data: rows, error } = await ctx.supabase
+      .from("affiliate_integration_tests")
+      .select("id, status, http_status, latency_ms, auth_status, message, environment, created_at")
+      .eq("integration_id", data.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const getAuditHistory = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ id: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const ctx = context as typeof context & { supabase: any; userId: string };
+    await requireAdmin(ctx.supabase, ctx.userId);
+    const { data: rows, error } = await ctx.supabase
+      .from("admin_activity_log")
+      .select("id, action, entity, meta, created_at")
+      .eq("entity_id", data.id)
+      .in("entity", ["affiliate_integrations", "affiliate_integration_credentials"])
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const getMaskedCredentials = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ id: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const ctx = context as typeof context & { supabase: any; userId: string };
+    await requireAdmin(ctx.supabase, ctx.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { decryptCredentials } = await import("@/lib/integration-crypto.server");
+    const { data: row } = await supabaseAdmin
+      .from("affiliate_integration_credentials")
+      .select("ciphertext")
+      .eq("integration_id", data.id)
+      .maybeSingle();
+    if (!row) return {};
+    try {
+      const creds = JSON.parse(decryptCredentials(row.ciphertext)) as Record<string, unknown>;
+      const maskVal = (v: unknown) => {
+        const s = typeof v === "string" ? v : "";
+        if (!s) return "";
+        if (s.length <= 4) return "•".repeat(s.length);
+        return `${"•".repeat(Math.max(4, s.length - 4))}${s.slice(-4)}`;
+      };
+      const out: Record<string, string> = {};
+      for (const k of ["apiKey", "accessToken", "username", "password", "clientId", "clientSecret", "authorizationUrl", "tokenUrl", "scopes"]) {
+        if (creds[k]) out[k] = k === "username" || k === "authorizationUrl" || k === "tokenUrl" || k === "scopes" ? String(creds[k]) : maskVal(creds[k]);
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  });
+
+export const testIntegration = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ id: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const ctx = context as typeof context & { supabase: any; userId: string };
+    await requireAdmin(ctx.supabase, ctx.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { decryptCredentials } = await import("@/lib/integration-crypto.server");
+
+    const { data: integ, error: iErr } = await supabaseAdmin
+      .from("affiliate_integrations")
+      .select("id, integration_name, base_url, authentication_type, timeout_seconds, custom_headers, endpoint_configuration, environment, is_enabled")
+      .eq("id", data.id)
+      .single();
+    if (iErr || !integ) throw new Error(iErr?.message ?? "Integration not found");
+
+    const { data: credRow } = await supabaseAdmin
+      .from("affiliate_integration_credentials")
+      .select("ciphertext")
+      .eq("integration_id", data.id)
+      .maybeSingle();
+
+    let creds: Record<string, string> = {};
+    try {
+      if (credRow) creds = JSON.parse(decryptCredentials(credRow.ciphertext));
+    } catch {
+      // ignore
+    }
+
+    // Build URL: base_url + optional health path
+    const endpoints = (integ.endpoint_configuration as Record<string, string>) ?? {};
+    const healthPath = (endpoints.health ?? "").trim();
+    const base = integ.base_url.replace(/\/+$/, "");
+    const url = healthPath ? `${base}${healthPath.startsWith("/") ? "" : "/"}${healthPath}` : base;
+
+    // Build headers by auth type
+    const headers: Record<string, string> = { Accept: "application/json" };
+    for (const h of (integ.custom_headers as { key: string; value: string }[]) ?? []) {
+      if (h?.key) headers[h.key] = h.value ?? "";
+    }
+    let authConfigured = false;
+    switch (integ.authentication_type) {
+      case "api_key":
+        if (creds.apiKey) { headers["X-API-Key"] = creds.apiKey; authConfigured = true; }
+        break;
+      case "bearer":
+        if (creds.accessToken) { headers.Authorization = `Bearer ${creds.accessToken}`; authConfigured = true; }
+        break;
+      case "basic":
+        if (creds.username || creds.password) {
+          headers.Authorization = `Basic ${Buffer.from(`${creds.username ?? ""}:${creds.password ?? ""}`).toString("base64")}`;
+          authConfigured = true;
+        }
+        break;
+      case "oauth2":
+        if (creds.accessToken) { headers.Authorization = `Bearer ${creds.accessToken}`; authConfigured = true; }
+        else if (creds.clientId && creds.clientSecret) { authConfigured = true; }
+        break;
+      case "custom_headers":
+        authConfigured = Object.keys(headers).length > 1; // more than Accept
+        break;
+    }
+
+    // Validate URL
+    let urlOk = true;
+    try { new URL(url); } catch { urlOk = false; }
+
+    const timeoutMs = Math.min(60_000, Math.max(1_000, (integ.timeout_seconds ?? 30) * 1000));
+    const start = Date.now();
+    let httpStatus: number | null = null;
+    let status: "connected" | "failed" | "warning" = "failed";
+    let authStatus: "valid" | "invalid" | "not_configured" | "unknown" = authConfigured ? "unknown" : "not_configured";
+    let message = "";
+
+    if (!urlOk) {
+      message = "Invalid base URL or health endpoint";
+    } else {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { method: "GET", headers, signal: controller.signal });
+        httpStatus = res.status;
+        if (res.status >= 200 && res.status < 300) {
+          status = "connected";
+          authStatus = authConfigured ? "valid" : authStatus;
+          message = "Connection successful";
+        } else if (res.status === 401 || res.status === 403) {
+          status = "failed";
+          authStatus = "invalid";
+          message = `Authentication failed (HTTP ${res.status})`;
+        } else if (res.status >= 500) {
+          status = "warning";
+          message = `Server error (HTTP ${res.status})`;
+        } else {
+          status = "warning";
+          message = `Unexpected response (HTTP ${res.status})`;
+        }
+      } catch (err) {
+        message = err instanceof Error ? (err.name === "AbortError" ? "Request timed out" : err.message) : "Network error";
+        status = "failed";
+      } finally {
+        clearTimeout(t);
+      }
+    }
+
+    const latency = Date.now() - start;
+    const result = {
+      status,
+      http_status: httpStatus,
+      latency_ms: latency,
+      auth_status: authStatus,
+      message,
+      environment: integ.environment ?? "production",
+      tested_at: new Date().toISOString(),
+    };
+
+    await supabaseAdmin.from("affiliate_integration_tests").insert({
+      integration_id: data.id,
+      status,
+      http_status: httpStatus,
+      latency_ms: latency,
+      auth_status: authStatus,
+      message,
+      environment: integ.environment ?? "production",
+      tested_by: ctx.userId,
+    });
+
+    await supabaseAdmin
+      .from("affiliate_integrations")
+      .update({
+        status: integ.is_enabled ? status : "disabled",
+        last_tested_at: result.tested_at,
+        last_test_result: result,
+      })
+      .eq("id", data.id);
+
+    return result;
   });
