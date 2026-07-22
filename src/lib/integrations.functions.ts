@@ -1,0 +1,196 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+const providerType = z.enum([
+  "affiliate_network",
+  "email_service",
+  "ai_service",
+  "analytics",
+  "payment_gateway",
+  "custom_rest_api",
+]);
+const authType = z.enum(["api_key", "bearer", "oauth2", "basic", "custom_headers"]);
+
+const credentialsSchema = z.object({
+  apiKey: z.string().optional().default(""),
+  accessToken: z.string().optional().default(""),
+  username: z.string().optional().default(""),
+  password: z.string().optional().default(""),
+  clientId: z.string().optional().default(""),
+  clientSecret: z.string().optional().default(""),
+  authorizationUrl: z.string().optional().default(""),
+  tokenUrl: z.string().optional().default(""),
+  scopes: z.string().optional().default(""),
+  customHeaders: z.array(z.object({ key: z.string(), value: z.string() })).optional().default([]),
+});
+
+const metaSchema = z.object({
+  integration_name: z.string().min(1).max(200),
+  provider_name: z.string().min(1).max(200),
+  provider_type: providerType,
+  description: z.string().max(2000).optional().default(""),
+  authentication_type: authType,
+  base_url: z.string().url(),
+  api_version: z.string().max(50).optional().default(""),
+  timeout_seconds: z.number().int().positive().max(600),
+  retry_attempts: z.number().int().min(0).max(20),
+  custom_headers: z.array(z.object({ key: z.string(), value: z.string() })).default([]),
+  endpoint_configuration: z.record(z.string(), z.string()).default({}),
+  is_enabled: z.boolean().default(false),
+});
+
+async function requireAdmin(supabase: any, userId: string) {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (error || !data) throw new Error("Forbidden: admin only");
+}
+
+
+export const listIntegrations = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const ctx = context as typeof context & { supabase: any; userId: string };
+    await requireAdmin(ctx.supabase, ctx.userId);
+    const { data, error } = await ctx.supabase
+      .from("affiliate_integrations")
+      .select(
+        "id, integration_name, provider_name, provider_type, description, authentication_type, base_url, api_version, timeout_seconds, retry_attempts, custom_headers, endpoint_configuration, is_enabled, last_tested_at, created_at, updated_at"
+      )
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const createIntegration = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ meta: metaSchema, credentials: credentialsSchema }).parse(v))
+  .handler(async ({ data, context }) => {
+    const ctx = context as typeof context & { supabase: any; userId: string };
+    await requireAdmin(ctx.supabase, ctx.userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { encryptCredentials } = await import("@/lib/integration-crypto.server");
+
+    const { data: inserted, error: insertErr } = await supabaseAdmin
+      .from("affiliate_integrations")
+      .insert({
+        ...data.meta,
+        created_by: ctx.userId,
+      })
+      .select("id")
+      .single();
+    if (insertErr || !inserted) throw new Error(insertErr?.message ?? "Failed to create integration");
+
+    const ciphertext = encryptCredentials(JSON.stringify(data.credentials));
+    const { data: credRow, error: credErr } = await supabaseAdmin
+      .from("affiliate_integration_credentials")
+      .insert({ integration_id: inserted.id, ciphertext })
+      .select("id")
+      .single();
+    if (credErr || !credRow) {
+      await supabaseAdmin.from("affiliate_integrations").delete().eq("id", inserted.id);
+      throw new Error(credErr?.message ?? "Failed to store credentials");
+    }
+
+    await supabaseAdmin
+      .from("affiliate_integrations")
+      .update({ credential_reference: credRow.id })
+      .eq("id", inserted.id);
+
+    return { id: inserted.id };
+  });
+
+export const updateIntegration = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        meta: metaSchema,
+        credentials: credentialsSchema.optional(),
+      })
+      .parse(v)
+  )
+  .handler(async ({ data, context }) => {
+    const ctx = context as typeof context & { supabase: any; userId: string };
+    await requireAdmin(ctx.supabase, ctx.userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { encryptCredentials } = await import("@/lib/integration-crypto.server");
+
+    const { error: upErr } = await supabaseAdmin
+      .from("affiliate_integrations")
+      .update(data.meta)
+      .eq("id", data.id);
+    if (upErr) throw new Error(upErr.message);
+
+    if (data.credentials) {
+      const ciphertext = encryptCredentials(JSON.stringify(data.credentials));
+      const { data: existing } = await supabaseAdmin
+        .from("affiliate_integration_credentials")
+        .select("id")
+        .eq("integration_id", data.id)
+        .maybeSingle();
+      if (existing) {
+        const { error } = await supabaseAdmin
+          .from("affiliate_integration_credentials")
+          .update({ ciphertext })
+          .eq("id", existing.id);
+        if (error) throw new Error(error.message);
+      } else {
+        const { data: credRow, error } = await supabaseAdmin
+          .from("affiliate_integration_credentials")
+          .insert({ integration_id: data.id, ciphertext })
+          .select("id")
+          .single();
+        if (error || !credRow) throw new Error(error?.message ?? "Failed to store credentials");
+        await supabaseAdmin
+          .from("affiliate_integrations")
+          .update({ credential_reference: credRow.id })
+          .eq("id", data.id);
+      }
+      // Audit: credentials updated (never log values)
+      await supabaseAdmin.from("admin_activity_log").insert({
+        actor_id: ctx.userId,
+        action: "update",
+        entity: "affiliate_integration_credentials",
+        entity_id: data.id,
+        meta: { description: "Credentials updated", name: data.meta.integration_name },
+      });
+    }
+
+    return { id: data.id };
+  });
+
+export const toggleIntegration = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ id: z.string().uuid(), enabled: z.boolean() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const ctx = context as typeof context & { supabase: any; userId: string };
+    await requireAdmin(ctx.supabase, ctx.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("affiliate_integrations")
+      .update({ is_enabled: data.enabled })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { id: data.id, is_enabled: data.enabled };
+  });
+
+export const deleteIntegration = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v) => z.object({ id: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const ctx = context as typeof context & { supabase: any; userId: string };
+    await requireAdmin(ctx.supabase, ctx.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // ON DELETE CASCADE removes the credentials row.
+    const { error } = await supabaseAdmin.from("affiliate_integrations").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { id: data.id };
+  });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 import {
   X,
   Check,
@@ -13,6 +14,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Field, TextInput, TextArea, SelectInput } from "@/components/admin/form-fields";
+import { createIntegration, updateIntegration } from "@/lib/integrations.functions";
+
 
 type ProviderType =
   | "affiliate_network"
@@ -124,13 +127,66 @@ function mask(v: string) {
   return "•".repeat(Math.min(12, Math.max(6, v.length)));
 }
 
-export function IntegrationWizard({ onClose }: { onClose: () => void }) {
+export type IntegrationRecord = {
+  id: string;
+  integration_name: string;
+  provider_name: string;
+  provider_type: string;
+  description: string | null;
+  authentication_type: string;
+  base_url: string;
+  api_version: string | null;
+  timeout_seconds: number;
+  retry_attempts: number;
+  custom_headers: { key: string; value: string }[] | null;
+  endpoint_configuration: Record<string, string> | null;
+  is_enabled: boolean;
+};
+
+function fromRecord(rec: IntegrationRecord): WizardData {
+  const ep = rec.endpoint_configuration ?? {};
+  return {
+    ...INITIAL,
+    name: rec.integration_name,
+    provider: rec.provider_name,
+    description: rec.description ?? "",
+    providerType: (rec.provider_type as ProviderType) || "",
+    authType: (rec.authentication_type as AuthType) || "api_key",
+    baseUrl: rec.base_url,
+    apiVersion: rec.api_version ?? "",
+    timeout: String(rec.timeout_seconds ?? 30),
+    retries: String(rec.retry_attempts ?? 3),
+    healthEndpoint: ep.health ?? "",
+    storesEndpoint: ep.stores ?? "",
+    couponsEndpoint: ep.coupons ?? "",
+    dealsEndpoint: ep.deals ?? "",
+    customHeaders: Array.isArray(rec.custom_headers) && rec.custom_headers.length
+      ? rec.custom_headers
+      : [{ key: "", value: "" }],
+  };
+}
+
+export function IntegrationWizard({
+  onClose,
+  onSaved,
+  editing,
+}: {
+  onClose: () => void;
+  onSaved?: () => void;
+  editing?: IntegrationRecord | null;
+}) {
+  const isEdit = !!editing;
+  const initial = useMemo(() => (editing ? fromRecord(editing) : INITIAL), [editing]);
   const [step, setStep] = useState(0);
-  const [data, setData] = useState<WizardData>(INITIAL);
+  const [data, setData] = useState<WizardData>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showDiscard, setShowDiscard] = useState(false);
+  const [saving, setSaving] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const dirty = useMemo(() => JSON.stringify(data) !== JSON.stringify(INITIAL) || step > 0, [data, step]);
+  const dirty = useMemo(() => JSON.stringify(data) !== JSON.stringify(initial) || step > 0, [data, initial, step]);
+  const createFn = useServerFn(createIntegration);
+  const updateFn = useServerFn(updateIntegration);
+
 
   // Escape to close, focus trap basics
   useEffect(() => {
@@ -226,14 +282,66 @@ export function IntegrationWizard({ onClose }: { onClose: () => void }) {
   };
   const prev = () => setStep((s) => Math.max(s - 1, 0));
 
-  const save = () => {
-    if (!validateStep(0) || !validateStep(2) || !validateStep(3)) {
+  const save = async () => {
+    if (!validateStep(0) || !validateStep(2) || (!isEdit && !validateStep(3))) {
       toast.error("Please fix validation errors before saving.");
       return;
     }
-    toast.message("Integration saving will be enabled in Phase 1C.");
-    onClose();
+    const meta = {
+      integration_name: data.name.trim(),
+      provider_name: data.provider.trim(),
+      provider_type: data.providerType || "custom_rest_api",
+      description: data.description ?? "",
+      authentication_type: data.authType,
+      base_url: data.baseUrl.trim(),
+      api_version: data.apiVersion ?? "",
+      timeout_seconds: Number(data.timeout) || 30,
+      retry_attempts: Number(data.retries) || 0,
+      custom_headers: data.customHeaders.filter((h) => h.key.trim()),
+      endpoint_configuration: {
+        health: data.healthEndpoint,
+        stores: data.storesEndpoint,
+        coupons: data.couponsEndpoint,
+        deals: data.dealsEndpoint,
+      },
+      is_enabled: isEdit ? editing!.is_enabled : false,
+    };
+    const credentials = {
+      apiKey: data.apiKey,
+      accessToken: data.accessToken,
+      username: data.username,
+      password: data.password,
+      clientId: data.clientId,
+      clientSecret: data.clientSecret,
+      authorizationUrl: data.authorizationUrl,
+      tokenUrl: data.tokenUrl,
+      scopes: data.scopes,
+      customHeaders: data.customHeaders.filter((h) => h.key.trim()),
+    };
+    const anyCredEntered = Object.values(credentials).some((v) =>
+      Array.isArray(v) ? v.length > 0 : (v ?? "").length > 0,
+    );
+
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await updateFn({
+          data: { id: editing!.id, meta, credentials: anyCredEntered ? credentials : undefined },
+        });
+        toast.success("Integration updated");
+      } else {
+        await createFn({ data: { meta, credentials } });
+        toast.success("Integration created");
+      }
+      onSaved?.();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save integration");
+    } finally {
+      setSaving(false);
+    }
   };
+
 
   return (
     <div
@@ -252,11 +360,12 @@ export function IntegrationWizard({ onClose }: { onClose: () => void }) {
         <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4">
           <div>
             <h3 id="wizard-title" className="text-lg font-semibold text-slate-800">
-              Add Integration
+              {isEdit ? "Edit Integration" : "Add Integration"}
             </h3>
             <p className="mt-0.5 text-xs text-slate-500">
               Step {step + 1} of {STEPS.length} — {STEPS[step]}
             </p>
+
           </div>
           <button
             onClick={attemptClose}
@@ -335,10 +444,12 @@ export function IntegrationWizard({ onClose }: { onClose: () => void }) {
             ) : (
               <button
                 onClick={save}
-                className="inline-flex items-center gap-1 rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                disabled={saving}
+                className="inline-flex items-center gap-1 rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
               >
-                Save Integration
+                {saving ? "Saving…" : isEdit ? "Save Changes" : "Save Integration"}
               </button>
+
             )}
           </div>
         </div>
