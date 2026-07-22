@@ -213,9 +213,18 @@ export const toggleIntegration = createServerFn({ method: "POST" })
     const ctx = context as typeof context & { supabase: any; userId: string };
     await requireAdmin(ctx.supabase, ctx.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: current } = await supabaseAdmin
+      .from("affiliate_integrations")
+      .select("last_test_result")
+      .eq("id", data.id)
+      .maybeSingle();
+    const prior = (current?.last_test_result as { status?: string } | null)?.status;
+    const nextStatus = data.enabled
+      ? (prior && ["connected", "warning", "failed"].includes(prior) ? prior : "never_tested")
+      : "disabled";
     const { error } = await supabaseAdmin
       .from("affiliate_integrations")
-      .update({ is_enabled: data.enabled })
+      .update({ is_enabled: data.enabled, status: nextStatus })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { id: data.id, is_enabled: data.enabled };
