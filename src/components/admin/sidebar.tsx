@@ -40,6 +40,7 @@ const GROUPS: Group[] = [
     { to: "/admin/translations", label: "Translations", icon: Languages },
     { to: "/admin/theme", label: "Theme", icon: Brush },
     { to: "/admin/etemplates", label: "Email Templates", icon: Mail },
+    { to: "/admin/integrations", label: "API Integrations", icon: Plug },
     { to: "/admin/settings", label: "Settings", icon: Settings },
   ]},
 ];
