@@ -282,14 +282,66 @@ export function IntegrationWizard({
   };
   const prev = () => setStep((s) => Math.max(s - 1, 0));
 
-  const save = () => {
-    if (!validateStep(0) || !validateStep(2) || !validateStep(3)) {
+  const save = async () => {
+    if (!validateStep(0) || !validateStep(2) || (!isEdit && !validateStep(3))) {
       toast.error("Please fix validation errors before saving.");
       return;
     }
-    toast.message("Integration saving will be enabled in Phase 1C.");
-    onClose();
+    const meta = {
+      integration_name: data.name.trim(),
+      provider_name: data.provider.trim(),
+      provider_type: data.providerType || "custom_rest_api",
+      description: data.description ?? "",
+      authentication_type: data.authType,
+      base_url: data.baseUrl.trim(),
+      api_version: data.apiVersion ?? "",
+      timeout_seconds: Number(data.timeout) || 30,
+      retry_attempts: Number(data.retries) || 0,
+      custom_headers: data.customHeaders.filter((h) => h.key.trim()),
+      endpoint_configuration: {
+        health: data.healthEndpoint,
+        stores: data.storesEndpoint,
+        coupons: data.couponsEndpoint,
+        deals: data.dealsEndpoint,
+      },
+      is_enabled: isEdit ? editing!.is_enabled : false,
+    };
+    const credentials = {
+      apiKey: data.apiKey,
+      accessToken: data.accessToken,
+      username: data.username,
+      password: data.password,
+      clientId: data.clientId,
+      clientSecret: data.clientSecret,
+      authorizationUrl: data.authorizationUrl,
+      tokenUrl: data.tokenUrl,
+      scopes: data.scopes,
+      customHeaders: data.customHeaders.filter((h) => h.key.trim()),
+    };
+    const anyCredEntered = Object.values(credentials).some((v) =>
+      Array.isArray(v) ? v.length > 0 : (v ?? "").length > 0,
+    );
+
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await updateFn({
+          data: { id: editing!.id, meta, credentials: anyCredEntered ? credentials : undefined },
+        });
+        toast.success("Integration updated");
+      } else {
+        await createFn({ data: { meta, credentials } });
+        toast.success("Integration created");
+      }
+      onSaved?.();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save integration");
+    } finally {
+      setSaving(false);
+    }
   };
+
 
   return (
     <div
