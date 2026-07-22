@@ -160,11 +160,13 @@ export const updateIntegration = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { encryptCredentials } = await import("@/lib/integration-crypto.server");
 
+    await assertUnique(supabaseAdmin, data.meta, data.id);
+
     const { error: upErr } = await supabaseAdmin
       .from("affiliate_integrations")
       .update(data.meta)
       .eq("id", data.id);
-    if (upErr) throw new Error(upErr.message);
+    if (upErr) throw new Error(mapDupError(upErr));
 
     if (data.credentials) {
       const ciphertext = encryptCredentials(JSON.stringify(data.credentials));
