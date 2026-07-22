@@ -81,7 +81,7 @@ function IntegrationsPage() {
         ))}
       </div>
 
-      {open && <PlaceholderModal onClose={() => setOpen(false)} />}
+      {open && <IntegrationWizard onClose={() => setOpen(false)} />}
     </div>
   );
 }
