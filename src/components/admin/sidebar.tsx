@@ -3,7 +3,7 @@ import { SITE_URL, SITE_NAME } from "@/lib/seo";
 import {
   LayoutDashboard, Megaphone, Tag, Tags, Store, GalleryHorizontal,
   FileText, Users, Bell, Languages, ListOrdered, Image as ImageIcon,
-  Brush, Mail, Settings, Newspaper, FolderOpen, MessageSquare, Star, BarChart3, History,
+  Brush, Mail, Settings, Newspaper, FolderOpen, MessageSquare, Star, BarChart3, History, Plug,
 } from "lucide-react";
 
 type Item = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
@@ -40,6 +40,7 @@ const GROUPS: Group[] = [
     { to: "/admin/translations", label: "Translations", icon: Languages },
     { to: "/admin/theme", label: "Theme", icon: Brush },
     { to: "/admin/etemplates", label: "Email Templates", icon: Mail },
+    { to: "/admin/integrations", label: "API Integrations", icon: Plug },
     { to: "/admin/settings", label: "Settings", icon: Settings },
   ]},
 ];

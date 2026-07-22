@@ -42,6 +42,7 @@ import { Route as AdminPostsRouteImport } from './routes/admin.posts'
 import { Route as AdminPagesRouteImport } from './routes/admin.pages'
 import { Route as AdminNewslettersRouteImport } from './routes/admin.newsletters'
 import { Route as AdminMenusRouteImport } from './routes/admin.menus'
+import { Route as AdminIntegrationsRouteImport } from './routes/admin.integrations'
 import { Route as AdminEtemplatesRouteImport } from './routes/admin.etemplates'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AdminCommentsRouteImport } from './routes/admin.comments'
@@ -231,6 +232,11 @@ const AdminMenusRoute = AdminMenusRouteImport.update({
   path: '/menus',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminIntegrationsRoute = AdminIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminEtemplatesRoute = AdminEtemplatesRouteImport.update({
   id: '/etemplates',
   path: '/etemplates',
@@ -381,6 +387,7 @@ export interface FileRoutesByFullPath {
   '/admin/comments': typeof AdminCommentsRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
   '/admin/etemplates': typeof AdminEtemplatesRoute
+  '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/menus': typeof AdminMenusRoute
   '/admin/newsletters': typeof AdminNewslettersRoute
   '/admin/pages': typeof AdminPagesRoute
@@ -437,6 +444,7 @@ export interface FileRoutesByTo {
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/comments': typeof AdminCommentsRoute
   '/admin/etemplates': typeof AdminEtemplatesRoute
+  '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/menus': typeof AdminMenusRoute
   '/admin/newsletters': typeof AdminNewslettersRoute
   '/admin/pages': typeof AdminPagesRoute
@@ -494,6 +502,7 @@ export interface FileRoutesById {
   '/admin/comments': typeof AdminCommentsRoute
   '/admin/coupons': typeof AdminCouponsRouteWithChildren
   '/admin/etemplates': typeof AdminEtemplatesRoute
+  '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/menus': typeof AdminMenusRoute
   '/admin/newsletters': typeof AdminNewslettersRoute
   '/admin/pages': typeof AdminPagesRoute
@@ -554,6 +563,7 @@ export interface FileRouteTypes {
     | '/admin/comments'
     | '/admin/coupons'
     | '/admin/etemplates'
+    | '/admin/integrations'
     | '/admin/menus'
     | '/admin/newsletters'
     | '/admin/pages'
@@ -610,6 +620,7 @@ export interface FileRouteTypes {
     | '/admin/categories'
     | '/admin/comments'
     | '/admin/etemplates'
+    | '/admin/integrations'
     | '/admin/menus'
     | '/admin/newsletters'
     | '/admin/pages'
@@ -666,6 +677,7 @@ export interface FileRouteTypes {
     | '/admin/comments'
     | '/admin/coupons'
     | '/admin/etemplates'
+    | '/admin/integrations'
     | '/admin/menus'
     | '/admin/newsletters'
     | '/admin/pages'
@@ -956,6 +968,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMenusRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/integrations': {
+      id: '/admin/integrations'
+      path: '/integrations'
+      fullPath: '/admin/integrations'
+      preLoaderRoute: typeof AdminIntegrationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/etemplates': {
       id: '/admin/etemplates'
       path: '/etemplates'
@@ -1209,6 +1228,7 @@ interface AdminRouteChildren {
   AdminCommentsRoute: typeof AdminCommentsRoute
   AdminCouponsRoute: typeof AdminCouponsRouteWithChildren
   AdminEtemplatesRoute: typeof AdminEtemplatesRoute
+  AdminIntegrationsRoute: typeof AdminIntegrationsRoute
   AdminMenusRoute: typeof AdminMenusRoute
   AdminNewslettersRoute: typeof AdminNewslettersRoute
   AdminPagesRoute: typeof AdminPagesRoute
@@ -1234,6 +1254,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCommentsRoute: AdminCommentsRoute,
   AdminCouponsRoute: AdminCouponsRouteWithChildren,
   AdminEtemplatesRoute: AdminEtemplatesRoute,
+  AdminIntegrationsRoute: AdminIntegrationsRoute,
   AdminMenusRoute: AdminMenusRoute,
   AdminNewslettersRoute: AdminNewslettersRoute,
   AdminPagesRoute: AdminPagesRoute,
