@@ -360,11 +360,12 @@ export function IntegrationWizard({
         <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4">
           <div>
             <h3 id="wizard-title" className="text-lg font-semibold text-slate-800">
-              Add Integration
+              {isEdit ? "Edit Integration" : "Add Integration"}
             </h3>
             <p className="mt-0.5 text-xs text-slate-500">
               Step {step + 1} of {STEPS.length} — {STEPS[step]}
             </p>
+
           </div>
           <button
             onClick={attemptClose}
