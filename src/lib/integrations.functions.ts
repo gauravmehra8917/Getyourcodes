@@ -76,6 +76,8 @@ export const createIntegration = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { encryptCredentials } = await import("@/lib/integration-crypto.server");
 
+    await assertUnique(supabaseAdmin, data.meta, null);
+
     const { data: inserted, error: insertErr } = await supabaseAdmin
       .from("affiliate_integrations")
       .insert({
@@ -84,7 +86,7 @@ export const createIntegration = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
-    if (insertErr || !inserted) throw new Error(insertErr?.message ?? "Failed to create integration");
+    if (insertErr || !inserted) throw new Error(mapDupError(insertErr));
 
     const ciphertext = encryptCredentials(JSON.stringify(data.credentials));
     const { data: credRow, error: credErr } = await supabaseAdmin
