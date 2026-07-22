@@ -80,6 +80,101 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_integration_credentials: {
+        Row: {
+          ciphertext: string
+          created_at: string
+          id: string
+          integration_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ciphertext: string
+          created_at?: string
+          id?: string
+          integration_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ciphertext?: string
+          created_at?: string
+          id?: string
+          integration_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_integration_credentials_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      affiliate_integrations: {
+        Row: {
+          api_version: string | null
+          authentication_type: string
+          base_url: string
+          created_at: string
+          created_by: string | null
+          credential_reference: string | null
+          custom_headers: Json
+          description: string | null
+          endpoint_configuration: Json
+          id: string
+          integration_name: string
+          is_enabled: boolean
+          last_tested_at: string | null
+          provider_name: string
+          provider_type: string
+          retry_attempts: number
+          timeout_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          api_version?: string | null
+          authentication_type: string
+          base_url: string
+          created_at?: string
+          created_by?: string | null
+          credential_reference?: string | null
+          custom_headers?: Json
+          description?: string | null
+          endpoint_configuration?: Json
+          id?: string
+          integration_name: string
+          is_enabled?: boolean
+          last_tested_at?: string | null
+          provider_name: string
+          provider_type: string
+          retry_attempts?: number
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          api_version?: string | null
+          authentication_type?: string
+          base_url?: string
+          created_at?: string
+          created_by?: string | null
+          credential_reference?: string | null
+          custom_headers?: Json
+          description?: string | null
+          endpoint_configuration?: Json
+          id?: string
+          integration_name?: string
+          is_enabled?: boolean
+          last_tested_at?: string | null
+          provider_name?: string
+          provider_type?: string
+          retry_attempts?: number
+          timeout_seconds?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       blog_categories: {
         Row: {
           created_at: string
@@ -924,6 +1019,7 @@ export type Database = {
           query: string
         }[]
       }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       subscribe_email: { Args: { _email: string }; Returns: undefined }
       unsubscribe_by_token: { Args: { _token: string }; Returns: boolean }
     }
