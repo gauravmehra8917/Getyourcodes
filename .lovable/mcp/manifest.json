@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://bsnzezxeuttzfeummqdt.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "getyourcodes-mcp",
+      "version": "0.1.0",
+      "title": "Getyourcodes"
+    },
+    "tools": [
+      {
+        "name": "search_coupons",
+        "title": "Search coupons",
+        "description": "Search active coupons and deals on Getyourcodes by keyword (brand, product, or category). Returns up to 20 matches with store info.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Keywords like brand, product, or category"
+            },
+            "couponType": {
+              "type": "string",
+              "enum": [
+                "code",
+                "deal",
+                "any"
+              ],
+              "description": "Restrict to coupon codes, deals, or any"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_stores",
+        "title": "Search stores",
+        "description": "Search stores/merchants on Getyourcodes by name. Returns store info with slug — use it to build links like https://getyourcodes.com/<slug>.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_my_saved_coupons",
+        "title": "List my saved coupons",
+        "description": "Return the signed-in user's saved coupons on Getyourcodes, with the full coupon and store details.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
