@@ -138,39 +138,3 @@ function DisabledBtn({ icon, children, tone }: { icon: React.ReactNode; children
   );
 }
 
-function PlaceholderModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="integration-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-md bg-white p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-start justify-between">
-          <h3 id="integration-modal-title" className="text-lg font-semibold text-slate-800">
-            Add Integration
-          </h3>
-          <button onClick={onClose} aria-label="Close" className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="rounded border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm text-slate-600">
-          Integration setup will be available in the next implementation phase.
-        </div>
-        <div className="mt-5 flex justify-end">
-          <button
-            onClick={onClose}
-            className="rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
-          >
-            Got it
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
