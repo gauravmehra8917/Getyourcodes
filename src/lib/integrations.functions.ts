@@ -50,6 +50,41 @@ async function requireAdmin(supabase: any, userId: string) {
   if (error || !data) throw new Error("Forbidden: admin only");
 }
 
+function mapDupError(err: any): string {
+  const msg = err?.message ?? "Failed to save integration";
+  if (err?.code === "23505" || /duplicate key|unique/i.test(msg)) {
+    if (/name_unique/.test(msg)) return "An integration with this name already exists";
+    if (/provider_baseurl_unique/.test(msg)) return "An integration for this provider + base URL already exists";
+    return "Duplicate integration (name or provider + base URL already exists)";
+  }
+  return msg;
+}
+
+async function assertUnique(
+  supabaseAdmin: any,
+  meta: { integration_name: string; provider_name: string; base_url: string },
+  excludeId: string | null,
+) {
+  const q1 = supabaseAdmin
+    .from("affiliate_integrations")
+    .select("id")
+    .ilike("integration_name", meta.integration_name)
+    .limit(1);
+  const { data: byName } = await q1;
+  if (byName?.length && byName[0].id !== excludeId) {
+    throw new Error("An integration with this name already exists");
+  }
+  const { data: byPair } = await supabaseAdmin
+    .from("affiliate_integrations")
+    .select("id")
+    .ilike("provider_name", meta.provider_name)
+    .ilike("base_url", meta.base_url)
+    .limit(1);
+  if (byPair?.length && byPair[0].id !== excludeId) {
+    throw new Error("An integration for this provider + base URL already exists");
+  }
+}
+
 
 export const listIntegrations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
