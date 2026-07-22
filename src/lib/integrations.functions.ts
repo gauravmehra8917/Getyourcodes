@@ -40,7 +40,7 @@ const metaSchema = z.object({
   is_enabled: z.boolean().default(false),
 });
 
-async function requireAdmin(supabase: NonNullable<Awaited<ReturnType<typeof getCtx>>>["supabase"], userId: string) {
+async function requireAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase
     .from("user_roles")
     .select("id")
@@ -49,8 +49,7 @@ async function requireAdmin(supabase: NonNullable<Awaited<ReturnType<typeof getC
     .maybeSingle();
   if (error || !data) throw new Error("Forbidden: admin only");
 }
-// helper type
-const getCtx = async () => ({ supabase: {} as never });
+
 
 export const listIntegrations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
