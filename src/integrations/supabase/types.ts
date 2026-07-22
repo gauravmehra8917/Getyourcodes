@@ -112,6 +112,53 @@ export type Database = {
           },
         ]
       }
+      affiliate_integration_tests: {
+        Row: {
+          auth_status: string | null
+          created_at: string
+          environment: string | null
+          http_status: number | null
+          id: string
+          integration_id: string
+          latency_ms: number | null
+          message: string | null
+          status: string
+          tested_by: string | null
+        }
+        Insert: {
+          auth_status?: string | null
+          created_at?: string
+          environment?: string | null
+          http_status?: number | null
+          id?: string
+          integration_id: string
+          latency_ms?: number | null
+          message?: string | null
+          status: string
+          tested_by?: string | null
+        }
+        Update: {
+          auth_status?: string | null
+          created_at?: string
+          environment?: string | null
+          http_status?: number | null
+          id?: string
+          integration_id?: string
+          latency_ms?: number | null
+          message?: string | null
+          status?: string
+          tested_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_integration_tests_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_integrations: {
         Row: {
           api_version: string | null
@@ -123,13 +170,16 @@ export type Database = {
           custom_headers: Json
           description: string | null
           endpoint_configuration: Json
+          environment: string
           id: string
           integration_name: string
           is_enabled: boolean
+          last_test_result: Json | null
           last_tested_at: string | null
           provider_name: string
           provider_type: string
           retry_attempts: number
+          status: string
           timeout_seconds: number
           updated_at: string
         }
@@ -143,13 +193,16 @@ export type Database = {
           custom_headers?: Json
           description?: string | null
           endpoint_configuration?: Json
+          environment?: string
           id?: string
           integration_name: string
           is_enabled?: boolean
+          last_test_result?: Json | null
           last_tested_at?: string | null
           provider_name: string
           provider_type: string
           retry_attempts?: number
+          status?: string
           timeout_seconds?: number
           updated_at?: string
         }
@@ -163,13 +216,16 @@ export type Database = {
           custom_headers?: Json
           description?: string | null
           endpoint_configuration?: Json
+          environment?: string
           id?: string
           integration_name?: string
           is_enabled?: boolean
+          last_test_result?: Json | null
           last_tested_at?: string | null
           provider_name?: string
           provider_type?: string
           retry_attempts?: number
+          status?: string
           timeout_seconds?: number
           updated_at?: string
         }
