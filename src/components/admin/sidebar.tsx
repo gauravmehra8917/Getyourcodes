@@ -3,7 +3,7 @@ import { SITE_URL, SITE_NAME } from "@/lib/seo";
 import {
   LayoutDashboard, Megaphone, Tag, Tags, Store, GalleryHorizontal,
   FileText, Users, Bell, Languages, ListOrdered, Image as ImageIcon,
-  Brush, Mail, Settings, Newspaper, FolderOpen, MessageSquare, Star, BarChart3, History,
+  Brush, Mail, Settings, Newspaper, FolderOpen, MessageSquare, Star, BarChart3, History, Plug,
 } from "lucide-react";
 
 type Item = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
