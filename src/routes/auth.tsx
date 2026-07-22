@@ -5,6 +5,9 @@ import { lovable } from "@/integrations/lovable/index";
 import { Tag } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" ? s.next : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Sign in or sign up — Getyourcodes" },
@@ -15,8 +18,16 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+// Only allow same-origin relative paths for post-auth redirect.
+function safeNext(next: string | undefined): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
 function AuthPage() {
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
+  const safe = safeNext(next);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,12 +36,18 @@ function AuthPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // If already signed in, bounce to /account
+  const goPostAuth = () => {
+    if (safe) window.location.href = safe;
+    else navigate({ to: "/account" });
+  };
+
+  // If already signed in, forward through `next` when present.
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/account" });
+      if (data.session) goPostAuth();
     });
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,19 +60,18 @@ function AuthPage() {
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin + "/account",
+            emailRedirectTo: window.location.origin + (safe ?? "/account"),
             data: { display_name: displayName || email.split("@")[0] },
           },
         });
         if (error) throw error;
-        // If email confirmation is required, no session yet.
         const { data } = await supabase.auth.getSession();
-        if (data.session) navigate({ to: "/account" });
+        if (data.session) goPostAuth();
         else setInfo("Check your email to confirm your account, then sign in.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: "/account" });
+        goPostAuth();
       }
     } catch (e) {
       setErr((e as Error).message);
@@ -68,7 +84,7 @@ function AuthPage() {
     setErr(null);
     setLoading(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/account",
+      redirect_uri: window.location.origin + (safe ?? "/account"),
     });
     if (result.error) {
       setErr(result.error instanceof Error ? result.error.message : String(result.error));
@@ -76,7 +92,7 @@ function AuthPage() {
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/account" });
+    goPostAuth();
   };
 
   return (
