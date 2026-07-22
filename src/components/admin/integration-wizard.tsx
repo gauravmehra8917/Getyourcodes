@@ -444,10 +444,12 @@ export function IntegrationWizard({
             ) : (
               <button
                 onClick={save}
-                className="inline-flex items-center gap-1 rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                disabled={saving}
+                className="inline-flex items-center gap-1 rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
               >
-                Save Integration
+                {saving ? "Saving…" : isEdit ? "Save Changes" : "Save Integration"}
               </button>
+
             )}
           </div>
         </div>
