@@ -337,11 +337,24 @@ export const testIntegration = createServerFn({ method: "POST" })
       // ignore
     }
 
-    // Build URL: base_url + optional health path
+    // Build URL: base_url + optional health path, with generic endpoint
+    // variable resolution ({AccountSID}, {Username}, {ClientId}, ...).
+    const { buildVariableMap, resolvePlaceholders } = await import(
+      "@/lib/integration-engine/placeholders.server"
+    );
+    const { logDebug } = await import("@/lib/integration-engine/logger.server");
+    const vars = buildVariableMap(creds as Record<string, string>);
     const endpoints = (integ.endpoint_configuration as Record<string, string>) ?? {};
-    const healthPath = (endpoints.health ?? "").trim();
-    const base = integ.base_url.replace(/\/+$/, "");
-    const url = healthPath ? `${base}${healthPath.startsWith("/") ? "" : "/"}${healthPath}` : base;
+    const healthPath = resolvePlaceholders((endpoints.health ?? "").trim(), vars);
+    const baseResolved = resolvePlaceholders(integ.base_url, vars);
+    const base = baseResolved.value.replace(/\/+$/, "");
+    const url = healthPath.value
+      ? `${base}${healthPath.value.startsWith("/") ? "" : "/"}${healthPath.value}`
+      : base;
+    const unresolvedVariables = Array.from(
+      new Set([...baseResolved.unresolved, ...healthPath.unresolved]),
+    );
+
 
     // Build headers by auth type
     const headers: Record<string, string> = { Accept: "application/json" };
