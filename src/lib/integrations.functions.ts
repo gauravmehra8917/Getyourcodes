@@ -400,6 +400,30 @@ export const testIntegration = createServerFn({ method: "POST" })
     let urlOk = true;
     try { new URL(url); } catch { urlOk = false; }
 
+    const authScheme =
+      typeof headers.Authorization === "string"
+        ? headers.Authorization.split(" ")[0]
+        : integ.authentication_type === "api_key"
+          ? "ApiKeyHeader"
+          : "none";
+
+    const debug: Record<string, unknown> = {
+      resolvedUrl: redactUrl(url),
+      baseUrl: base,
+      endpointPath: rawHealthPath || "(none)",
+      joinedCorrectly: urlOk && !/[^:]\/\//.test(url),
+      method: "GET",
+      authScheme,
+      authorizationHeaderAttached: Boolean(headers.Authorization),
+      authConfigured,
+      headers: redactHeaders(headers),
+      resolvedVariables,
+      unresolvedVariables,
+      reachedHttpClient: false,
+      responseStatus: null as number | null,
+      responseBodyPreview: "",
+    };
+
     const timeoutMs = Math.min(60_000, Math.max(1_000, (integ.timeout_seconds ?? 30) * 1000));
     const start = Date.now();
     let httpStatus: number | null = null;
@@ -415,6 +439,9 @@ export const testIntegration = createServerFn({ method: "POST" })
       authConfigured,
       unresolvedVariables,
     });
+    // Always emit a redacted one-liner for this diagnostic phase.
+    // eslint-disable-next-line no-console
+    console.log(`[integration-test] ${JSON.stringify({ integrationId: data.id, ...debug })}`);
 
     if (!urlOk) {
       message = "Invalid base URL or health endpoint";
@@ -422,11 +449,17 @@ export const testIntegration = createServerFn({ method: "POST" })
       const controller = new AbortController();
       const t = setTimeout(() => controller.abort(), timeoutMs);
       try {
+        debug.reachedHttpClient = true;
         const res = await fetch(url, { method: "GET", headers, signal: controller.signal });
         httpStatus = res.status;
         let bodyText = "";
         try { bodyText = await res.text(); } catch { /* noop */ }
+        debug.responseStatus = res.status;
+        debug.responseBodyPreview = redactBody(bodyText, 500);
         logDebug("test-connection.response", { integrationId: data.id, url, status: res.status, body: bodyText });
+        // eslint-disable-next-line no-console
+        console.log(`[integration-test] ${JSON.stringify({ integrationId: data.id, status: res.status, body: redactBody(bodyText, 500) })}`);
+
         if (res.status >= 200 && res.status < 300) {
           status = "connected";
           authStatus = authConfigured ? "valid" : authStatus;
