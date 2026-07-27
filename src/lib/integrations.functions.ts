@@ -531,7 +531,7 @@ export const testIntegration = createServerFn({ method: "POST" })
       .update({
         status: integ.is_enabled ? status : "disabled",
         last_tested_at: result.tested_at,
-        last_test_result: result,
+        last_test_result: JSON.parse(JSON.stringify(result)),
       })
       .eq("id", data.id);
 
