@@ -95,5 +95,13 @@ export function buildRequest(
     body = new URLSearchParams(opts.formBody).toString();
   }
 
-  return { url, method, headers, body, authConfigured: auth.configured };
+  return {
+    url,
+    method,
+    headers,
+    body,
+    authConfigured: auth.configured,
+    unresolvedVariables: Array.from(new Set(unresolvedVariables)),
+  };
+
 }
