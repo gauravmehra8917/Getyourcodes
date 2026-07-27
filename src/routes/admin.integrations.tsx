@@ -46,6 +46,22 @@ type TestResult = {
   message: string;
   environment: string;
   tested_at: string;
+  debug?: {
+    resolvedUrl?: string;
+    baseUrl?: string;
+    endpointPath?: string;
+    joinedCorrectly?: boolean;
+    method?: string;
+    authScheme?: string;
+    authorizationHeaderAttached?: boolean;
+    authConfigured?: boolean;
+    headers?: Record<string, string>;
+    resolvedVariables?: string[];
+    unresolvedVariables?: string[];
+    reachedHttpClient?: boolean;
+    responseStatus?: number | null;
+    responseBodyPreview?: string;
+  } | null;
 };
 
 const PROVIDER_TYPE_LABEL: Record<string, string> = {
@@ -689,6 +705,7 @@ function TestResultModal({
               {result.message && (
                 <div className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">{result.message}</div>
               )}
+              {result.debug && <DebugInformation debug={result.debug} />}
             </>
           )}
         </div>
@@ -699,6 +716,57 @@ function TestResultModal({
           <button onClick={onClose} className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900">Close</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DebugInformation({ debug }: { debug: NonNullable<TestResult["debug"]> }) {
+  const [open, setOpen] = React.useState(true);
+  const item = (label: string, value: React.ReactNode) => (
+    <div className="grid grid-cols-[150px_1fr] gap-2 border-b border-slate-100 py-1">
+      <span className="text-slate-500">{label}</span>
+      <span className="break-all font-mono text-[11px] text-slate-800">{value}</span>
+    </div>
+  );
+  return (
+    <div className="rounded border border-amber-200 bg-amber-50/60">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-amber-800"
+      >
+        Debug Information
+        <span aria-hidden>{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div className="max-h-72 overflow-auto px-3 pb-3 text-xs">
+          {item("Resolved Request URL", debug.resolvedUrl ?? "—")}
+          {item("Base URL", debug.baseUrl ?? "—")}
+          {item("Endpoint Path", debug.endpointPath ?? "—")}
+          {item("URL Join OK", debug.joinedCorrectly ? "yes" : "no — check slashes")}
+          {item("HTTP Method", debug.method ?? "—")}
+          {item("Authentication Scheme", debug.authScheme ?? "none")}
+          {item("Authorization Header", debug.authorizationHeaderAttached ? "attached" : "not attached")}
+          {item(
+            "Placeholder Resolution",
+            <>
+              <div>resolved: {debug.resolvedVariables?.length ? debug.resolvedVariables.join(", ") : "none"}</div>
+              <div>unresolved: {debug.unresolvedVariables?.length ? debug.unresolvedVariables.join(", ") : "none"}</div>
+            </>,
+          )}
+          {item("Reached HTTP Client", debug.reachedHttpClient ? "yes" : "no")}
+          {item("Response Status", debug.responseStatus ?? "—")}
+          {item(
+            "Request Headers",
+            <pre className="whitespace-pre-wrap">{JSON.stringify(debug.headers ?? {}, null, 2)}</pre>,
+          )}
+          {item(
+            "Response Body (500 chars)",
+            <pre className="whitespace-pre-wrap">{debug.responseBodyPreview || "—"}</pre>,
+          )}
+        </div>
+      )}
     </div>
   );
 }
