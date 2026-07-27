@@ -347,7 +347,10 @@ export const testIntegration = createServerFn({ method: "POST" })
     );
     const vars = buildVariableMap(creds as Record<string, string>);
     const endpoints = (integ.endpoint_configuration as Record<string, string>) ?? {};
-    const rawHealthPath = (endpoints.health ?? "").trim();
+    const { stripMethodPrefix } = await import(
+      "@/lib/integration-engine/endpoint-path.server"
+    );
+    const rawHealthPath = stripMethodPrefix((endpoints.health ?? "").trim()).path;
     const healthPath = resolvePlaceholders(rawHealthPath, vars);
     const baseResolved = resolvePlaceholders(integ.base_url, vars);
     const base = baseResolved.value.trim().replace(/\/+$/, "");
