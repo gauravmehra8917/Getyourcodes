@@ -80,8 +80,14 @@ export function buildRequest(
     }
     headers[k] = v;
   };
-  for (const h of config.customHeaders ?? []) if (h?.key) put(h.key, h.value ?? "");
-  for (const h of config.credentials.customHeaders ?? []) if (h?.key) put(h.key, h.value ?? "");
+  const putResolved = (k: string, v: string) => {
+    const r = resolvePlaceholders(v ?? "", vars);
+    unresolvedVariables.push(...r.unresolved);
+    put(k, r.value);
+  };
+  for (const h of config.customHeaders ?? []) if (h?.key) putResolved(h.key, h.value ?? "");
+  for (const h of config.credentials.customHeaders ?? []) if (h?.key) putResolved(h.key, h.value ?? "");
+
   for (const [k, v] of Object.entries(auth.headers)) put(k, v);
   for (const [k, v] of Object.entries(opts.headers ?? {})) put(k, v);
 
