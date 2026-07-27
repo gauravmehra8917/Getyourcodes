@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BadgeCheck, Sparkles, Users, ShieldCheck, Tag, HeartHandshake } from "lucide-react";
+import { BadgeCheck, Sparkles, Users, ShieldCheck, Tag, HeartHandshake, Building2, ShoppingBag, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -14,15 +14,6 @@ export const Route = createFileRoute("/about")({
   }),
   component: AboutPage,
 });
-
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-6 text-center">
-      <p className="font-display text-3xl font-bold text-primary">{value}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
-    </div>
-  );
-}
 
 function Feature({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) {
   return (
@@ -43,23 +34,41 @@ function AboutPage() {
         <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
           <Sparkles className="h-3.5 w-3.5" /> About Getyourcodes
         </span>
-        <h1 className="mt-4 font-display text-4xl font-bold sm:text-5xl">Smarter savings, every single day.</h1>
+        <h1 className="mt-4 font-display text-4xl font-bold sm:text-5xl">Smarter savings, made simple.</h1>
         <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-          Getyourcodes is a destination for savvy shoppers — a curated home for verified coupons, promo codes,
-          and deals from the brands you love. Our mission is simple: help you never pay full price again.
+          Getyourcodes helps shoppers discover verified coupons, promo codes, and the latest deals from trusted
+          brands. Our goal is to make saving money simple, transparent, and reliable.
         </p>
       </section>
 
-      <section className="mt-12 grid gap-4 sm:grid-cols-3">
-        <Stat value="5,000+" label="Verified coupons" />
-        <Stat value="1,200+" label="Trusted stores" />
-        <Stat value="Daily" label="Hand-picked updates" />
+      <section className="mt-12 rounded-3xl border border-border bg-secondary/40 p-8 sm:p-10">
+        <div className="flex flex-col items-start gap-4 sm:flex-row">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
+            <Building2 className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="font-display text-2xl font-semibold">Owned by Pixoads</h2>
+            <p className="mt-3 text-muted-foreground">
+              Getyourcodes is a product of Pixoads, our parent company focused on building digital products that help
+              consumers save money and make smarter online purchasing decisions.
+            </p>
+          </div>
+        </div>
       </section>
 
-      <section className="mt-14 grid gap-4 sm:grid-cols-2">
-        <Feature icon={BadgeCheck} title="Verified by humans">
-          Every coupon is reviewed by our editorial team before it goes live, so what you see actually works at checkout.
+      <section className="mt-12 grid gap-4 sm:grid-cols-3">
+        <Feature icon={BadgeCheck} title="Verified Coupons">
+          We carefully review and publish coupons from trusted brands.
         </Feature>
+        <Feature icon={ShoppingBag} title="Trusted Brands">
+          Browse deals from well-known online stores and services.
+        </Feature>
+        <Feature icon={Lock} title="Transparent Savings">
+          No misleading discounts or hidden conditions — just clear savings.
+        </Feature>
+      </section>
+
+      <section className="mt-6 grid gap-4 sm:grid-cols-2">
         <Feature icon={ShieldCheck} title="Safe & transparent">
           No hidden steps, no spammy redirects — just clean codes and clear terms from brands you can trust.
         </Feature>
@@ -69,7 +78,11 @@ function AboutPage() {
         <Feature icon={HeartHandshake} title="Built for shoppers">
           Save favorites, get the freshest drops first, and shop with confidence — Getyourcodes is on your side.
         </Feature>
+        <Feature icon={Users} title="Reviewed before publishing">
+          Offers are checked before they go live, and we remove them as soon as we learn they no longer work.
+        </Feature>
       </section>
+
 
       <section className="mt-14 rounded-3xl border border-border bg-secondary/40 p-8 sm:p-10">
         <div className="flex items-start gap-4">
@@ -80,12 +93,12 @@ function AboutPage() {
             <h2 className="font-display text-2xl font-semibold">Our story</h2>
             <p className="mt-3 text-muted-foreground">
               Getyourcodes started with a small team obsessed with finding the best deals on the internet — and frustrated
-              by sites cluttered with expired codes. We built the experience we wanted: clean, fast, honest, and free.
-              Today, shoppers from around the world rely on us to stretch their budgets a little further.
+              by sites cluttered with expired codes. We're building the experience we always wanted: clean, fast, honest, and free.
             </p>
             <p className="mt-3 text-muted-foreground">
-              We work directly with brands and partners to bring you exclusive offers you won't easily find elsewhere.
+              We work with brands and affiliate partners to bring you offers worth your time.
             </p>
+
           </div>
         </div>
       </section>
