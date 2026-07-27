@@ -4,6 +4,7 @@
 // per-call), and body.
 
 import { applyAuthentication } from "./authentication.server";
+import { stripMethodPrefix } from "./endpoint-path.server";
 import { resolvePlaceholders, variableMapForConfig } from "./placeholders.server";
 import type {
   HttpMethod,
