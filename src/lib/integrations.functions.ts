@@ -342,18 +342,30 @@ export const testIntegration = createServerFn({ method: "POST" })
     const { buildVariableMap, resolvePlaceholders } = await import(
       "@/lib/integration-engine/placeholders.server"
     );
-    const { logDebug } = await import("@/lib/integration-engine/logger.server");
+    const { logDebug, redactHeaders, redactUrl, redactBody } = await import(
+      "@/lib/integration-engine/logger.server"
+    );
     const vars = buildVariableMap(creds as Record<string, string>);
     const endpoints = (integ.endpoint_configuration as Record<string, string>) ?? {};
-    const healthPath = resolvePlaceholders((endpoints.health ?? "").trim(), vars);
+    const rawHealthPath = (endpoints.health ?? "").trim();
+    const healthPath = resolvePlaceholders(rawHealthPath, vars);
     const baseResolved = resolvePlaceholders(integ.base_url, vars);
-    const base = baseResolved.value.replace(/\/+$/, "");
-    const url = healthPath.value
-      ? `${base}${healthPath.value.startsWith("/") ? "" : "/"}${healthPath.value}`
-      : base;
+    const base = baseResolved.value.trim().replace(/\/+$/, "");
+    // Normalise the join: exactly one slash between base and path, and collapse
+    // any accidental duplicated slashes inside the path (but never in "https://").
+    const pathPart = healthPath.value.trim().replace(/^\/+/, "");
+    const url = (pathPart ? `${base}/${pathPart}` : base).replace(
+      /([^:]\/)\/+/g,
+      "$1",
+    );
     const unresolvedVariables = Array.from(
       new Set([...baseResolved.unresolved, ...healthPath.unresolved]),
     );
+    const resolvedVariables = Array.from(
+      new Set([...baseResolved.resolved, ...healthPath.resolved]),
+    );
+
+
 
 
     // Build headers by auth type
@@ -388,6 +400,45 @@ export const testIntegration = createServerFn({ method: "POST" })
     let urlOk = true;
     try { new URL(url); } catch { urlOk = false; }
 
+    const authScheme =
+      typeof headers.Authorization === "string"
+        ? headers.Authorization.split(" ")[0]
+        : integ.authentication_type === "api_key"
+          ? "ApiKeyHeader"
+          : "none";
+
+    const debug: {
+      resolvedUrl: string;
+      baseUrl: string;
+      endpointPath: string;
+      joinedCorrectly: boolean;
+      method: string;
+      authScheme: string;
+      authorizationHeaderAttached: boolean;
+      authConfigured: boolean;
+      headers: Record<string, string>;
+      resolvedVariables: string[];
+      unresolvedVariables: string[];
+      reachedHttpClient: boolean;
+      responseStatus: number | null;
+      responseBodyPreview: string;
+    } = {
+      resolvedUrl: redactUrl(url),
+      baseUrl: base,
+      endpointPath: rawHealthPath || "(none)",
+      joinedCorrectly: urlOk && !/[^:]\/\//.test(url),
+      method: "GET",
+      authScheme,
+      authorizationHeaderAttached: Boolean(headers.Authorization),
+      authConfigured,
+      headers: redactHeaders(headers),
+      resolvedVariables,
+      unresolvedVariables,
+      reachedHttpClient: false,
+      responseStatus: null as number | null,
+      responseBodyPreview: "",
+    };
+
     const timeoutMs = Math.min(60_000, Math.max(1_000, (integ.timeout_seconds ?? 30) * 1000));
     const start = Date.now();
     let httpStatus: number | null = null;
@@ -403,6 +454,9 @@ export const testIntegration = createServerFn({ method: "POST" })
       authConfigured,
       unresolvedVariables,
     });
+    // Always emit a redacted one-liner for this diagnostic phase.
+    // eslint-disable-next-line no-console
+    console.log(`[integration-test] ${JSON.stringify({ integrationId: data.id, ...debug })}`);
 
     if (!urlOk) {
       message = "Invalid base URL or health endpoint";
@@ -410,11 +464,17 @@ export const testIntegration = createServerFn({ method: "POST" })
       const controller = new AbortController();
       const t = setTimeout(() => controller.abort(), timeoutMs);
       try {
+        debug.reachedHttpClient = true;
         const res = await fetch(url, { method: "GET", headers, signal: controller.signal });
         httpStatus = res.status;
         let bodyText = "";
         try { bodyText = await res.text(); } catch { /* noop */ }
+        debug.responseStatus = res.status;
+        debug.responseBodyPreview = redactBody(bodyText, 500);
         logDebug("test-connection.response", { integrationId: data.id, url, status: res.status, body: bodyText });
+        // eslint-disable-next-line no-console
+        console.log(`[integration-test] ${JSON.stringify({ integrationId: data.id, status: res.status, body: redactBody(bodyText, 500) })}`);
+
         if (res.status >= 200 && res.status < 300) {
           status = "connected";
           authStatus = authConfigured ? "valid" : authStatus;
@@ -451,7 +511,9 @@ export const testIntegration = createServerFn({ method: "POST" })
       message,
       environment: integ.environment ?? "production",
       tested_at: new Date().toISOString(),
+      debug,
     };
+
 
     await supabaseAdmin.from("affiliate_integration_tests").insert({
       integration_id: data.id,
@@ -469,7 +531,7 @@ export const testIntegration = createServerFn({ method: "POST" })
       .update({
         status: integ.is_enabled ? status : "disabled",
         last_tested_at: result.tested_at,
-        last_test_result: result,
+        last_test_result: JSON.parse(JSON.stringify(result)),
       })
       .eq("id", data.id);
 
