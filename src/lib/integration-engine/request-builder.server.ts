@@ -1,8 +1,10 @@
 // Request builder: composes a fetch Request from IntegrationConfig
 // + per-call HttpRequestOptions. Merges base URL, endpoint lookup,
-// query params, headers (config → auth → per-call), and body.
+// endpoint variable resolution, query params, headers (config → auth →
+// per-call), and body.
 
 import { applyAuthentication } from "./authentication.server";
+import { resolvePlaceholders, variableMapForConfig } from "./placeholders.server";
 import type {
   HttpMethod,
   HttpRequestOptions,
@@ -15,7 +17,10 @@ export interface BuiltRequest {
   headers: Record<string, string>;
   body?: string;
   authConfigured: boolean;
+  /** Endpoint placeholders that could not be resolved from credentials. */
+  unresolvedVariables: string[];
 }
+
 
 function joinUrl(base: string, path: string): string {
   const b = base.replace(/\/+$/, "");
