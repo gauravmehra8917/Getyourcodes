@@ -103,6 +103,14 @@ export async function executeRequest<T = unknown>(
         // surface truncation without failing the call
         respHeaders["x-engine-truncated"] = "true";
       }
+      logDebug("response", {
+        integrationId: config.id,
+        method: built.method,
+        url: built.url,
+        status,
+        body: text,
+      });
+
       if (status < 200 || status >= 300) {
         errorClass = classifyStatus(status);
         errorMessage = `HTTP ${status}`;
