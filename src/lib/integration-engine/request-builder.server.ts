@@ -1,8 +1,10 @@
 // Request builder: composes a fetch Request from IntegrationConfig
 // + per-call HttpRequestOptions. Merges base URL, endpoint lookup,
-// query params, headers (config → auth → per-call), and body.
+// endpoint variable resolution, query params, headers (config → auth →
+// per-call), and body.
 
 import { applyAuthentication } from "./authentication.server";
+import { resolvePlaceholders, variableMapForConfig } from "./placeholders.server";
 import type {
   HttpMethod,
   HttpRequestOptions,
@@ -15,7 +17,10 @@ export interface BuiltRequest {
   headers: Record<string, string>;
   body?: string;
   authConfigured: boolean;
+  /** Endpoint placeholders that could not be resolved from credentials. */
+  unresolvedVariables: string[];
 }
+
 
 function joinUrl(base: string, path: string): string {
   const b = base.replace(/\/+$/, "");
@@ -38,10 +43,18 @@ export function buildRequest(
 ): BuiltRequest {
   const method: HttpMethod = opts.method ?? "GET";
 
+  // Endpoint variables ({AccountSID}, {ClientId}, {Username}, ...) resolved
+  // generically from the integration credentials.
+  const vars = variableMapForConfig(config);
+  const unresolvedVariables: string[] = [];
+
   // Resolve path: prefer endpoint-map lookup, fall back to literal path.
   const rawPath = opts.path ?? "";
   const mapped = rawPath && config.endpoints[rawPath] ? config.endpoints[rawPath] : rawPath;
-  let url = joinUrl(config.baseUrl, mapped);
+  const basePart = resolvePlaceholders(config.baseUrl, vars);
+  const pathPart = resolvePlaceholders(mapped, vars);
+  unresolvedVariables.push(...basePart.unresolved, ...pathPart.unresolved);
+  let url = joinUrl(basePart.value, pathPart.value);
 
   // Auth
   const auth = applyAuthentication(config.authenticationType, config.credentials);
@@ -50,9 +63,12 @@ export function buildRequest(
   const query: Record<string, string> = { ...auth.query };
   for (const [k, v] of Object.entries(opts.query ?? {})) {
     if (v === undefined) continue;
-    query[k] = String(v);
+    const r = resolvePlaceholders(String(v), vars);
+    unresolvedVariables.push(...r.unresolved);
+    query[k] = r.value;
   }
   url = appendQuery(url, query);
+
 
   // Headers: config custom → auth → per-call overrides. Case-insensitive last-wins.
   const headers: Record<string, string> = { Accept: "application/json" };
@@ -64,8 +80,14 @@ export function buildRequest(
     }
     headers[k] = v;
   };
-  for (const h of config.customHeaders ?? []) if (h?.key) put(h.key, h.value ?? "");
-  for (const h of config.credentials.customHeaders ?? []) if (h?.key) put(h.key, h.value ?? "");
+  const putResolved = (k: string, v: string) => {
+    const r = resolvePlaceholders(v ?? "", vars);
+    unresolvedVariables.push(...r.unresolved);
+    put(k, r.value);
+  };
+  for (const h of config.customHeaders ?? []) if (h?.key) putResolved(h.key, h.value ?? "");
+  for (const h of config.credentials.customHeaders ?? []) if (h?.key) putResolved(h.key, h.value ?? "");
+
   for (const [k, v] of Object.entries(auth.headers)) put(k, v);
   for (const [k, v] of Object.entries(opts.headers ?? {})) put(k, v);
 
@@ -79,5 +101,13 @@ export function buildRequest(
     body = new URLSearchParams(opts.formBody).toString();
   }
 
-  return { url, method, headers, body, authConfigured: auth.configured };
+  return {
+    url,
+    method,
+    headers,
+    body,
+    authConfigured: auth.configured,
+    unresolvedVariables: Array.from(new Set(unresolvedVariables)),
+  };
+
 }

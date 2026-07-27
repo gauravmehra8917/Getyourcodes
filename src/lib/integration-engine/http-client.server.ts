@@ -3,7 +3,7 @@
 // standardized responses. Provider-agnostic.
 
 import { buildRequest } from "./request-builder.server";
-import { logRequest } from "./logger.server";
+import { logDebug, logRequest } from "./logger.server";
 import { shouldRetry, sleep } from "./retry-engine.server";
 import {
   buildStandardResponse,
@@ -64,7 +64,16 @@ export async function executeRequest<T = unknown>(
   const maxBytes = opts.maxResponseBytes ?? DEFAULT_MAX_BYTES;
 
   const built = buildRequest(config, opts);
+  logDebug("request", {
+    integrationId: config.id,
+    method: built.method,
+    url: built.url,
+    headers: built.headers,
+    authConfigured: built.authConfigured,
+    unresolvedVariables: built.unresolvedVariables,
+  });
   const started = Date.now();
+
   let attempt = 0;
   let lastResp: StandardResponse<T> | null = null;
 
@@ -94,6 +103,14 @@ export async function executeRequest<T = unknown>(
         // surface truncation without failing the call
         respHeaders["x-engine-truncated"] = "true";
       }
+      logDebug("response", {
+        integrationId: config.id,
+        method: built.method,
+        url: built.url,
+        status,
+        body: text,
+      });
+
       if (status < 200 || status >= 300) {
         errorClass = classifyStatus(status);
         errorMessage = `HTTP ${status}`;
