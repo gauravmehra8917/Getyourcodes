@@ -407,7 +407,22 @@ export const testIntegration = createServerFn({ method: "POST" })
           ? "ApiKeyHeader"
           : "none";
 
-    const debug: Record<string, unknown> = {
+    const debug: {
+      resolvedUrl: string;
+      baseUrl: string;
+      endpointPath: string;
+      joinedCorrectly: boolean;
+      method: string;
+      authScheme: string;
+      authorizationHeaderAttached: boolean;
+      authConfigured: boolean;
+      headers: Record<string, string>;
+      resolvedVariables: string[];
+      unresolvedVariables: string[];
+      reachedHttpClient: boolean;
+      responseStatus: number | null;
+      responseBodyPreview: string;
+    } = {
       resolvedUrl: redactUrl(url),
       baseUrl: base,
       endpointPath: rawHealthPath || "(none)",
