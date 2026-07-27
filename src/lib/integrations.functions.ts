@@ -395,6 +395,15 @@ export const testIntegration = createServerFn({ method: "POST" })
     let authStatus: "valid" | "invalid" | "not_configured" | "unknown" = authConfigured ? "unknown" : "not_configured";
     let message = "";
 
+    logDebug("test-connection.request", {
+      integrationId: data.id,
+      method: "GET",
+      url,
+      headers,
+      authConfigured,
+      unresolvedVariables,
+    });
+
     if (!urlOk) {
       message = "Invalid base URL or health endpoint";
     } else {
@@ -403,6 +412,9 @@ export const testIntegration = createServerFn({ method: "POST" })
       try {
         const res = await fetch(url, { method: "GET", headers, signal: controller.signal });
         httpStatus = res.status;
+        let bodyText = "";
+        try { bodyText = await res.text(); } catch { /* noop */ }
+        logDebug("test-connection.response", { integrationId: data.id, url, status: res.status, body: bodyText });
         if (res.status >= 200 && res.status < 300) {
           status = "connected";
           authStatus = authConfigured ? "valid" : authStatus;
@@ -418,6 +430,9 @@ export const testIntegration = createServerFn({ method: "POST" })
           status = "warning";
           message = `Unexpected response (HTTP ${res.status})`;
         }
+        if (res.status === 404 && unresolvedVariables.length) {
+          message += ` — unresolved endpoint variables: ${unresolvedVariables.map((v) => `{${v}}`).join(", ")}`;
+        }
       } catch (err) {
         message = err instanceof Error ? (err.name === "AbortError" ? "Request timed out" : err.message) : "Network error";
         status = "failed";
@@ -425,6 +440,7 @@ export const testIntegration = createServerFn({ method: "POST" })
         clearTimeout(t);
       }
     }
+
 
     const latency = Date.now() - start;
     const result = {
