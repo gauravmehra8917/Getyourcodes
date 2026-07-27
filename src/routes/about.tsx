@@ -93,12 +93,12 @@ function AboutPage() {
             <h2 className="font-display text-2xl font-semibold">Our story</h2>
             <p className="mt-3 text-muted-foreground">
               Getyourcodes started with a small team obsessed with finding the best deals on the internet — and frustrated
-              by sites cluttered with expired codes. We built the experience we wanted: clean, fast, honest, and free.
-              Today, shoppers from around the world rely on us to stretch their budgets a little further.
+              by sites cluttered with expired codes. We're building the experience we always wanted: clean, fast, honest, and free.
             </p>
             <p className="mt-3 text-muted-foreground">
-              We work directly with brands and partners to bring you exclusive offers you won't easily find elsewhere.
+              We work with brands and affiliate partners to bring you offers worth your time.
             </p>
+
           </div>
         </div>
       </section>
