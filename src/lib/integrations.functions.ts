@@ -496,7 +496,9 @@ export const testIntegration = createServerFn({ method: "POST" })
       message,
       environment: integ.environment ?? "production",
       tested_at: new Date().toISOString(),
+      debug,
     };
+
 
     await supabaseAdmin.from("affiliate_integration_tests").insert({
       integration_id: data.id,
