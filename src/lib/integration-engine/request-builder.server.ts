@@ -43,10 +43,18 @@ export function buildRequest(
 ): BuiltRequest {
   const method: HttpMethod = opts.method ?? "GET";
 
+  // Endpoint variables ({AccountSID}, {ClientId}, {Username}, ...) resolved
+  // generically from the integration credentials.
+  const vars = variableMapForConfig(config);
+  const unresolvedVariables: string[] = [];
+
   // Resolve path: prefer endpoint-map lookup, fall back to literal path.
   const rawPath = opts.path ?? "";
   const mapped = rawPath && config.endpoints[rawPath] ? config.endpoints[rawPath] : rawPath;
-  let url = joinUrl(config.baseUrl, mapped);
+  const basePart = resolvePlaceholders(config.baseUrl, vars);
+  const pathPart = resolvePlaceholders(mapped, vars);
+  unresolvedVariables.push(...basePart.unresolved, ...pathPart.unresolved);
+  let url = joinUrl(basePart.value, pathPart.value);
 
   // Auth
   const auth = applyAuthentication(config.authenticationType, config.credentials);
@@ -55,9 +63,12 @@ export function buildRequest(
   const query: Record<string, string> = { ...auth.query };
   for (const [k, v] of Object.entries(opts.query ?? {})) {
     if (v === undefined) continue;
-    query[k] = String(v);
+    const r = resolvePlaceholders(String(v), vars);
+    unresolvedVariables.push(...r.unresolved);
+    query[k] = r.value;
   }
   url = appendQuery(url, query);
+
 
   // Headers: config custom → auth → per-call overrides. Case-insensitive last-wins.
   const headers: Record<string, string> = { Accept: "application/json" };
