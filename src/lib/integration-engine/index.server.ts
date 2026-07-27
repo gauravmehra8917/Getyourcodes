@@ -39,3 +39,5 @@ export {
   simulateRateLimit,
   simulateAuthFailure,
 } from "./testing.server";
+
+export { buildVariableMap, resolvePlaceholders, variableMapForConfig } from "./placeholders.server";
