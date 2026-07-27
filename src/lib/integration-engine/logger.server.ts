@@ -57,6 +57,32 @@ export function logConsole(entry: RequestLogEntry) {
   console.log(`[integration-engine] ${JSON.stringify(safe)}`);
 }
 
+/** Debug logging is opt-in: set INTEGRATION_DEBUG=true to enable. */
+export function debugEnabled(): boolean {
+  return String(process.env.INTEGRATION_DEBUG ?? "").toLowerCase() === "true";
+}
+
+export function redactBody(body: unknown, max = 500): string {
+  let text = typeof body === "string" ? body : JSON.stringify(body ?? null);
+  if (!text) return "";
+  text = text.replace(/("(?:password|api_?key|token|secret|authorization)"\s*:\s*)"[^"]*"/gi, '$1"[REDACTED]"');
+  return text.length > max ? `${text.slice(0, max)}…[truncated]` : text;
+}
+
+/** Verbose, redacted per-request debug line. No-op unless INTEGRATION_DEBUG=true. */
+export function logDebug(label: string, payload: Record<string, unknown>) {
+  if (!debugEnabled()) return;
+  const safe: Record<string, unknown> = { ...payload };
+  if (typeof safe.url === "string") safe.url = redactUrl(safe.url);
+  if (safe.headers && typeof safe.headers === "object") {
+    safe.headers = redactHeaders(safe.headers as Record<string, string>);
+  }
+  if ("body" in safe) safe.body = redactBody(safe.body);
+  // eslint-disable-next-line no-console
+  console.log(`[integration-engine:debug] ${label} ${JSON.stringify(safe)}`);
+}
+
+
 /**
  * Persist a compact record into affiliate_integration_tests. Reuses the
  * existing table so no schema change is required in this phase.
