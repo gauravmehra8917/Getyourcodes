@@ -342,18 +342,30 @@ export const testIntegration = createServerFn({ method: "POST" })
     const { buildVariableMap, resolvePlaceholders } = await import(
       "@/lib/integration-engine/placeholders.server"
     );
-    const { logDebug } = await import("@/lib/integration-engine/logger.server");
+    const { logDebug, redactHeaders, redactUrl, redactBody } = await import(
+      "@/lib/integration-engine/logger.server"
+    );
     const vars = buildVariableMap(creds as Record<string, string>);
     const endpoints = (integ.endpoint_configuration as Record<string, string>) ?? {};
-    const healthPath = resolvePlaceholders((endpoints.health ?? "").trim(), vars);
+    const rawHealthPath = (endpoints.health ?? "").trim();
+    const healthPath = resolvePlaceholders(rawHealthPath, vars);
     const baseResolved = resolvePlaceholders(integ.base_url, vars);
-    const base = baseResolved.value.replace(/\/+$/, "");
-    const url = healthPath.value
-      ? `${base}${healthPath.value.startsWith("/") ? "" : "/"}${healthPath.value}`
-      : base;
+    const base = baseResolved.value.trim().replace(/\/+$/, "");
+    // Normalise the join: exactly one slash between base and path, and collapse
+    // any accidental duplicated slashes inside the path (but never in "https://").
+    const pathPart = healthPath.value.trim().replace(/^\/+/, "");
+    const url = (pathPart ? `${base}/${pathPart}` : base).replace(
+      /([^:]\/)\/+/g,
+      "$1",
+    );
     const unresolvedVariables = Array.from(
       new Set([...baseResolved.unresolved, ...healthPath.unresolved]),
     );
+    const resolvedVariables = Array.from(
+      new Set([...baseResolved.resolved, ...healthPath.resolved]),
+    );
+
+
 
 
     // Build headers by auth type
