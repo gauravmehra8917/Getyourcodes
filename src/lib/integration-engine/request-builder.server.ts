@@ -50,7 +50,10 @@ export function buildRequest(
 
   // Resolve path: prefer endpoint-map lookup, fall back to literal path.
   const rawPath = opts.path ?? "";
-  const mapped = rawPath && config.endpoints[rawPath] ? config.endpoints[rawPath] : rawPath;
+  const mappedRaw = rawPath && config.endpoints[rawPath] ? config.endpoints[rawPath] : rawPath;
+  // Endpoints are often stored as "GET /path" — drop the method token.
+  const parsed = stripMethodPrefix(mappedRaw);
+  const mapped = parsed.path;
   const basePart = resolvePlaceholders(config.baseUrl, vars);
   const pathPart = resolvePlaceholders(mapped, vars);
   unresolvedVariables.push(...basePart.unresolved, ...pathPart.unresolved);
