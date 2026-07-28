@@ -14,6 +14,8 @@ const STATUSES = new Set(["active", "inactive", "expired", "pending", "unknown"]
 export interface ValidationOutcome<T> {
   valid: T[];
   errors: ImportIssue[];
+  /** Non-fatal issues: the record is still imported. */
+  warnings?: ImportIssue[];
 }
 
 function isUrl(value: string): boolean {
