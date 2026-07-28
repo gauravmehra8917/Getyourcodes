@@ -197,9 +197,11 @@ export class ImpactNormalizer extends BaseNormalizer {
   normalizeCoupon(raw: unknown, ctx?: NormalizerContext): StandardResponse<CanonicalCoupon> {
     if (!isRecord(raw)) return normalizerFail(PROVIDER, "Coupon record is not an object", 0, ctx?.integrationId);
 
-    const id = asString(pick(raw, ["Id", "PromotionId", "AdId"]));
+    // Impact's Promotion object exposes a single stable id in the `PromotionIds`
+    // field (plural name, singular value). It is the correct canonical id.
+    const id = asString(pick(raw, ["PromotionIds", "Id", "PromotionId", "AdId"]));
     const title = asString(pick(raw, ["PromotionTitle", "Name", "Title", "Description"]));
-    if (!id) return normalizerFail(PROVIDER, "Coupon record is missing Id", 0, ctx?.integrationId);
+    if (!id) return normalizerFail(PROVIDER, "Coupon record is missing PromotionIds", 0, ctx?.integrationId);
     if (!title) return normalizerFail(PROVIDER, `Coupon ${id} is missing a title`, 0, ctx?.integrationId);
 
     const campaignId = asString(pick(raw, ["CampaignId", "ProgramId"]));
@@ -208,7 +210,7 @@ export class ImpactNormalizer extends BaseNormalizer {
     const dates = parseEffectiveDates(pick(raw, ["PromotionEffectiveDates"]));
     const tracking = resolveTrackingUrl(raw, ctx, advertiserId, campaignId);
     const consumed = [
-      "Id", "PromotionId", "AdId",
+      "PromotionIds", "Id", "PromotionId", "AdId",
       "CampaignId", "AdvertiserId", "ProgramId",
       "PromotionTitle", "Name", "Title", "Description", "ShortDescription",
       "GenericRedemptionCode", "PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon",
@@ -252,9 +254,11 @@ export class ImpactNormalizer extends BaseNormalizer {
   normalizeDeal(raw: unknown, ctx?: NormalizerContext): StandardResponse<CanonicalDeal> {
     if (!isRecord(raw)) return normalizerFail(PROVIDER, "Deal record is not an object", 0, ctx?.integrationId);
 
-    const id = asString(pick(raw, ["Id", "PromotionId", "AdId"]));
+    // Impact's Promotion object exposes a single stable id in the `PromotionIds`
+    // field (plural name, singular value). It is the correct canonical id.
+    const id = asString(pick(raw, ["PromotionIds", "Id", "PromotionId", "AdId"]));
     const title = asString(pick(raw, ["PromotionTitle", "Name", "Title", "Description"]));
-    if (!id) return normalizerFail(PROVIDER, "Deal record is missing Id", 0, ctx?.integrationId);
+    if (!id) return normalizerFail(PROVIDER, "Deal record is missing PromotionIds", 0, ctx?.integrationId);
     if (!title) return normalizerFail(PROVIDER, `Deal ${id} is missing a title`, 0, ctx?.integrationId);
 
     const campaignId = asString(pick(raw, ["CampaignId", "ProgramId"]));
@@ -263,7 +267,7 @@ export class ImpactNormalizer extends BaseNormalizer {
     const tracking = resolveTrackingUrl(raw, ctx, advertiserId, campaignId);
 
     const consumed = [
-      "Id", "PromotionId", "AdId",
+      "PromotionIds", "Id", "PromotionId", "AdId",
       "CampaignId", "AdvertiserId", "ProgramId",
       "PromotionTitle", "Name", "Title", "Description", "ShortDescription",
       "TrackingLink", "TrackingUrl", "LandingPageUrl", "Url", "ClickUrl",
