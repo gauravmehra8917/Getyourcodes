@@ -15,7 +15,27 @@ export interface ImportIssue {
   providerEntityId: string | null;
   field?: string;
   reason: string;
+  /** Affiliate network the identity belongs to. */
+  provider?: string;
+  /** Composite identity key: `${provider}::${providerEntityId}`. */
+  identity?: string;
+  /** How many records in the batch shared this identity. */
+  occurrences?: number;
+  /** Raw provider value the identity was taken from (e.g. Impact PromotionIds). */
+  rawProviderId?: string | null;
 }
+
+/** Per-entity identity accounting for a planned import. */
+export interface IdentitySummary {
+  entity: ImportEntityKind;
+  fetched: number;
+  uniqueIdentities: number;
+  duplicateIdentities: number;
+  duplicateRecords: number;
+  toCreate: number;
+  toUpdate: number;
+}
+
 
 export interface PlannedRecord<T> {
   entity: ImportEntityKind;
@@ -44,6 +64,8 @@ export interface ImportPlan {
   validationErrors: ImportIssue[];
   conflicts: ImportIssue[];
   warnings: ImportIssue[];
+  /** Provider-identity accounting, per entity kind. */
+  identity: IdentitySummary[];
 }
 
 export function emptyPlan(provider: string, integrationId: string): ImportPlan {
@@ -63,6 +85,7 @@ export function emptyPlan(provider: string, integrationId: string): ImportPlan {
     validationErrors: [],
     conflicts: [],
     warnings: [],
+    identity: [],
   };
 }
 

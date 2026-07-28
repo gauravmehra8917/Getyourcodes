@@ -109,15 +109,93 @@ function IssueTable({ issues, emptyText }: { issues: ReportIssue[]; emptyText: s
   );
 }
 
+/** Identity accounting — provider immutable id is the only identity key. */
+function IdentitySummaryTable({ rows }: { rows: SyncRunReport["identity"] }) {
+  if (!rows.length) return null;
+  return (
+    <div className="mb-5">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        Identity summary (provider identifier)
+      </div>
+      <div className="overflow-auto rounded border border-slate-200 bg-white">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              <th className="px-3 py-2 font-semibold">Entity</th>
+              <th className="px-3 py-2 font-semibold">Fetched</th>
+              <th className="px-3 py-2 font-semibold">Unique identities</th>
+              <th className="px-3 py-2 font-semibold">Duplicate identities</th>
+              <th className="px-3 py-2 font-semibold">Duplicate records</th>
+              <th className="px-3 py-2 font-semibold">Create</th>
+              <th className="px-3 py-2 font-semibold">Update</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.entity} className="border-t border-slate-100">
+                <td className="px-3 py-2 text-slate-700">{ENTITY_LABEL[r.entity] ?? r.entity}</td>
+                <td className="px-3 py-2 text-slate-700">{r.fetched}</td>
+                <td className="px-3 py-2 text-slate-700">{r.uniqueIdentities}</td>
+                <td className="px-3 py-2 text-slate-700">{r.duplicateIdentities}</td>
+                <td className="px-3 py-2 text-slate-700">{r.duplicateRecords}</td>
+                <td className="px-3 py-2 text-emerald-700">{r.toCreate}</td>
+                <td className="px-3 py-2 text-sky-700">{r.toUpdate}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DuplicateTable({ issues, provider }: { issues: ReportIssue[]; provider: string }) {
+  return (
+    <div className="max-h-80 overflow-auto rounded border border-slate-200">
+      <table className="w-full text-left text-xs">
+        <thead className="sticky top-0 bg-slate-50 text-slate-600">
+          <tr>
+            <th className="px-3 py-2 font-semibold">Provider</th>
+            <th className="px-3 py-2 font-semibold">Entity</th>
+            <th className="px-3 py-2 font-semibold">Provider identity</th>
+            <th className="px-3 py-2 font-semibold">Occurrences</th>
+            <th className="px-3 py-2 font-semibold">Raw provider ID</th>
+            <th className="px-3 py-2 font-semibold">Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {issues.map((i, idx) => (
+            <tr key={idx} className="border-t border-slate-100">
+              <td className="px-3 py-2 text-slate-700">{i.provider ?? provider}</td>
+              <td className="px-3 py-2 capitalize text-slate-700">{i.entity}</td>
+              <td className="px-3 py-2 font-mono text-slate-700">{i.providerEntityId ?? "—"}</td>
+              <td className="px-3 py-2 text-slate-700">{i.occurrences ?? 2}</td>
+              <td className="px-3 py-2 font-mono text-slate-600">{i.rawProviderId ?? i.providerEntityId ?? "—"}</td>
+              <td className="px-3 py-2 text-amber-700">{i.reason}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function toCsv(report: SyncRunReport) {
   const rows = [
-    ["type", "entity", "provider_id", "field", "reason"],
-    ...report.validationErrors.map((i) => ["validation", i.entity, i.providerEntityId ?? "", i.field ?? "", i.reason]),
-    ...report.conflicts.map((i) => ["duplicate", i.entity, i.providerEntityId ?? "", i.field ?? "", i.reason]),
-    ...report.skipped.map((i) => ["skipped", i.entity, i.providerEntityId ?? "", i.field ?? "", i.reason]),
+    ["type", "entity", "provider", "provider_id", "raw_provider_id", "occurrences", "field", "reason"],
+    ...report.validationErrors.map((i) => [
+      "validation", i.entity, i.provider ?? report.provider, i.providerEntityId ?? "", i.rawProviderId ?? "", "", i.field ?? "", i.reason,
+    ]),
+    ...report.conflicts.map((i) => [
+      "duplicate", i.entity, i.provider ?? report.provider, i.providerEntityId ?? "", i.rawProviderId ?? "", i.occurrences ?? "", i.field ?? "", i.reason,
+    ]),
+    ...report.skipped.map((i) => [
+      "skipped", i.entity, i.provider ?? report.provider, i.providerEntityId ?? "", i.rawProviderId ?? "", "", i.field ?? "", i.reason,
+    ]),
   ];
   return rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
 }
+
 
 export function ImportResultModal({
   title,
@@ -182,6 +260,8 @@ export function ImportResultModal({
                 </div>
               )}
 
+              <IdentitySummaryTable rows={report.identity} />
+
               {p && (
                 <Section title="Plan">
                   <Row label="Stores to Create" value={p.storesToCreate} />
@@ -235,9 +315,9 @@ export function ImportResultModal({
               {report.conflicts.length > 0 && (
                 <div className="mb-5">
                   <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Duplicates ({report.conflicts.length})
+                    Duplicate provider identities ({report.conflicts.length})
                   </div>
-                  <IssueTable issues={report.conflicts} emptyText="" />
+                  <DuplicateTable issues={report.conflicts} provider={report.provider} />
                 </div>
               )}
 

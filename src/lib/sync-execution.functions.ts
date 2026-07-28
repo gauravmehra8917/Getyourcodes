@@ -10,6 +10,22 @@ export interface ReportIssue {
   providerEntityId: string | null;
   field: string | null;
   reason: string;
+  /** Affiliate network owning the identity. */
+  provider?: string | null;
+  /** How many records in the batch shared this provider identity. */
+  occurrences?: number | null;
+  /** Raw provider identifier (e.g. Impact PromotionIds). */
+  rawProviderId?: string | null;
+}
+
+export interface IdentitySummaryRow {
+  entity: string;
+  fetched: number;
+  uniqueIdentities: number;
+  duplicateIdentities: number;
+  duplicateRecords: number;
+  toCreate: number;
+  toUpdate: number;
 }
 
 export interface ImportRunRow {
@@ -70,6 +86,8 @@ export interface SyncRunReport {
   skipped: ReportIssue[];
   /** Duplicate provider ids within the same batch. */
   conflicts: ReportIssue[];
+  /** Provider-identity accounting per entity kind. */
+  identity: IdentitySummaryRow[];
   messages: string[];
   error: string | null;
 }
@@ -85,13 +103,24 @@ async function requireAdmin(supabase: any, userId: string) {
   if (error || !data) throw new Error("Forbidden: admin only");
 }
 
-type RawIssue = { entity: string; providerEntityId: string | null; field?: string; reason: string };
+type RawIssue = {
+  entity: string;
+  providerEntityId: string | null;
+  field?: string;
+  reason: string;
+  provider?: string;
+  occurrences?: number;
+  rawProviderId?: string | null;
+};
 const toIssues = (rows: RawIssue[] | undefined): ReportIssue[] =>
   (rows ?? []).map((i) => ({
     entity: i.entity,
     providerEntityId: i.providerEntityId ?? null,
     field: i.field ?? null,
     reason: i.reason,
+    provider: i.provider ?? null,
+    occurrences: i.occurrences ?? null,
+    rawProviderId: i.rawProviderId ?? null,
   }));
 
 export const runProviderSync = createServerFn({ method: "POST" })
@@ -131,6 +160,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
       validationErrors: [],
       skipped: [],
       conflicts: [],
+      identity: [],
       messages: [],
       error: null,
     };
@@ -184,6 +214,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
         report.validationErrors = toIssues(p.validationErrors);
         report.skipped = toIssues(p.skipped);
         report.conflicts = toIssues(p.conflicts);
+        report.identity = p.identity.map((row) => ({ ...row }));
         report.messages = body.warnings;
       }
       if (!imported.success) report.error = imported.error?.message ?? "Import failed";
