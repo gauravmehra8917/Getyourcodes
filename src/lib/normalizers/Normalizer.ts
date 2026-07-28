@@ -22,6 +22,11 @@ export interface NormalizerContext {
   integrationId?: string;
   /** Optional provider store id to attach to coupons/deals lacking one. */
   providerStoreId?: string;
+  /**
+   * Optional map of provider store/advertiser/campaign id -> tracking url,
+   * used as a fallback when a promotion carries no link of its own.
+   */
+  storeTrackingUrls?: Record<string, string>;
 }
 
 export interface Normalizer {
