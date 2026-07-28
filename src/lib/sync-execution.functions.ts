@@ -4,6 +4,34 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  couponSeoDescription,
+  couponSeoTitle,
+  storeSeoDescription,
+  storeSeoTitle,
+} from "@/lib/presentation/seo-templates";
+
+/** Quality preview of what a record will look like once published. */
+export interface PresentationRow {
+  entity: "store" | "coupon" | "deal";
+  providerEntityId: string;
+  name: string;
+  seoTitle: string;
+  seoDescription: string;
+  logoStatus: "hosted" | "provider" | "missing";
+  descriptionStatus: "present" | "missing";
+  trackingSource: "ad" | "campaign" | "promotion" | "none";
+  landingPageStatus: "present" | "missing";
+}
+
+export interface LogoSyncSummaryRow {
+  processed: number;
+  downloaded: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+}
+
 
 export interface ReportIssue {
   entity: string;
@@ -88,9 +116,101 @@ export interface SyncRunReport {
   conflicts: ReportIssue[];
   /** Provider-identity accounting per entity kind. */
   identity: IdentitySummaryRow[];
+  /** Phase 3A: generated SEO + enrichment quality preview. */
+  presentation: PresentationRow[];
+  /** Merchant logo download summary (run mode only). */
+  logos: LogoSyncSummaryRow | null;
   messages: string[];
   error: string | null;
 }
+
+type PlanRecordLike = {
+  providerEntityId: string;
+  slug: string | null;
+  source: {
+    name?: string;
+    title?: string;
+    description?: string | null;
+    logo?: string | null;
+    trackingUrl?: string | null;
+    providerAdvertiserId?: string | null;
+    providerCampaignId?: string | null;
+    providerStoreId?: string | null;
+    metadata?: Record<string, unknown>;
+  };
+};
+
+const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
+
+function trackingSource(meta: Record<string, unknown>, trackingUrl: string | null): PresentationRow["trackingSource"] {
+  if (!trackingUrl) return "none";
+  const warning = str(meta.trackingUrlWarning)?.toLowerCase() ?? "";
+  if (warning.includes("campaign")) return "campaign";
+  if (str(meta.enrichmentAdId)) return "ad";
+  return "promotion";
+}
+
+/** Builds the admin quality preview from the planned records. */
+function buildPresentation(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  plan: any,
+  limit = 50,
+): PresentationRow[] {
+  const rows: PresentationRow[] = [];
+  const storeNames = new Map<string, string>();
+
+  const stores: PlanRecordLike[] = [...(plan.storesToCreate ?? []), ...(plan.storesToUpdate ?? [])];
+  for (const r of stores) {
+    const name = r.source.name ?? "";
+    for (const key of [r.providerEntityId, r.source.providerAdvertiserId, r.source.providerCampaignId]) {
+      if (key) storeNames.set(key, name);
+    }
+    const meta = r.source.metadata ?? {};
+    const logo = str(r.source.logo);
+    rows.push({
+      entity: "store",
+      providerEntityId: r.providerEntityId,
+      name,
+      seoTitle: storeSeoTitle(name),
+      seoDescription: storeSeoDescription(name),
+      logoStatus: logo ? (logo.includes("/storage/v1/object/public/") ? "hosted" : "provider") : "missing",
+      descriptionStatus: str(r.source.description) ? "present" : "missing",
+      trackingSource: str(meta.trackingLink) ? "campaign" : "none",
+      landingPageStatus: str(meta.landingPageUrl) ? "present" : "missing",
+    });
+  }
+
+  const promos: [PresentationRow["entity"], PlanRecordLike[]][] = [
+    ["coupon", [...(plan.couponsToCreate ?? []), ...(plan.couponsToUpdate ?? [])]],
+    ["deal", [...(plan.dealsToCreate ?? []), ...(plan.dealsToUpdate ?? [])]],
+  ];
+  for (const [entity, list] of promos) {
+    for (const r of list) {
+      const meta = r.source.metadata ?? {};
+      const storeName =
+        [r.source.providerAdvertiserId, r.source.providerStoreId, r.source.providerCampaignId]
+          .map((k) => (k ? storeNames.get(k) : undefined))
+          .find(Boolean) ??
+        str(meta.advertiserName) ??
+        "this store";
+      const title = r.source.title ?? "";
+      rows.push({
+        entity,
+        providerEntityId: r.providerEntityId,
+        name: title,
+        seoTitle: couponSeoTitle(title, storeName),
+        seoDescription: couponSeoDescription(title, storeName),
+        logoStatus: "missing",
+        descriptionStatus: str(r.source.description) ? "present" : "missing",
+        trackingSource: trackingSource(meta, str(r.source.trackingUrl)),
+        landingPageStatus: str(meta.landingPageUrl) ? "present" : "missing",
+      });
+    }
+  }
+
+  return rows.slice(0, limit);
+}
+
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function requireAdmin(supabase: any, userId: string) {
@@ -161,6 +281,9 @@ export const runProviderSync = createServerFn({ method: "POST" })
       skipped: [],
       conflicts: [],
       identity: [],
+      presentation: [],
+      logos: null,
+
       messages: [],
       error: null,
     };
@@ -215,9 +338,28 @@ export const runProviderSync = createServerFn({ method: "POST" })
         report.skipped = toIssues(p.skipped);
         report.conflicts = toIssues(p.conflicts);
         report.identity = p.identity.map((row) => ({ ...row }));
+        report.presentation = buildPresentation(p);
         report.messages = body.warnings;
       }
       if (!imported.success) report.error = imported.error?.message ?? "Import failed";
+
+      // Phase 3A: after a committed import, cache merchant logos in storage.
+      // Failures here never fail the import.
+      if (!data.preview && report.committed) {
+        try {
+          const { syncStoreLogosForProvider } = await import("@/lib/presentation/logo-sync.server");
+          report.logos = await syncStoreLogosForProvider(report.provider, data.integrationId);
+        } catch (err) {
+          report.logos = {
+            processed: 0,
+            downloaded: 0,
+            skipped: 0,
+            failed: 0,
+            errors: [err instanceof Error ? err.message : String(err)],
+          };
+        }
+      }
+
     } catch (err) {
       report.error = err instanceof Error ? err.message : String(err);
     }

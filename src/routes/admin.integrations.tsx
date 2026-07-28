@@ -7,10 +7,12 @@ import { toast } from "sonner";
 import {
   Plug, Plus, Pencil, Zap, Power, Trash2, Loader2, Search, X, ChevronLeft, ChevronRight,
   ShieldCheck, Database, Activity, History, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, DownloadCloud, Eye,
+  Image as ImageIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { ImportResultModal } from "@/components/admin/import-result-modal";
 import { runProviderSync, type SyncRunReport } from "@/lib/sync-execution.functions";
+import { syncStoreLogos, type LogoSyncReport } from "@/lib/presentation.functions";
 import { IntegrationWizard, type IntegrationRecord as WizardRecord } from "@/components/admin/integration-wizard";
 import {
   listIntegrations,
@@ -120,6 +122,18 @@ function IntegrationsPage() {
   const deleteFn = useServerFn(deleteIntegration);
   const testFn = useServerFn(testIntegration);
   const syncFn = useServerFn(runProviderSync);
+  const logoFn = useServerFn(syncStoreLogos);
+  const logoMutation = useMutation({
+    mutationFn: (rec: { id: string; provider_type: string }) =>
+      logoFn({ data: { provider: rec.provider_type, integrationId: rec.id } }) as Promise<LogoSyncReport>,
+    onSuccess: (r: LogoSyncReport) =>
+
+      toast.success(
+        `Logos synced — ${r.downloaded} downloaded, ${r.skipped} already cached${r.failed ? `, ${r.failed} failed` : ""}`,
+      ),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const qc = useQueryClient();
 
   const { data: integrations = [], isLoading } = useQuery({
@@ -397,6 +411,8 @@ function IntegrationsPage() {
                 onHistory={() => setDrawer({ rec, tab: "audit" })}
                 onPreviewImport={() => runImportFlow(rec, true)}
                 onRunImport={() => runImportFlow(rec, false)}
+                syncingLogos={logoMutation.isPending && logoMutation.variables?.id === rec.id}
+                onSyncLogos={() => logoMutation.mutate(rec)}
               />
             ))}
           </div>
@@ -578,6 +594,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 function IntegrationCard({
   rec, testing, onOpen, onEdit, onTest, onToggle, onDelete, onHistory, onPreviewImport, onRunImport,
+  syncingLogos, onSyncLogos,
 }: {
   rec: IntegrationRecord;
   testing: boolean;
@@ -589,6 +606,8 @@ function IntegrationCard({
   onHistory: () => void;
   onPreviewImport: () => void;
   onRunImport: () => void;
+  syncingLogos: boolean;
+  onSyncLogos: () => void;
 }) {
   const status = effectiveStatus(rec);
   return (
@@ -641,6 +660,14 @@ function IntegrationCard({
         </ActionBtn>
         <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewImport}>Preview Import</ActionBtn>
         <ActionBtn icon={<DownloadCloud className="h-3.5 w-3.5" />} onClick={onRunImport}>Run Import</ActionBtn>
+        <ActionBtn
+          icon={syncingLogos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+          onClick={onSyncLogos}
+          disabled={syncingLogos}
+          title="Download merchant logos into storage"
+        >
+          {syncingLogos ? "Syncing logos…" : "Sync Logos"}
+        </ActionBtn>
         <ActionBtn icon={<History className="h-3.5 w-3.5" />} onClick={onHistory}>History</ActionBtn>
         <ActionBtn icon={<Trash2 className="h-3.5 w-3.5" />} tone="danger" onClick={onDelete}>Delete</ActionBtn>
       </div>

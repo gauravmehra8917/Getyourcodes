@@ -149,6 +149,57 @@ function IdentitySummaryTable({ rows }: { rows: SyncRunReport["identity"] }) {
   );
 }
 
+/** Phase 3A — how imported records will look once published. */
+function PresentationTable({ rows }: { rows: SyncRunReport["presentation"] }) {
+  const flag = (ok: boolean, okText: string, badText: string) => (
+    <span className={ok ? "text-emerald-700" : "text-amber-700"}>{ok ? okText : badText}</span>
+  );
+  return (
+    <div className="mb-5">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        Presentation & SEO preview (first {rows.length})
+      </div>
+      <div className="max-h-72 overflow-auto rounded border border-slate-200 bg-white">
+        <table className="w-full text-left text-xs">
+          <thead className="sticky top-0 bg-slate-50 text-slate-600">
+            <tr>
+              <th className="px-3 py-2 font-semibold">Entity</th>
+              <th className="px-3 py-2 font-semibold">Generated SEO title</th>
+              <th className="px-3 py-2 font-semibold">Meta description</th>
+              <th className="px-3 py-2 font-semibold">Logo</th>
+              <th className="px-3 py-2 font-semibold">Description</th>
+              <th className="px-3 py-2 font-semibold">Tracking</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={`${r.entity}-${r.providerEntityId}`} className="border-t border-slate-100 align-top">
+                <td className="px-3 py-2 capitalize text-slate-700">{r.entity}</td>
+                <td className="px-3 py-2 text-slate-700">
+                  {r.seoTitle}
+                  <span className="ml-1 text-slate-400">({r.seoTitle.length})</span>
+                </td>
+                <td className="max-w-xs px-3 py-2 text-slate-500">
+                  {r.seoDescription}
+                  <span className="ml-1 text-slate-400">({r.seoDescription.length})</span>
+                </td>
+                <td className="px-3 py-2">
+                  {r.entity === "store"
+                    ? flag(r.logoStatus !== "missing", r.logoStatus === "hosted" ? "Hosted" : "Provider", "Missing")
+                    : "—"}
+                </td>
+                <td className="px-3 py-2">{flag(r.descriptionStatus === "present", "Yes", "Missing")}</td>
+                <td className="px-3 py-2">{flag(r.trackingSource !== "none", r.trackingSource, "none")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
 function DuplicateTable({ issues, provider }: { issues: ReportIssue[]; provider: string }) {
   return (
     <div className="max-h-80 overflow-auto rounded border border-slate-200">
@@ -261,6 +312,25 @@ export function ImportResultModal({
               )}
 
               <IdentitySummaryTable rows={report.identity} />
+
+              {report.logos && (
+                <Section title="Merchant logos">
+                  <Row label="Stores Processed" value={report.logos.processed} />
+                  <Row label="Logos Downloaded" value={report.logos.downloaded} />
+                  <Row label="Already Cached" value={report.logos.skipped} />
+                  <Row label="Failed" value={report.logos.failed} />
+                  {report.logos.errors.length > 0 && (
+                    <Row
+                      label="Errors"
+                      value={<span className="text-amber-700">{report.logos.errors.slice(0, 5).join("; ")}</span>}
+                    />
+                  )}
+                </Section>
+              )}
+
+              {report.presentation.length > 0 && <PresentationTable rows={report.presentation} />}
+
+
 
               {p && (
                 <Section title="Plan">
