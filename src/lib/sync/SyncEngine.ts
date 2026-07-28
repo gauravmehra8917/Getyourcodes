@@ -16,6 +16,7 @@ import type {
   PromotionSplit,
 } from "@/lib/normalizers";
 import type { FetchOptions, ProviderResult } from "@/lib/providers/index.server";
+import { supportsOfferEnrichment, type OfferEnricher } from "@/lib/enrichment";
 import { SyncContext } from "./SyncContext";
 import { logSyncPage, logSyncSummary } from "./SyncLogger";
 import type { SyncEntityType, SyncOptions } from "./SyncOptions";
@@ -64,6 +65,20 @@ export class SyncEngine {
       entityTypes.includes("deal") &&
       supportsPromotionSplit(ctx.normalizer);
 
+    // Offer Enrichment (optional adapter capability). Applied to raw offer
+    // pages before normalization — identity and dedup stay untouched.
+    let enricher: OfferEnricher | null = null;
+    if (supportsOfferEnrichment(ctx.adapter)) {
+      try {
+        enricher = ctx.adapter.createOfferEnricher();
+      } catch {
+        enricher = null;
+      }
+    }
+    const enrichOffers = enricher
+      ? (records: unknown[]) => enricher!.enrichOffers(records)
+      : undefined;
+
     const plan: SyncEntityType[] = entityTypes.filter((e) => !(splitPromotions && e === "deal"));
 
     // Tracking urls already known from synced stores, keyed by every provider
@@ -105,14 +120,16 @@ export class SyncEngine {
           const normalized = res.body.coupons.length + res.body.deals.length;
           const total = Array.isArray(records) ? records.length : normalized;
           return { normalized, skipped: Math.max(0, total - normalized) };
-        });
+        }, enrichOffers);
       } else if (entity === "coupon") {
         ok = await this.syncEntity(entity, (o) => ctx.adapter.fetchCoupons(o), (records) =>
           this.batch(ctx.normalizer.normalizeCoupons(records, promotionCtx()), coupons),
+          enrichOffers,
         );
       } else if (entity === "deal") {
         ok = await this.syncEntity(entity, (o) => ctx.adapter.fetchDeals(o), (records) =>
           this.batch(ctx.normalizer.normalizeDeals(records, promotionCtx()), deals),
+          enrichOffers,
         );
       }
 
@@ -170,6 +187,7 @@ export class SyncEngine {
     entity: SyncEntityType,
     fetchPage: (opts: FetchOptions) => Promise<ProviderResult<unknown>>,
     normalizePage: (records: PageRecords) => { normalized: number; skipped: number; error?: string },
+    enrich?: (records: PageRecords) => Promise<PageRecords>,
   ): Promise<boolean> {
     const { ctx } = this;
     const { pageSize, maxPages, startPage, continueOnError, fetchParams } = ctx.options;
@@ -248,9 +266,23 @@ export class SyncEngine {
 
       let normalized = 0;
       let skipped = 0;
+      let pageRecords: PageRecords = records;
+      if (records.length && enrich) {
+        try {
+          pageRecords = await enrich(records);
+        } catch (err) {
+          pageRecords = records;
+          ctx.warn({
+            entity,
+            page,
+            stage: "normalize",
+            message: `offer enrichment skipped: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
+      }
       if (records.length) {
         try {
-          const out = normalizePage(records);
+          const out = normalizePage(pageRecords);
           normalized = out.normalized;
           skipped = out.skipped;
           if (out.error) {
