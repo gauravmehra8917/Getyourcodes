@@ -5,6 +5,7 @@
 // and how to pull the record array out of Impact's envelope. No normalization.
 
 import { BaseProviderAdapter } from "../BaseProviderAdapter";
+import { ImpactOfferEnricher, type OfferEnricher } from "@/lib/enrichment";
 import { logDebug } from "@/lib/integration-engine/logger.server";
 import type { HealthResult } from "@/lib/integration-engine/health-check.server";
 import type {
@@ -27,6 +28,7 @@ const ENVELOPE_KEYS: Record<string, string[]> = {
   campaigns: ["Campaigns"],
   promotions: ["Promotions", "Ads"],
   catalogs: ["Catalogs"],
+  ads: ["Ads", "Promotions"],
 };
 
 function extractRecords(body: unknown, keys: string[]): unknown[] {
@@ -66,7 +68,7 @@ export class ImpactAdapter extends BaseProviderAdapter {
   readonly providerKey = "impact";
 
   /** Endpoint keys as stored on the integration, with sane Impact defaults. */
-  private endpointFor(key: "health" | "campaigns" | "promotions" | "catalogs"): string {
+  private endpointFor(key: "health" | "campaigns" | "promotions" | "catalogs" | "ads"): string {
     const cfg = this.getConfig();
     const e = cfg.endpoints ?? {};
     const pick = (...names: string[]) => {
@@ -87,6 +89,8 @@ export class ImpactAdapter extends BaseProviderAdapter {
         );
       case "catalogs":
         return pick("catalogs") || "/Mediapartners/{AccountSID}/Catalogs";
+      case "ads":
+        return pick("ads") || "/Mediapartners/{AccountSID}/Ads";
     }
   }
 
@@ -263,6 +267,19 @@ export class ImpactAdapter extends BaseProviderAdapter {
 
   fetchCatalogs(opts?: FetchOptions): Promise<StandardResponse<unknown[]>> {
     return this.collection<unknown>("catalogs", this.endpointFor("catalogs"), opts);
+  }
+
+  /** Coupon ads — the enrichment source for the Promotions stream. */
+  fetchCouponAds(opts?: FetchOptions): Promise<StandardResponse<unknown[]>> {
+    return this.collection<unknown>("ads", this.endpointFor("ads"), { ...opts, Type: "COUPON" });
+  }
+
+  /** Offer Enrichment capability (see src/lib/enrichment). */
+  createOfferEnricher(): OfferEnricher {
+    return new ImpactOfferEnricher({
+      fetchAds: async (page, pageSize) => (await this.fetchCouponAds({ page, pageSize })).body,
+      fetchCampaigns: async (page, pageSize) => (await this.fetchCampaigns({ page, pageSize })).body,
+    });
   }
 
   /** Impact campaigns represent merchants — reuse fetchCampaigns, no extra HTTP. */
