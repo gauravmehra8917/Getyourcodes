@@ -74,6 +74,24 @@ function promoCode(raw: Record<string, unknown>): string | null {
   return asString(pick(raw, ["PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon"]));
 }
 
+/**
+ * Logo values from Impact can be absolute, protocol-relative (//cdn/...) or junk.
+ * Returns a valid absolute https/http URL, or null (never fatal).
+ */
+export function normalizeLogoUrl(value: string | null): string | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  const candidate = raw.startsWith("//") ? `https:${raw}` : raw;
+  try {
+    const u = new URL(candidate);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+
 /** Classification rule: a promotion with a usable code is a coupon. */
 export function isCouponPromotion(raw: unknown): boolean {
   if (!isRecord(raw)) return false;
@@ -106,18 +124,25 @@ export class ImpactNormalizer extends BaseNormalizer {
       "ContractCommission", "PayoutType", "Commission", "DefaultPayout",
     ];
 
+    const rawLogo = asString(pick(raw, ["CampaignLogoUri", "LogoUri", "Logo", "ImageUrl"]));
+    const logo = normalizeLogoUrl(rawLogo);
+
     const store: CanonicalStore = {
       provider: PROVIDER,
       providerStoreId: id,
       name,
       description: asString(pick(raw, ["CampaignDescription", "Description"])),
       website: asString(pick(raw, ["CampaignUrl", "Url", "AdvertiserUrl", "LandingPageUrl"])),
-      logo: asString(pick(raw, ["CampaignLogoUri", "LogoUri", "Logo", "ImageUrl"])),
+      logo,
       categories: asStringArray(pick(raw, ["Categories", "Category", "Vertical", "Verticals"])),
       country: asString(pick(raw, ["Country", "CountryCode", "AdvertiserCountry"])),
       status: mapStatus(pick(raw, ["ContractStatus", "Status", "State"])),
       commission: asString(pick(raw, ["ContractCommission", "PayoutType", "Commission", "DefaultPayout"])),
-      metadata: buildMetadata(raw, consumed),
+      metadata: {
+        ...buildMetadata(raw, consumed),
+        ...(rawLogo ? { originalLogo: rawLogo } : {}),
+        ...(rawLogo && !logo ? { logoWarning: "logo could not be resolved to an absolute http(s) url" } : {}),
+      },
     };
 
     return normalizerOk(PROVIDER, store, 0, ctx?.integrationId);

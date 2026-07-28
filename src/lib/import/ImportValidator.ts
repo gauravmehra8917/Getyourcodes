@@ -14,6 +14,8 @@ const STATUSES = new Set(["active", "inactive", "expired", "pending", "unknown"]
 export interface ValidationOutcome<T> {
   valid: T[];
   errors: ImportIssue[];
+  /** Non-fatal issues: the record is still imported. */
+  warnings?: ImportIssue[];
 }
 
 function isUrl(value: string): boolean {
@@ -60,6 +62,7 @@ export const ImportValidator = {
   stores(items: CanonicalStore[]): ValidationOutcome<CanonicalStore> {
     const valid: CanonicalStore[] = [];
     const errors: ImportIssue[] = [];
+    const warnings: ImportIssue[] = [];
     for (const s of items) {
       let ok = checkCommon("store", s.providerStoreId, s.status, errors);
       if (!s.name?.trim()) {
@@ -70,13 +73,14 @@ export const ImportValidator = {
         errors.push(issue("store", s.providerStoreId ?? null, "invalid website url", "website"));
         ok = false;
       }
+      // logo is optional and never fatal: drop it and warn instead.
       if (s.logo && !isUrl(s.logo)) {
-        errors.push(issue("store", s.providerStoreId ?? null, "invalid logo url", "logo"));
-        ok = false;
+        warnings.push(issue("store", s.providerStoreId ?? null, "invalid logo url (ignored)", "logo"));
+        s.logo = null;
       }
       if (ok) valid.push(s);
     }
-    return { valid, errors };
+    return { valid, errors, warnings };
   },
 
   categories(items: CanonicalCategory[]): ValidationOutcome<CanonicalCategory> {
