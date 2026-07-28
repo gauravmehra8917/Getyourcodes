@@ -63,7 +63,10 @@ export const ImportValidator = {
     const valid: CanonicalStore[] = [];
     const errors: ImportIssue[] = [];
     const warnings: ImportIssue[] = [];
-    for (const s of items) {
+    for (const input of items) {
+      // never mutate the source record: validation must be idempotent so a
+      // second pass (preview then run) produces identical results.
+      const s: CanonicalStore = { ...input };
       let ok = checkCommon("store", s.providerStoreId, s.status, errors);
       if (!s.name?.trim()) {
         errors.push(issue("store", s.providerStoreId ?? null, "empty name", "name"));
