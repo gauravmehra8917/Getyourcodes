@@ -253,15 +253,21 @@ export class ImpactNormalizer extends BaseNormalizer {
     if (!isRecord(raw)) return normalizerFail(PROVIDER, "Deal record is not an object", 0, ctx?.integrationId);
 
     const id = asString(pick(raw, ["Id", "PromotionId", "AdId"]));
-    const title = asString(pick(raw, ["Name", "Title", "Description"]));
+    const title = asString(pick(raw, ["PromotionTitle", "Name", "Title", "Description"]));
     if (!id) return normalizerFail(PROVIDER, "Deal record is missing Id", 0, ctx?.integrationId);
     if (!title) return normalizerFail(PROVIDER, `Deal ${id} is missing a title`, 0, ctx?.integrationId);
+
+    const campaignId = asString(pick(raw, ["CampaignId", "ProgramId"]));
+    const advertiserId = asString(pick(raw, ["AdvertiserId"]));
+    const dates = parseEffectiveDates(pick(raw, ["PromotionEffectiveDates"]));
+    const tracking = resolveTrackingUrl(raw, ctx, advertiserId, campaignId);
 
     const consumed = [
       "Id", "PromotionId", "AdId",
       "CampaignId", "AdvertiserId", "ProgramId",
-      "Name", "Title", "Description", "ShortDescription",
-      "TrackingLink", "LandingPageUrl", "Url", "ClickUrl",
+      "PromotionTitle", "Name", "Title", "Description", "ShortDescription",
+      "TrackingLink", "TrackingUrl", "LandingPageUrl", "Url", "ClickUrl",
+      "PromotionEffectiveDates",
       "StartDate", "CreationDate", "EffectiveDate",
       "EndDate", "ExpirationDate", "ExpiryDate",
       "State", "Status",
@@ -270,16 +276,21 @@ export class ImpactNormalizer extends BaseNormalizer {
     const deal: CanonicalDeal = {
       provider: PROVIDER,
       providerDealId: id,
-      providerStoreId:
-        asString(pick(raw, ["CampaignId", "AdvertiserId", "ProgramId"])) ?? ctx?.providerStoreId ?? null,
+      providerStoreId: advertiserId ?? campaignId ?? ctx?.providerStoreId ?? null,
+      providerAdvertiserId: advertiserId,
+      providerCampaignId: campaignId,
       title,
       description: asString(pick(raw, ["Description", "ShortDescription"])),
-      trackingUrl: asString(pick(raw, ["TrackingLink", "LandingPageUrl", "Url", "ClickUrl"])),
-      startDate: asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])),
-      endDate: asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])),
+      trackingUrl: tracking.url,
+      startDate: asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])) ?? dates.start,
+      endDate: asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])) ?? dates.end,
       status: mapStatus(pick(raw, ["State", "Status"])),
-      metadata: buildMetadata(raw, consumed),
+      metadata: {
+        ...buildMetadata(raw, consumed),
+        ...(tracking.warning ? { trackingUrlWarning: tracking.warning } : {}),
+      },
     };
+
 
     return normalizerOk(PROVIDER, deal, 0, ctx?.integrationId);
   }
