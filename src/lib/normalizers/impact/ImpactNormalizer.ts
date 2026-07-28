@@ -143,7 +143,10 @@ export class ImpactNormalizer extends BaseNormalizer {
   normalizeStore(raw: unknown, ctx?: NormalizerContext): StandardResponse<CanonicalStore> {
     if (!isRecord(raw)) return normalizerFail(PROVIDER, "Store record is not an object", 0, ctx?.integrationId);
 
-    const id = asString(pick(raw, ["CampaignId", "Id", "AdvertiserId", "ProgramId"]));
+    const campaignId = asString(pick(raw, ["CampaignId", "ProgramId"]));
+    const advertiserId = asString(pick(raw, ["AdvertiserId"]));
+    // Store identity stays on the campaign — never collapsed with the advertiser.
+    const id = campaignId ?? asString(pick(raw, ["Id"])) ?? advertiserId;
     const name = asString(pick(raw, ["CampaignName", "Name", "AdvertiserName"]));
     if (!id) return normalizerFail(PROVIDER, "Store record is missing CampaignId/Id", 0, ctx?.integrationId);
     if (!name) return normalizerFail(PROVIDER, `Store ${id} is missing a name`, 0, ctx?.integrationId);
@@ -158,14 +161,18 @@ export class ImpactNormalizer extends BaseNormalizer {
       "Country", "CountryCode", "AdvertiserCountry",
       "ContractStatus", "Status", "State",
       "ContractCommission", "PayoutType", "Commission", "DefaultPayout",
+      "TrackingLink", "TrackingUrl",
     ];
 
     const rawLogo = asString(pick(raw, ["CampaignLogoUri", "LogoUri", "Logo", "ImageUrl"]));
     const logo = normalizeLogoUrl(rawLogo);
+    const trackingLink = asString(pick(raw, ["TrackingLink", "TrackingUrl"]));
 
     const store: CanonicalStore = {
       provider: PROVIDER,
       providerStoreId: id,
+      providerCampaignId: campaignId ?? id,
+      providerAdvertiserId: advertiserId,
       name,
       description: asString(pick(raw, ["CampaignDescription", "Description"])),
       website: asString(pick(raw, ["CampaignUrl", "Url", "AdvertiserUrl", "LandingPageUrl"])),
@@ -176,10 +183,12 @@ export class ImpactNormalizer extends BaseNormalizer {
       commission: asString(pick(raw, ["ContractCommission", "PayoutType", "Commission", "DefaultPayout"])),
       metadata: {
         ...buildMetadata(raw, consumed),
+        ...(trackingLink ? { trackingLink } : {}),
         ...(rawLogo ? { originalLogo: rawLogo } : {}),
         ...(rawLogo && !logo ? { logoWarning: "logo could not be resolved to an absolute http(s) url" } : {}),
       },
     };
+
 
     return normalizerOk(PROVIDER, store, 0, ctx?.integrationId);
   }
