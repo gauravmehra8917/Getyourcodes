@@ -150,9 +150,22 @@ function SlugPage() {
   return <CategoryPage category={data.category} />;
 }
 
+/** Ranks offers so the strongest verified discount surfaces first. */
+function bestOfferId(list: Coupon[]): string | null {
+  let best: { id: string; score: number } | null = null;
+  for (const c of list) {
+    const v = typeof c.discount_value === "number" ? c.discount_value : 0;
+    const score = c.discount_type === "percentage" ? v * 2 : c.discount_type === "fixed" ? v : v ? 1 : 0;
+    if (score > 0 && (!best || score > best.score)) best = { id: c.id, score };
+  }
+  return best?.id ?? null;
+}
+
 function StorePage({ store, coupons }: { store: Store; coupons: Coupon[] }) {
   const codes = coupons.filter((c) => c.coupon_type === "code");
   const deals = coupons.filter((c) => c.coupon_type === "deal");
+  const best = bestOfferId(coupons);
+  const shipping = (store.shipping_regions ?? []).filter(Boolean);
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
       <header className="flex flex-col items-start gap-5 rounded-3xl border border-border bg-gradient-to-br from-primary-soft to-accent/40 p-6 sm:flex-row sm:items-center sm:p-8">
@@ -164,22 +177,36 @@ function StorePage({ store, coupons }: { store: Store; coupons: Coupon[] }) {
         <div className="flex-1">
           <h1 className="font-display text-3xl font-bold sm:text-4xl">{store.name} Coupons & Promo Codes</h1>
           {store.description && <p className="mt-2 max-w-2xl text-muted-foreground">{store.description}</p>}
-          <p className="mt-2 text-sm text-muted-foreground">{coupons.length} active offers</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span className="rounded-full bg-card px-3 py-1 font-medium text-foreground">{coupons.length} active offers</span>
+            {store.country && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-card px-3 py-1">
+                <Globe className="h-3.5 w-3.5" /> {store.country}
+              </span>
+            )}
+            {shipping.length > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-card px-3 py-1">
+                <Truck className="h-3.5 w-3.5" /> Ships to {shipping.slice(0, 3).join(", ")}
+                {shipping.length > 3 ? ` +${shipping.length - 3}` : ""}
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
       {codes.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 font-display text-2xl font-bold">Active coupon codes</h2>
-          <div className="grid gap-3">{codes.map((c) => <CouponCard key={c.id} coupon={c} store={store} />)}</div>
+          <div className="grid gap-3">{codes.map((c) => <CouponCard key={c.id} coupon={c} store={store} best={c.id === best} />)}</div>
         </section>
       )}
       {deals.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 font-display text-2xl font-bold">Deals</h2>
-          <div className="grid gap-3">{deals.map((c) => <CouponCard key={c.id} coupon={c} store={store} />)}</div>
+          <div className="grid gap-3">{deals.map((c) => <CouponCard key={c.id} coupon={c} store={store} best={c.id === best} />)}</div>
         </section>
       )}
+
       {coupons.length === 0 && (
         <p className="mt-10 rounded-2xl border border-dashed border-border bg-secondary/30 p-10 text-center text-muted-foreground">No active offers right now. Check back soon!</p>
       )}
