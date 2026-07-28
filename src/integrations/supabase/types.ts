@@ -262,7 +262,10 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          imported_at: string | null
           name: string
+          provider: string | null
+          provider_entity_id: string | null
           seo_canonical_url: string | null
           seo_description: string | null
           seo_og_image: string | null
@@ -273,7 +276,10 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          imported_at?: string | null
           name: string
+          provider?: string | null
+          provider_entity_id?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
           seo_og_image?: string | null
@@ -284,7 +290,10 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          imported_at?: string | null
           name?: string
+          provider?: string | null
+          provider_entity_id?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
           seo_og_image?: string | null
@@ -360,6 +369,9 @@ export type Database = {
           expiry_date: string | null
           featured_in_banner: boolean
           id: string
+          imported_at: string | null
+          provider: string | null
+          provider_entity_id: string | null
           seo_canonical_url: string | null
           seo_description: string | null
           seo_og_image: string | null
@@ -379,6 +391,9 @@ export type Database = {
           expiry_date?: string | null
           featured_in_banner?: boolean
           id?: string
+          imported_at?: string | null
+          provider?: string | null
+          provider_entity_id?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
           seo_og_image?: string | null
@@ -398,6 +413,9 @@ export type Database = {
           expiry_date?: string | null
           featured_in_banner?: boolean
           id?: string
+          imported_at?: string | null
+          provider?: string | null
+          provider_entity_id?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
           seo_og_image?: string | null
@@ -880,8 +898,11 @@ export type Database = {
           description: string | null
           featured: boolean
           id: string
+          imported_at: string | null
           logo_url: string | null
           name: string
+          provider: string | null
+          provider_entity_id: string | null
           seo_canonical_url: string | null
           seo_description: string | null
           seo_og_image: string | null
@@ -896,8 +917,11 @@ export type Database = {
           description?: string | null
           featured?: boolean
           id?: string
+          imported_at?: string | null
           logo_url?: string | null
           name: string
+          provider?: string | null
+          provider_entity_id?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
           seo_og_image?: string | null
@@ -912,8 +936,11 @@ export type Database = {
           description?: string | null
           featured?: boolean
           id?: string
+          imported_at?: string | null
           logo_url?: string | null
           name?: string
+          provider?: string | null
+          provider_entity_id?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
           seo_og_image?: string | null
@@ -1075,6 +1102,7 @@ export type Database = {
           query: string
         }[]
       }
+      import_apply: { Args: { _payload: Json }; Returns: Json }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       subscribe_email: { Args: { _email: string }; Returns: undefined }
       unsubscribe_by_token: { Args: { _token: string }; Returns: boolean }

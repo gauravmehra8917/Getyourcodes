@@ -1,0 +1,224 @@
+// Stage 3–5 – turns a SyncResult into an ImportPlan. No database writes.
+
+import type { SyncResult } from "@/lib/sync";
+import { DuplicateResolver } from "./DuplicateResolver";
+import { buildSnapshot, EntityMatcher, type ExistingRow } from "./EntityMatcher";
+import { emptyPlan, type ImportIssue, type ImportPlan, type PlannedRecord } from "./ImportPlan";
+import { logImportEntity } from "./ImportLogger";
+import { ImportValidator } from "./ImportValidator";
+import { SlugGenerator, slugify } from "./SlugGenerator";
+
+export interface ExistingData {
+  stores: ExistingRow[];
+  categories: ExistingRow[];
+  coupons: ExistingRow[];
+}
+
+export interface PlannerCounters {
+  validated: number;
+  validationFailures: number;
+  duplicates: number;
+}
+
+export function planImport(
+  sync: SyncResult,
+  existing: ExistingData,
+): { plan: ImportPlan; counters: PlannerCounters } {
+  const plan = emptyPlan(sync.provider, sync.integrationId);
+  const counters: PlannerCounters = { validated: 0, validationFailures: 0, duplicates: 0 };
+
+  const storeSnap = buildSnapshot(existing.stores);
+  const categorySnap = buildSnapshot(existing.categories);
+  const couponSnap = buildSnapshot(existing.coupons);
+
+  const storeSlugs = new SlugGenerator(storeSnap.slugs);
+  const categorySlugs = new SlugGenerator(categorySnap.slugs);
+
+  const push = (issues: ImportIssue[], target: ImportIssue[]) => target.push(...issues);
+
+  // ── Categories ──────────────────────────────────────────────────────────
+  {
+    const { valid, errors } = ImportValidator.categories(sync.categories);
+    const { unique, duplicates } = DuplicateResolver.dedupe("category", valid, (c) => c.providerCategoryId);
+    push(errors, plan.validationErrors);
+    push(duplicates, plan.conflicts);
+    counters.validated += sync.categories.length;
+    counters.validationFailures += errors.length;
+    counters.duplicates += duplicates.length;
+
+    for (const c of unique) {
+      const candidate = slugify(c.name);
+      const { existingId } = EntityMatcher.match(categorySnap, c.providerCategoryId, candidate);
+      const existingSlug = existingId
+        ? existing.categories.find((r) => r.id === existingId)?.slug ?? null
+        : null;
+      const slug = existingId ? existingSlug ?? candidate : categorySlugs.reserve(c.name);
+      const record: PlannedRecord<typeof c> = {
+        entity: "category",
+        action: existingId ? "update" : "create",
+        providerEntityId: c.providerCategoryId,
+        existingId,
+        slug,
+        source: c,
+      };
+      if (existingId) plan.categoriesToUpdate.push(record);
+      else plan.categoriesToCreate.push(record);
+    }
+
+    logImportEntity({
+      provider: sync.provider,
+      integrationId: sync.integrationId,
+      entity: "category",
+      validated: sync.categories.length,
+      invalid: errors.length,
+      create: plan.categoriesToCreate.length,
+      update: plan.categoriesToUpdate.length,
+      skip: duplicates.length,
+    });
+  }
+
+  // ── Stores ──────────────────────────────────────────────────────────────
+  {
+    const { valid, errors } = ImportValidator.stores(sync.stores);
+    const { unique, duplicates } = DuplicateResolver.dedupe("store", valid, (s) => s.providerStoreId);
+    push(errors, plan.validationErrors);
+    push(duplicates, plan.conflicts);
+    counters.validated += sync.stores.length;
+    counters.validationFailures += errors.length;
+    counters.duplicates += duplicates.length;
+
+    for (const s of unique) {
+      const candidate = slugify(s.name);
+      const { existingId } = EntityMatcher.match(storeSnap, s.providerStoreId, candidate);
+      const existingSlug = existingId
+        ? existing.stores.find((r) => r.id === existingId)?.slug ?? null
+        : null;
+      const slug = existingId ? existingSlug ?? candidate : storeSlugs.reserve(s.name);
+      const record: PlannedRecord<typeof s> = {
+        entity: "store",
+        action: existingId ? "update" : "create",
+        providerEntityId: s.providerStoreId,
+        existingId,
+        slug,
+        source: s,
+      };
+      if (existingId) plan.storesToUpdate.push(record);
+      else plan.storesToCreate.push(record);
+    }
+
+    logImportEntity({
+      provider: sync.provider,
+      integrationId: sync.integrationId,
+      entity: "store",
+      validated: sync.stores.length,
+      invalid: errors.length,
+      create: plan.storesToCreate.length,
+      update: plan.storesToUpdate.length,
+      skip: duplicates.length,
+    });
+  }
+
+  // Stores reachable after this run (existing + planned) — promotions that
+  // reference an unknown store cannot be imported.
+  const knownStoreProviderIds = new Set<string>([
+    ...storeSnap.byProviderId.keys(),
+    ...plan.storesToCreate.map((r) => r.providerEntityId),
+    ...plan.storesToUpdate.map((r) => r.providerEntityId),
+  ]);
+
+  // ── Coupons ─────────────────────────────────────────────────────────────
+  {
+    const { valid, errors } = ImportValidator.coupons(sync.coupons);
+    const { unique, duplicates } = DuplicateResolver.dedupe("coupon", valid, (c) => c.providerCouponId);
+    push(errors, plan.validationErrors);
+    push(duplicates, plan.conflicts);
+    counters.validated += sync.coupons.length;
+    counters.validationFailures += errors.length;
+    counters.duplicates += duplicates.length;
+
+    for (const c of unique) {
+      if (!c.providerStoreId || !knownStoreProviderIds.has(c.providerStoreId)) {
+        plan.skipped.push({
+          entity: "coupon",
+          providerEntityId: c.providerCouponId,
+          reason: "referenced store not present in this import or database",
+        });
+        continue;
+      }
+      const { existingId } = EntityMatcher.match(couponSnap, c.providerCouponId);
+      const record: PlannedRecord<typeof c> = {
+        entity: "coupon",
+        action: existingId ? "update" : "create",
+        providerEntityId: c.providerCouponId,
+        existingId,
+        slug: null,
+        source: c,
+      };
+      if (existingId) plan.couponsToUpdate.push(record);
+      else plan.couponsToCreate.push(record);
+    }
+
+    logImportEntity({
+      provider: sync.provider,
+      integrationId: sync.integrationId,
+      entity: "coupon",
+      validated: sync.coupons.length,
+      invalid: errors.length,
+      create: plan.couponsToCreate.length,
+      update: plan.couponsToUpdate.length,
+      skip: duplicates.length,
+    });
+  }
+
+  // ── Deals ───────────────────────────────────────────────────────────────
+  {
+    const { valid, errors } = ImportValidator.deals(sync.deals);
+    const { unique, duplicates } = DuplicateResolver.dedupe("deal", valid, (d) => d.providerDealId);
+    push(errors, plan.validationErrors);
+    push(duplicates, plan.conflicts);
+    counters.validated += sync.deals.length;
+    counters.validationFailures += errors.length;
+    counters.duplicates += duplicates.length;
+
+    for (const d of unique) {
+      if (!d.providerStoreId || !knownStoreProviderIds.has(d.providerStoreId)) {
+        plan.skipped.push({
+          entity: "deal",
+          providerEntityId: d.providerDealId,
+          reason: "referenced store not present in this import or database",
+        });
+        continue;
+      }
+      const { existingId } = EntityMatcher.match(couponSnap, d.providerDealId);
+      const record: PlannedRecord<typeof d> = {
+        entity: "deal",
+        action: existingId ? "update" : "create",
+        providerEntityId: d.providerDealId,
+        existingId,
+        slug: null,
+        source: d,
+      };
+      if (existingId) plan.dealsToUpdate.push(record);
+      else plan.dealsToCreate.push(record);
+    }
+
+    logImportEntity({
+      provider: sync.provider,
+      integrationId: sync.integrationId,
+      entity: "deal",
+      validated: sync.deals.length,
+      invalid: errors.length,
+      create: plan.dealsToCreate.length,
+      update: plan.dealsToUpdate.length,
+      skip: duplicates.length,
+    });
+  }
+
+  for (const err of plan.validationErrors) {
+    plan.warnings.push({ ...err, reason: `validation: ${err.reason}` });
+  }
+
+  return { plan, counters };
+}
+
+export const ImportPlanner = { planImport };
