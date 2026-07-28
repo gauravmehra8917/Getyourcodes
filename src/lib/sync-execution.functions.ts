@@ -4,6 +4,34 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  couponSeoDescription,
+  couponSeoTitle,
+  storeSeoDescription,
+  storeSeoTitle,
+} from "@/lib/presentation/seo-templates";
+
+/** Quality preview of what a record will look like once published. */
+export interface PresentationRow {
+  entity: "store" | "coupon" | "deal";
+  providerEntityId: string;
+  name: string;
+  seoTitle: string;
+  seoDescription: string;
+  logoStatus: "hosted" | "provider" | "missing";
+  descriptionStatus: "present" | "missing";
+  trackingSource: "ad" | "campaign" | "promotion" | "none";
+  landingPageStatus: "present" | "missing";
+}
+
+export interface LogoSyncSummaryRow {
+  processed: number;
+  downloaded: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+}
+
 
 export interface ReportIssue {
   entity: string;
