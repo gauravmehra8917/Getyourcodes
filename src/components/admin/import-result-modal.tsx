@@ -1,0 +1,291 @@
+import * as React from "react";
+import { X, Loader2, AlertTriangle, CheckCircle2, Download } from "lucide-react";
+import type { ReportIssue, SyncRunReport } from "@/lib/sync-execution.functions";
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between border-b border-slate-100 py-2 last:border-0">
+      <span className="text-sm text-slate-600">{label}</span>
+      <span className="text-sm font-semibold text-slate-800">{value}</span>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-5">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</div>
+      <div className="rounded border border-slate-200 bg-white px-4">{children}</div>
+    </div>
+  );
+}
+
+/** Buckets a free-form validation reason into a rule category. */
+function ruleOf(issue: ReportIssue): string {
+  const r = issue.reason.toLowerCase();
+  if (r.includes("provider entity id")) return "Missing provider ID";
+  if (r.includes("invalid status")) return "Invalid status";
+  if (r.includes("url")) return "Invalid / missing URL";
+  if (r.includes("date")) return "Invalid date";
+  if (r.includes("empty") || r.includes("missing")) return "Missing required field";
+  if (r.includes("duplicate")) return "Duplicate record";
+  return "Other";
+}
+
+const ENTITY_LABEL: Record<string, string> = {
+  store: "Stores",
+  coupon: "Coupons",
+  deal: "Deals",
+  category: "Categories",
+};
+
+function Breakdown({ issues }: { issues: ReportIssue[] }) {
+  const byEntity = new Map<string, number>();
+  const byRule = new Map<string, number>();
+  for (const i of issues) {
+    byEntity.set(i.entity, (byEntity.get(i.entity) ?? 0) + 1);
+    const rule = ruleOf(i);
+    byRule.set(rule, (byRule.get(rule) ?? 0) + 1);
+  }
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className="rounded border border-slate-200 bg-white px-4">
+        <div className="border-b border-slate-100 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Failing entity types
+        </div>
+        {[...byEntity.entries()].map(([k, v]) => (
+          <Row key={k} label={ENTITY_LABEL[k] ?? k} value={v} />
+        ))}
+      </div>
+      <div className="rounded border border-slate-200 bg-white px-4">
+        <div className="border-b border-slate-100 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Failing validation rules
+        </div>
+        {[...byRule.entries()].map(([k, v]) => (
+          <Row key={k} label={k} value={v} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function IssueTable({ issues, emptyText }: { issues: ReportIssue[]; emptyText: string }) {
+  const [showAll, setShowAll] = React.useState(false);
+  if (!issues.length) return <p className="text-sm text-slate-500">{emptyText}</p>;
+  const rows = showAll ? issues : issues.slice(0, 25);
+  return (
+    <div>
+      <div className="max-h-80 overflow-auto rounded border border-slate-200">
+        <table className="w-full text-left text-xs">
+          <thead className="sticky top-0 bg-slate-50 text-slate-600">
+            <tr>
+              <th className="px-3 py-2 font-semibold">Entity</th>
+              <th className="px-3 py-2 font-semibold">Provider ID</th>
+              <th className="px-3 py-2 font-semibold">Field</th>
+              <th className="px-3 py-2 font-semibold">Validation error</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((i, idx) => (
+              <tr key={idx} className="border-t border-slate-100">
+                <td className="px-3 py-2 capitalize text-slate-700">{i.entity}</td>
+                <td className="px-3 py-2 font-mono text-slate-700">{i.providerEntityId ?? "—"}</td>
+                <td className="px-3 py-2 text-slate-600">{i.field ?? "—"}</td>
+                <td className="px-3 py-2 text-rose-700">{i.reason}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {issues.length > 25 && (
+        <button
+          onClick={() => setShowAll((s) => !s)}
+          className="mt-2 text-xs font-medium text-slate-700 underline"
+        >
+          {showAll ? "Show fewer" : `Show all ${issues.length} records`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function toCsv(report: SyncRunReport) {
+  const rows = [
+    ["type", "entity", "provider_id", "field", "reason"],
+    ...report.validationErrors.map((i) => ["validation", i.entity, i.providerEntityId ?? "", i.field ?? "", i.reason]),
+    ...report.conflicts.map((i) => ["duplicate", i.entity, i.providerEntityId ?? "", i.field ?? "", i.reason]),
+    ...report.skipped.map((i) => ["skipped", i.entity, i.providerEntityId ?? "", i.field ?? "", i.reason]),
+  ];
+  return rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+}
+
+export function ImportResultModal({
+  title,
+  running,
+  report,
+  error,
+  onClose,
+  onRetry,
+}: {
+  title: string;
+  running: boolean;
+  report: SyncRunReport | null;
+  error?: string;
+  onClose: () => void;
+  onRetry: () => void;
+}) {
+  const downloadCsv = () => {
+    if (!report) return;
+    const blob = new Blob([toCsv(report)], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `import-issues-${report.provider}-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const p = report?.planCounts;
+  const s = report?.statistics;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-lg bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+          <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+          <button onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-slate-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto bg-slate-50 px-5 py-4">
+          {running && (
+            <div className="flex items-center gap-2 py-10 text-sm text-slate-600">
+              <Loader2 className="h-4 w-4 animate-spin" /> Running…
+            </div>
+          )}
+
+          {!running && error && (
+            <div className="rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
+          )}
+
+          {!running && report && (
+            <>
+              {report.error ? (
+                <div className="mb-4 flex items-start gap-2 rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {report.error}
+                </div>
+              ) : (
+                <div className="mb-4 flex items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {report.preview ? "Preview completed — nothing was written." : "Import committed."}
+                </div>
+              )}
+
+              {p && (
+                <Section title="Plan">
+                  <Row label="Stores to Create" value={p.storesToCreate} />
+                  <Row label="Stores to Update" value={p.storesToUpdate} />
+                  <Row label="Coupons to Create" value={p.couponsToCreate} />
+                  <Row label="Coupons to Update" value={p.couponsToUpdate} />
+                  <Row label="Deals to Create" value={p.dealsToCreate} />
+                  <Row label="Deals to Update" value={p.dealsToUpdate} />
+                  <Row label="Categories to Create" value={p.categoriesToCreate} />
+                  <Row label="Categories to Update" value={p.categoriesToUpdate} />
+                  <Row label="Records Skipped" value={p.skipped} />
+                </Section>
+              )}
+
+              {s && (
+                <Section title="Validation">
+                  <Row label="Records Validated" value={s.validated} />
+                  <Row label="Validation Errors" value={s.validationFailures} />
+                  <Row label="Duplicate Records" value={s.duplicates} />
+                  <Row label="Created" value={s.created} />
+                  <Row label="Updated" value={s.updated} />
+                </Section>
+              )}
+
+              {report.validationErrors.length > 0 && (
+                <div className="mb-5">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Failure breakdown
+                  </div>
+                  <Breakdown issues={report.validationErrors} />
+                </div>
+              )}
+
+              <div className="mb-5">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Failed records ({report.validationErrors.length})
+                  </span>
+                  {(report.validationErrors.length > 0 || report.skipped.length > 0) && (
+                    <button
+                      onClick={downloadCsv}
+                      className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Export CSV
+                    </button>
+                  )}
+                </div>
+                <IssueTable issues={report.validationErrors} emptyText="No validation failures." />
+              </div>
+
+              {report.conflicts.length > 0 && (
+                <div className="mb-5">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Duplicates ({report.conflicts.length})
+                  </div>
+                  <IssueTable issues={report.conflicts} emptyText="" />
+                </div>
+              )}
+
+              {report.skipped.length > 0 && (
+                <div className="mb-5">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Skipped records ({report.skipped.length})
+                  </div>
+                  <IssueTable issues={report.skipped} emptyText="" />
+                </div>
+              )}
+
+              {report.progress && (
+                <Section title="Sync progress">
+                  <Row label="Current Entity" value={report.progress.currentEntity ?? "—"} />
+                  <Row label="Current Page" value={report.progress.currentPage} />
+                  <Row label="Records Processed" value={report.progress.recordsFetched} />
+                  <Row label="Status" value={report.progress.status} />
+                </Section>
+              )}
+
+              {report.syncErrors.length > 0 && (
+                <ul className="mb-4 list-disc space-y-1 pl-5 text-sm text-rose-700">
+                  {report.syncErrors.map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+          <button
+            onClick={onClose}
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Close
+          </button>
+          <button
+            onClick={onRetry}
+            disabled={running}
+            className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900 disabled:opacity-50"
+          >
+            Run again
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
