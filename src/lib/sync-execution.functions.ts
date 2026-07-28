@@ -4,8 +4,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { ImportResult } from "@/lib/import/ImportResult";
-import type { SyncProgress } from "@/lib/sync/SyncProgress";
+
+export interface ReportIssue {
+  entity: string;
+  providerEntityId: string | null;
+  field: string | null;
+  reason: string;
+}
 
 export interface SyncRunReport {
   provider: string;
@@ -15,8 +20,40 @@ export interface SyncRunReport {
   durationMs: number;
   syncErrors: string[];
   syncWarnings: string[];
-  progress: SyncProgress | null;
-  result: ImportResult | null;
+  progress: {
+    currentEntity: string | null;
+    currentPage: number;
+    recordsFetched: number;
+    recordsNormalized: number;
+    status: string;
+  } | null;
+  planCounts: {
+    storesToCreate: number;
+    storesToUpdate: number;
+    couponsToCreate: number;
+    couponsToUpdate: number;
+    dealsToCreate: number;
+    dealsToUpdate: number;
+    categoriesToCreate: number;
+    categoriesToUpdate: number;
+    skipped: number;
+  } | null;
+  statistics: {
+    validated: number;
+    created: number;
+    updated: number;
+    skipped: number;
+    validationFailures: number;
+    duplicates: number;
+    durationMs: number;
+  } | null;
+  /** Per-record validation failures — entity, provider id, field, reason. */
+  validationErrors: ReportIssue[];
+  /** Records skipped (e.g. unknown store reference). */
+  skipped: ReportIssue[];
+  /** Duplicate provider ids within the same batch. */
+  conflicts: ReportIssue[];
+  messages: string[];
   error: string | null;
 }
 
@@ -31,6 +68,15 @@ async function requireAdmin(supabase: any, userId: string) {
   if (error || !data) throw new Error("Forbidden: admin only");
 }
 
+type RawIssue = { entity: string; providerEntityId: string | null; field?: string; reason: string };
+const toIssues = (rows: RawIssue[] | undefined): ReportIssue[] =>
+  (rows ?? []).map((i) => ({
+    entity: i.entity,
+    providerEntityId: i.providerEntityId ?? null,
+    field: i.field ?? null,
+    reason: i.reason,
+  }));
+
 export const runProviderSync = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v) =>
@@ -44,7 +90,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
       })
       .parse(v),
   )
-  .handler(async ({ data, context }): Promise<SyncRunReport> => {
+  .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ctx = context as typeof context & { supabase: any; userId: string };
     await requireAdmin(ctx.supabase, ctx.userId);
@@ -63,7 +109,12 @@ export const runProviderSync = createServerFn({ method: "POST" })
       syncErrors: [],
       syncWarnings: [],
       progress: null,
-      result: null,
+      planCounts: null,
+      statistics: null,
+      validationErrors: [],
+      skipped: [],
+      conflicts: [],
+      messages: [],
       error: null,
     };
 
@@ -78,13 +129,46 @@ export const runProviderSync = createServerFn({ method: "POST" })
       if (!sync) throw new Error(synced.error?.message ?? "Sync produced no result");
 
       report.provider = sync.provider;
-      report.progress = sync.progress;
+      report.progress = {
+        currentEntity: sync.progress.currentEntity,
+        currentPage: sync.progress.currentPage,
+        recordsFetched: sync.progress.recordsFetched,
+        recordsNormalized: sync.progress.recordsNormalized,
+        status: sync.progress.status,
+      };
       report.syncErrors = sync.errors.map((e) => `[${e.entity ?? "run"}] ${e.message}`);
       report.syncWarnings = sync.warnings.map((w) => `[${w.entity ?? "run"}] ${w.message}`);
 
       const imported = await runImport(sync, { preview: data.preview });
-      report.result = imported.body ?? null;
-      report.committed = imported.body?.committed ?? false;
+      const body = imported.body;
+      if (body) {
+        const p = body.plan;
+        report.committed = body.committed;
+        report.planCounts = {
+          storesToCreate: p.storesToCreate.length,
+          storesToUpdate: p.storesToUpdate.length,
+          couponsToCreate: p.couponsToCreate.length,
+          couponsToUpdate: p.couponsToUpdate.length,
+          dealsToCreate: p.dealsToCreate.length,
+          dealsToUpdate: p.dealsToUpdate.length,
+          categoriesToCreate: p.categoriesToCreate.length,
+          categoriesToUpdate: p.categoriesToUpdate.length,
+          skipped: p.skipped.length,
+        };
+        report.statistics = {
+          validated: body.statistics.validated,
+          created: body.statistics.created,
+          updated: body.statistics.updated,
+          skipped: body.statistics.skipped,
+          validationFailures: body.statistics.validationFailures,
+          duplicates: body.statistics.duplicates,
+          durationMs: body.statistics.durationMs,
+        };
+        report.validationErrors = toIssues(p.validationErrors);
+        report.skipped = toIssues(p.skipped);
+        report.conflicts = toIssues(p.conflicts);
+        report.messages = body.warnings;
+      }
       if (!imported.success) report.error = imported.error?.message ?? "Import failed";
     } catch (err) {
       report.error = err instanceof Error ? err.message : String(err);
@@ -92,7 +176,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
 
     report.durationMs = Date.now() - startedAt;
 
-    const stats = report.result?.statistics;
+    const stats = report.statistics;
     try {
       await supabaseAdmin.from("affiliate_import_runs").insert({
         integration_id: data.integrationId,
@@ -106,9 +190,9 @@ export const runProviderSync = createServerFn({ method: "POST" })
         records_updated: stats?.updated ?? 0,
         records_skipped: stats?.skipped ?? 0,
         validation_errors: stats?.validationFailures ?? 0,
-        warnings: report.result?.warnings.length ?? 0,
+        warnings: report.messages.length,
         error_message: report.error,
-        statistics: (stats ?? {}) as unknown as Record<string, unknown>,
+        statistics: stats ?? {},
         triggered_by: ctx.userId,
       });
     } catch {
@@ -134,5 +218,5 @@ export const getImportHistory = createServerFn({ method: "GET" })
       .order("started_at", { ascending: false })
       .limit(25);
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    return (rows ?? []) as Array<Record<string, unknown>>;
   });
