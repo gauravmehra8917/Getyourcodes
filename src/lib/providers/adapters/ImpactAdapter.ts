@@ -27,6 +27,7 @@ const ENVELOPE_KEYS: Record<string, string[]> = {
   campaigns: ["Campaigns"],
   promotions: ["Promotions", "Ads"],
   catalogs: ["Catalogs"],
+  ads: ["Ads", "Promotions"],
 };
 
 function extractRecords(body: unknown, keys: string[]): unknown[] {
