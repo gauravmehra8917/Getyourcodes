@@ -262,6 +262,25 @@ export function ImportResultModal({
 
               <IdentitySummaryTable rows={report.identity} />
 
+              {report.logos && (
+                <Section title="Merchant logos">
+                  <Row label="Stores Processed" value={report.logos.processed} />
+                  <Row label="Logos Downloaded" value={report.logos.downloaded} />
+                  <Row label="Already Cached" value={report.logos.skipped} />
+                  <Row label="Failed" value={report.logos.failed} />
+                  {report.logos.errors.length > 0 && (
+                    <Row
+                      label="Errors"
+                      value={<span className="text-amber-700">{report.logos.errors.slice(0, 5).join("; ")}</span>}
+                    />
+                  )}
+                </Section>
+              )}
+
+              {report.presentation.length > 0 && <PresentationTable rows={report.presentation} />}
+
+
+
               {p && (
                 <Section title="Plan">
                   <Row label="Stores to Create" value={p.storesToCreate} />
