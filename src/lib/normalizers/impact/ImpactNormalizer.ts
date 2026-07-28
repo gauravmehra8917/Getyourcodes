@@ -74,6 +74,24 @@ function promoCode(raw: Record<string, unknown>): string | null {
   return asString(pick(raw, ["PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon"]));
 }
 
+/**
+ * Logo values from Impact can be absolute, protocol-relative (//cdn/...) or junk.
+ * Returns a valid absolute https/http URL, or null (never fatal).
+ */
+export function normalizeLogoUrl(value: string | null): string | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  const candidate = raw.startsWith("//") ? `https:${raw}` : raw;
+  try {
+    const u = new URL(candidate);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+
 /** Classification rule: a promotion with a usable code is a coupon. */
 export function isCouponPromotion(raw: unknown): boolean {
   if (!isRecord(raw)) return false;
