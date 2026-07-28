@@ -80,6 +80,77 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_import_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          integration_id: string
+          preview: boolean
+          provider: string
+          records_created: number
+          records_processed: number
+          records_skipped: number
+          records_updated: number
+          started_at: string
+          statistics: Json
+          success: boolean
+          triggered_by: string | null
+          validation_errors: number
+          warnings: number
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          integration_id: string
+          preview?: boolean
+          provider: string
+          records_created?: number
+          records_processed?: number
+          records_skipped?: number
+          records_updated?: number
+          started_at?: string
+          statistics?: Json
+          success?: boolean
+          triggered_by?: string | null
+          validation_errors?: number
+          warnings?: number
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          integration_id?: string
+          preview?: boolean
+          provider?: string
+          records_created?: number
+          records_processed?: number
+          records_skipped?: number
+          records_updated?: number
+          started_at?: string
+          statistics?: Json
+          success?: boolean
+          triggered_by?: string | null
+          validation_errors?: number
+          warnings?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_import_runs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_integration_credentials: {
         Row: {
           ciphertext: string
