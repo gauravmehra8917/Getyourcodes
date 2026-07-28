@@ -127,7 +127,6 @@ export async function runImport(
     errors,
   };
 
-  const totals = planTotals(plan);
   logImportSummary({
     provider: sync.provider,
     integrationId: sync.integrationId,
