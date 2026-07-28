@@ -198,21 +198,26 @@ export class ImpactNormalizer extends BaseNormalizer {
     if (!isRecord(raw)) return normalizerFail(PROVIDER, "Coupon record is not an object", 0, ctx?.integrationId);
 
     const id = asString(pick(raw, ["Id", "PromotionId", "AdId"]));
-    const title = asString(pick(raw, ["Name", "Title", "Description"]));
+    const title = asString(pick(raw, ["PromotionTitle", "Name", "Title", "Description"]));
     if (!id) return normalizerFail(PROVIDER, "Coupon record is missing Id", 0, ctx?.integrationId);
     if (!title) return normalizerFail(PROVIDER, `Coupon ${id} is missing a title`, 0, ctx?.integrationId);
 
+    const campaignId = asString(pick(raw, ["CampaignId", "ProgramId"]));
+    const advertiserId = asString(pick(raw, ["AdvertiserId"]));
     const { type, value } = mapDiscountType(raw);
+    const dates = parseEffectiveDates(pick(raw, ["PromotionEffectiveDates"]));
+    const tracking = resolveTrackingUrl(raw, ctx, advertiserId, campaignId);
     const consumed = [
       "Id", "PromotionId", "AdId",
       "CampaignId", "AdvertiserId", "ProgramId",
-      "Name", "Title", "Description", "ShortDescription",
-      "PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon",
+      "PromotionTitle", "Name", "Title", "Description", "ShortDescription",
+      "GenericRedemptionCode", "PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon",
       "DiscountPercent", "PercentOff", "Percentage",
       "DiscountAmount", "AmountOff", "FlatAmount", "Value",
+      "PromotionEffectiveDates",
       "StartDate", "CreationDate", "EffectiveDate",
       "EndDate", "ExpirationDate", "ExpiryDate",
-      "TrackingLink", "LandingPageUrl", "Url", "ClickUrl",
+      "TrackingLink", "TrackingUrl", "LandingPageUrl", "Url", "ClickUrl",
       "Terms", "TermsAndConditions", "Restrictions",
       "State", "Status",
     ];
@@ -220,20 +225,25 @@ export class ImpactNormalizer extends BaseNormalizer {
     const coupon: CanonicalCoupon = {
       provider: PROVIDER,
       providerCouponId: id,
-      providerStoreId:
-        asString(pick(raw, ["CampaignId", "AdvertiserId", "ProgramId"])) ?? ctx?.providerStoreId ?? null,
+      providerStoreId: advertiserId ?? campaignId ?? ctx?.providerStoreId ?? null,
+      providerAdvertiserId: advertiserId,
+      providerCampaignId: campaignId,
       title,
       description: asString(pick(raw, ["Description", "ShortDescription"])),
       code: promoCode(raw),
       discountType: type,
       discountValue: value,
-      startDate: asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])),
-      endDate: asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])),
-      trackingUrl: asString(pick(raw, ["TrackingLink", "LandingPageUrl", "Url", "ClickUrl"])),
+      startDate: asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])) ?? dates.start,
+      endDate: asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])) ?? dates.end,
+      trackingUrl: tracking.url,
       terms: asString(pick(raw, ["Terms", "TermsAndConditions", "Restrictions"])),
       status: mapStatus(pick(raw, ["State", "Status"])),
-      metadata: buildMetadata(raw, consumed),
+      metadata: {
+        ...buildMetadata(raw, consumed),
+        ...(tracking.warning ? { trackingUrlWarning: tracking.warning } : {}),
+      },
     };
+
 
     return normalizerOk(PROVIDER, coupon, 0, ctx?.integrationId);
   }
