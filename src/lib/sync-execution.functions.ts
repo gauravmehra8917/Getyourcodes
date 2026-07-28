@@ -281,6 +281,9 @@ export const runProviderSync = createServerFn({ method: "POST" })
       skipped: [],
       conflicts: [],
       identity: [],
+      presentation: [],
+      logos: null,
+
       messages: [],
       error: null,
     };
