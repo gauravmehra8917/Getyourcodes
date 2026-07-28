@@ -21,6 +21,7 @@ import {
   toRecordArray,
   type NormalizerContext,
 } from "../Normalizer";
+import { ENRICHMENT_KEY, readEnrichment, type OfferEnrichment } from "@/lib/enrichment";
 import type {
   CanonicalCategory,
   CanonicalCoupon,
@@ -128,10 +129,50 @@ function resolveTrackingUrl(
   return { url: null, warning: "no tracking url available for this promotion" };
 }
 
+
+/** Extra fields contributed by the Offer Enrichment layer, for metadata. */
+function enrichmentMetadata(e: OfferEnrichment | null): Record<string, unknown> {
+  if (!e) return {};
+  const out: Record<string, unknown> = {};
+  if (e.landingPageUrl) out.landingPageUrl = e.landingPageUrl;
+  if (e.currency) out.currency = e.currency;
+  if (e.terms) out.structuredTerms = e.terms;
+  if (e.shippingRegions?.length) out.shippingRegions = e.shippingRegions;
+  if (e.advertiserName) out.advertiserName = e.advertiserName;
+  if (e.country) out.country = e.country;
+  if (e.deeplinkDomains?.length) out.deeplinkDomains = e.deeplinkDomains;
+  if (e.matchedBy) out.enrichmentMatchedBy = e.matchedBy;
+  if (e.sourceId) out.enrichmentAdId = e.sourceId;
+  return out;
+}
+
+/** Tracking url precedence: coupon ad link > promotion link > campaign link. */
+function enrichedTracking(
+  e: OfferEnrichment | null,
+  base: { url: string | null; warning: string | null },
+): { url: string | null; warning: string | null } {
+  if (e?.trackingUrlSource === "ad" && e.trackingUrl) return { url: e.trackingUrl, warning: null };
+  if (base.url) return base;
+  if (e?.trackingUrl) {
+    return { url: e.trackingUrl, warning: "tracking url fell back to the enriched campaign tracking link" };
+  }
+  return base;
+}
+
+/** Promotion code, with the coupon-ad code as a fallback. */
+function codeWithEnrichment(raw: Record<string, unknown>): string | null {
+  const direct = promoCode(raw);
+  if (direct && !/^(n\/a|none|no code|null)$/i.test(direct)) return direct;
+  const e = readEnrichment(raw);
+  const fallback = e?.code ?? null;
+  if (fallback && !/^(n\/a|none|no code|null)$/i.test(fallback)) return fallback;
+  return direct;
+}
+
 /** Classification rule: a promotion with a usable code is a coupon. */
 export function isCouponPromotion(raw: unknown): boolean {
   if (!isRecord(raw)) return false;
-  const code = promoCode(raw);
+  const code = codeWithEnrichment(raw);
   if (!code) return false;
   return !/^(n\/a|none|no code|null)$/i.test(code);
 }
@@ -206,9 +247,15 @@ export class ImpactNormalizer extends BaseNormalizer {
 
     const campaignId = asString(pick(raw, ["CampaignId", "ProgramId"]));
     const advertiserId = asString(pick(raw, ["AdvertiserId"]));
-    const { type, value } = mapDiscountType(raw);
+    const enrichment = readEnrichment(raw);
+    const base = mapDiscountType(raw);
+    const type =
+      base.type === "unknown" || (base.type === "other" && enrichment?.discountType)
+        ? (enrichment?.discountType ?? base.type)
+        : base.type;
+    const value = base.value ?? enrichment?.discountValue ?? null;
     const dates = parseEffectiveDates(pick(raw, ["PromotionEffectiveDates"]));
-    const tracking = resolveTrackingUrl(raw, ctx, advertiserId, campaignId);
+    const tracking = enrichedTracking(enrichment, resolveTrackingUrl(raw, ctx, advertiserId, campaignId));
     const consumed = [
       "PromotionIds", "Id", "PromotionId", "AdId",
       "CampaignId", "AdvertiserId", "ProgramId",
@@ -222,6 +269,7 @@ export class ImpactNormalizer extends BaseNormalizer {
       "TrackingLink", "TrackingUrl", "LandingPageUrl", "Url", "ClickUrl",
       "Terms", "TermsAndConditions", "Restrictions",
       "State", "Status",
+      ENRICHMENT_KEY,
     ];
 
     const coupon: CanonicalCoupon = {
@@ -231,17 +279,30 @@ export class ImpactNormalizer extends BaseNormalizer {
       providerAdvertiserId: advertiserId,
       providerCampaignId: campaignId,
       title,
-      description: asString(pick(raw, ["Description", "ShortDescription"])),
-      code: promoCode(raw),
+      description:
+        asString(pick(raw, ["Description", "ShortDescription"])) ?? enrichment?.description ?? null,
+      code: codeWithEnrichment(raw),
       discountType: type,
       discountValue: value,
-      startDate: asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])) ?? dates.start,
-      endDate: asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])) ?? dates.end,
+      startDate:
+        asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])) ??
+        dates.start ??
+        enrichment?.startDate ??
+        null,
+      endDate:
+        asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])) ??
+        dates.end ??
+        enrichment?.endDate ??
+        null,
       trackingUrl: tracking.url,
-      terms: asString(pick(raw, ["Terms", "TermsAndConditions", "Restrictions"])),
+      terms:
+        asString(pick(raw, ["Terms", "TermsAndConditions", "Restrictions"])) ??
+        enrichment?.terms?.text ??
+        null,
       status: mapStatus(pick(raw, ["State", "Status"])),
       metadata: {
         ...buildMetadata(raw, consumed),
+        ...enrichmentMetadata(enrichment),
         ...(tracking.warning ? { trackingUrlWarning: tracking.warning } : {}),
       },
     };
@@ -263,8 +324,9 @@ export class ImpactNormalizer extends BaseNormalizer {
 
     const campaignId = asString(pick(raw, ["CampaignId", "ProgramId"]));
     const advertiserId = asString(pick(raw, ["AdvertiserId"]));
+    const enrichment = readEnrichment(raw);
     const dates = parseEffectiveDates(pick(raw, ["PromotionEffectiveDates"]));
-    const tracking = resolveTrackingUrl(raw, ctx, advertiserId, campaignId);
+    const tracking = enrichedTracking(enrichment, resolveTrackingUrl(raw, ctx, advertiserId, campaignId));
 
     const consumed = [
       "PromotionIds", "Id", "PromotionId", "AdId",
@@ -275,6 +337,7 @@ export class ImpactNormalizer extends BaseNormalizer {
       "StartDate", "CreationDate", "EffectiveDate",
       "EndDate", "ExpirationDate", "ExpiryDate",
       "State", "Status",
+      ENRICHMENT_KEY,
     ];
 
     const deal: CanonicalDeal = {
@@ -284,13 +347,23 @@ export class ImpactNormalizer extends BaseNormalizer {
       providerAdvertiserId: advertiserId,
       providerCampaignId: campaignId,
       title,
-      description: asString(pick(raw, ["Description", "ShortDescription"])),
+      description:
+        asString(pick(raw, ["Description", "ShortDescription"])) ?? enrichment?.description ?? null,
       trackingUrl: tracking.url,
-      startDate: asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])) ?? dates.start,
-      endDate: asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])) ?? dates.end,
+      startDate:
+        asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])) ??
+        dates.start ??
+        enrichment?.startDate ??
+        null,
+      endDate:
+        asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])) ??
+        dates.end ??
+        enrichment?.endDate ??
+        null,
       status: mapStatus(pick(raw, ["State", "Status"])),
       metadata: {
         ...buildMetadata(raw, consumed),
+        ...enrichmentMetadata(enrichment),
         ...(tracking.warning ? { trackingUrlWarning: tracking.warning } : {}),
       },
     };
