@@ -6,9 +6,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   Plug, Plus, Pencil, Zap, Power, Trash2, Loader2, Search, X, ChevronLeft, ChevronRight,
-  ShieldCheck, Database, Activity, History, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw,
+  ShieldCheck, Database, Activity, History, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, DownloadCloud, Eye,
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
+import { ImportResultModal } from "@/components/admin/import-result-modal";
+import { runProviderSync, type SyncRunReport } from "@/lib/sync-execution.functions";
 import { IntegrationWizard, type IntegrationRecord as WizardRecord } from "@/components/admin/integration-wizard";
 import {
   listIntegrations,
@@ -104,6 +106,7 @@ function IntegrationsPage() {
   const [confirmDelete, setConfirmDelete] = useState<IntegrationRecord | null>(null);
   const [drawer, setDrawer] = useState<{ rec: IntegrationRecord; tab: "overview" | "history" | "audit" } | null>(null);
   const [testModal, setTestModal] = useState<{ rec: IntegrationRecord; running: boolean; result: TestResult | null; error?: string } | null>(null);
+  const [importModal, setImportModal] = useState<{ rec: IntegrationRecord; preview: boolean; running: boolean; report: SyncRunReport | null; error?: string } | null>(null);
 
   const [search, setSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("all");
@@ -116,6 +119,7 @@ function IntegrationsPage() {
   const toggleFn = useServerFn(toggleIntegration);
   const deleteFn = useServerFn(deleteIntegration);
   const testFn = useServerFn(testIntegration);
+  const syncFn = useServerFn(runProviderSync);
   const qc = useQueryClient();
 
   const { data: integrations = [], isLoading } = useQuery({
@@ -170,6 +174,22 @@ function IntegrationsPage() {
         toast.error(msg);
       },
     });
+  };
+
+  const runImportFlow = (rec: IntegrationRecord, preview: boolean) => {
+    setImportModal({ rec, preview, running: true, report: null });
+    (syncFn({ data: { integrationId: rec.id, preview } }) as Promise<SyncRunReport>)
+      .then((report) => {
+        setImportModal({ rec, preview, running: false, report });
+        if (report.error) toast.error(report.error);
+        else if (report.validationErrors.length) toast.warning(`${report.validationErrors.length} record(s) failed validation`);
+        else toast.success(preview ? "Preview completed" : "Import completed");
+      })
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "Import failed";
+        setImportModal({ rec, preview, running: false, report: null, error: msg });
+        toast.error(msg);
+      });
   };
 
   // Derived summary
@@ -375,6 +395,8 @@ function IntegrationsPage() {
                 onToggle={() => toggleMutation.mutate({ id: rec.id, enabled: !rec.is_enabled })}
                 onDelete={() => setConfirmDelete(rec)}
                 onHistory={() => setDrawer({ rec, tab: "audit" })}
+                onPreviewImport={() => runImportFlow(rec, true)}
+                onRunImport={() => runImportFlow(rec, false)}
               />
             ))}
           </div>
@@ -440,6 +462,17 @@ function IntegrationsPage() {
           onClose={() => setDrawer(null)}
           onTest={() => { const r = drawer.rec; setDrawer(null); runTest(r); }}
           onEdit={() => { const r = drawer.rec; setDrawer(null); openEdit(r); }}
+        />
+      )}
+
+      {importModal && (
+        <ImportResultModal
+          title={`${importModal.preview ? "Preview Import" : "Run Import"} — ${importModal.rec.integration_name}`}
+          running={importModal.running}
+          report={importModal.report}
+          error={importModal.error}
+          onClose={() => setImportModal(null)}
+          onRetry={() => runImportFlow(importModal.rec, importModal.preview)}
         />
       )}
 
@@ -544,7 +577,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 }
 
 function IntegrationCard({
-  rec, testing, onOpen, onEdit, onTest, onToggle, onDelete, onHistory,
+  rec, testing, onOpen, onEdit, onTest, onToggle, onDelete, onHistory, onPreviewImport, onRunImport,
 }: {
   rec: IntegrationRecord;
   testing: boolean;
@@ -554,6 +587,8 @@ function IntegrationCard({
   onToggle: () => void;
   onDelete: () => void;
   onHistory: () => void;
+  onPreviewImport: () => void;
+  onRunImport: () => void;
 }) {
   const status = effectiveStatus(rec);
   return (
@@ -604,6 +639,8 @@ function IntegrationCard({
         >
           {rec.is_enabled ? "Disable" : "Enable"}
         </ActionBtn>
+        <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewImport}>Preview Import</ActionBtn>
+        <ActionBtn icon={<DownloadCloud className="h-3.5 w-3.5" />} onClick={onRunImport}>Run Import</ActionBtn>
         <ActionBtn icon={<History className="h-3.5 w-3.5" />} onClick={onHistory}>History</ActionBtn>
         <ActionBtn icon={<Trash2 className="h-3.5 w-3.5" />} tone="danger" onClick={onDelete}>Delete</ActionBtn>
       </div>
