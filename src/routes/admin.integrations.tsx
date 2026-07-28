@@ -120,6 +120,17 @@ function IntegrationsPage() {
   const deleteFn = useServerFn(deleteIntegration);
   const testFn = useServerFn(testIntegration);
   const syncFn = useServerFn(runProviderSync);
+  const logoFn = useServerFn(syncStoreLogos);
+  const logoMutation = useMutation({
+    mutationFn: (rec: { id: string; provider_type: string }) =>
+      logoFn({ data: { provider: rec.provider_type, integrationId: rec.id } }),
+    onSuccess: (r) =>
+      toast.success(
+        `Logos synced — ${r.downloaded} downloaded, ${r.skipped} already cached${r.failed ? `, ${r.failed} failed` : ""}`,
+      ),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const qc = useQueryClient();
 
   const { data: integrations = [], isLoading } = useQuery({
