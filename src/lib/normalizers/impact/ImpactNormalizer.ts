@@ -124,18 +124,25 @@ export class ImpactNormalizer extends BaseNormalizer {
       "ContractCommission", "PayoutType", "Commission", "DefaultPayout",
     ];
 
+    const rawLogo = asString(pick(raw, ["CampaignLogoUri", "LogoUri", "Logo", "ImageUrl"]));
+    const logo = normalizeLogoUrl(rawLogo);
+
     const store: CanonicalStore = {
       provider: PROVIDER,
       providerStoreId: id,
       name,
       description: asString(pick(raw, ["CampaignDescription", "Description"])),
       website: asString(pick(raw, ["CampaignUrl", "Url", "AdvertiserUrl", "LandingPageUrl"])),
-      logo: asString(pick(raw, ["CampaignLogoUri", "LogoUri", "Logo", "ImageUrl"])),
+      logo,
       categories: asStringArray(pick(raw, ["Categories", "Category", "Vertical", "Verticals"])),
       country: asString(pick(raw, ["Country", "CountryCode", "AdvertiserCountry"])),
       status: mapStatus(pick(raw, ["ContractStatus", "Status", "State"])),
       commission: asString(pick(raw, ["ContractCommission", "PayoutType", "Commission", "DefaultPayout"])),
-      metadata: buildMetadata(raw, consumed),
+      metadata: {
+        ...buildMetadata(raw, consumed),
+        ...(rawLogo ? { originalLogo: rawLogo } : {}),
+        ...(rawLogo && !logo ? { logoWarning: "logo could not be resolved to an absolute http(s) url" } : {}),
+      },
     };
 
     return normalizerOk(PROVIDER, store, 0, ctx?.integrationId);
