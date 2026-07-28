@@ -9,6 +9,10 @@ export type Store = {
   affiliate_url: string | null;
   featured: boolean;
   category_id: string | null;
+  country?: string | null;
+  shipping_regions?: string[] | null;
+  metadata?: Record<string, unknown> | null;
+  updated_at?: string | null;
 };
 
 export type Category = {
@@ -33,7 +37,14 @@ export type Coupon = {
   terms: string | null;
   created_at: string;
   featured_in_banner: boolean;
+  discount_type?: string | null;
+  discount_value?: number | null;
+  start_date?: string | null;
+  landing_page_url?: string | null;
+  structured_terms?: unknown;
+  metadata?: Record<string, unknown> | null;
 };
+
 
 // Untyped accessor (types.ts is auto-generated and currently empty)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
