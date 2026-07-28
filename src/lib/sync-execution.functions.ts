@@ -12,6 +12,23 @@ export interface ReportIssue {
   reason: string;
 }
 
+export interface ImportRunRow {
+  id: string;
+  provider: string;
+  preview: boolean;
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number;
+  success: boolean;
+  records_processed: number;
+  records_created: number;
+  records_updated: number;
+  records_skipped: number;
+  validation_errors: number;
+  warnings: number;
+  error_message: string | null;
+}
+
 export interface SyncRunReport {
   provider: string;
   integrationId: string;
@@ -218,5 +235,5 @@ export const getImportHistory = createServerFn({ method: "GET" })
       .order("started_at", { ascending: false })
       .limit(25);
     if (error) throw new Error(error.message);
-    return (rows ?? []) as Array<Record<string, unknown>>;
+    return (rows ?? []) as ImportRunRow[];
   });
