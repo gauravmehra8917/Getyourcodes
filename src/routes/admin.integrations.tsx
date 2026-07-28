@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   Plug, Plus, Pencil, Zap, Power, Trash2, Loader2, Search, X, ChevronLeft, ChevronRight,
   ShieldCheck, Database, Activity, History, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, DownloadCloud, Eye,
+  Image as ImageIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { ImportResultModal } from "@/components/admin/import-result-modal";
