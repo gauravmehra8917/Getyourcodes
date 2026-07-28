@@ -338,9 +338,28 @@ export const runProviderSync = createServerFn({ method: "POST" })
         report.skipped = toIssues(p.skipped);
         report.conflicts = toIssues(p.conflicts);
         report.identity = p.identity.map((row) => ({ ...row }));
+        report.presentation = buildPresentation(p);
         report.messages = body.warnings;
       }
       if (!imported.success) report.error = imported.error?.message ?? "Import failed";
+
+      // Phase 3A: after a committed import, cache merchant logos in storage.
+      // Failures here never fail the import.
+      if (!data.preview && report.committed) {
+        try {
+          const { syncStoreLogosForProvider } = await import("@/lib/presentation/logo-sync.server");
+          report.logos = await syncStoreLogosForProvider(report.provider, data.integrationId);
+        } catch (err) {
+          report.logos = {
+            processed: 0,
+            downloaded: 0,
+            skipped: 0,
+            failed: 0,
+            errors: [err instanceof Error ? err.message : String(err)],
+          };
+        }
+      }
+
     } catch (err) {
       report.error = err instanceof Error ? err.message : String(err);
     }
