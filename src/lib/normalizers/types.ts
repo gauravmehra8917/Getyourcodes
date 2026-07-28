@@ -13,6 +13,10 @@ export type Metadata = Record<string, unknown>;
 export interface CanonicalStore {
   provider: string;
   providerStoreId: string;
+  /** Program/campaign identifier, when the provider distinguishes it. */
+  providerCampaignId?: string | null;
+  /** Advertiser/merchant identifier, when the provider distinguishes it. */
+  providerAdvertiserId?: string | null;
   name: string;
   description: string | null;
   website: string | null;
@@ -28,6 +32,9 @@ export interface CanonicalCoupon {
   provider: string;
   providerCouponId: string;
   providerStoreId: string | null;
+  /** Preferred store reference when the provider exposes advertiser ids. */
+  providerAdvertiserId?: string | null;
+  providerCampaignId?: string | null;
   title: string;
   description: string | null;
   code: string | null;
@@ -45,6 +52,8 @@ export interface CanonicalDeal {
   provider: string;
   providerDealId: string;
   providerStoreId: string | null;
+  providerAdvertiserId?: string | null;
+  providerCampaignId?: string | null;
   title: string;
   description: string | null;
   trackingUrl: string | null;

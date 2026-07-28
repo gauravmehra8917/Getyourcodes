@@ -70,10 +70,6 @@ function mapDiscountType(raw: Record<string, unknown>): { type: DiscountType; va
   return { type: text ? "other" : "unknown", value: null };
 }
 
-function promoCode(raw: Record<string, unknown>): string | null {
-  return asString(pick(raw, ["PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon"]));
-}
-
 /**
  * Logo values from Impact can be absolute, protocol-relative (//cdn/...) or junk.
  * Returns a valid absolute https/http URL, or null (never fatal).
@@ -92,6 +88,46 @@ export function normalizeLogoUrl(value: string | null): string | null {
 }
 
 
+function promoCode(raw: Record<string, unknown>): string | null {
+  return asString(
+    pick(raw, ["GenericRedemptionCode", "PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon"]),
+  );
+}
+
+/** Impact returns "2026-07-28/2026-07-29" style ranges in PromotionEffectiveDates. */
+export function parseEffectiveDates(value: unknown): { start: string | null; end: string | null } {
+  const raw = asString(value);
+  if (!raw) return { start: null, end: null };
+  const [a, b] = raw.split("/").map((p) => p.trim());
+  return { start: asIsoDate(a), end: asIsoDate(b ?? null) };
+}
+
+/** Resolve a promotion tracking url with a documented fallback order. */
+function resolveTrackingUrl(
+  raw: Record<string, unknown>,
+  ctx: NormalizerContext | undefined,
+  advertiserId: string | null,
+  campaignId: string | null,
+): { url: string | null; warning: string | null } {
+  const direct = asString(pick(raw, ["TrackingLink", "TrackingUrl", "LandingPageUrl", "Url", "ClickUrl"]));
+  if (direct) return { url: direct, warning: null };
+
+  const map = ctx?.storeTrackingUrls ?? {};
+  const fromStore =
+    (advertiserId ? map[advertiserId] : undefined) ??
+    (campaignId ? map[campaignId] : undefined) ??
+    (ctx?.providerStoreId ? map[ctx.providerStoreId] : undefined) ??
+    null;
+  if (fromStore) return { url: fromStore, warning: "tracking url fell back to the campaign tracking link" };
+
+  const uri = asString(pick(raw, ["Uri", "PromotionItemsUri"]));
+  if (uri && /^https?:\/\//i.test(uri)) {
+    return { url: uri, warning: "tracking url fell back to the promotion uri" };
+  }
+
+  return { url: null, warning: "no tracking url available for this promotion" };
+}
+
 /** Classification rule: a promotion with a usable code is a coupon. */
 export function isCouponPromotion(raw: unknown): boolean {
   if (!isRecord(raw)) return false;
@@ -107,7 +143,10 @@ export class ImpactNormalizer extends BaseNormalizer {
   normalizeStore(raw: unknown, ctx?: NormalizerContext): StandardResponse<CanonicalStore> {
     if (!isRecord(raw)) return normalizerFail(PROVIDER, "Store record is not an object", 0, ctx?.integrationId);
 
-    const id = asString(pick(raw, ["CampaignId", "Id", "AdvertiserId", "ProgramId"]));
+    const campaignId = asString(pick(raw, ["CampaignId", "ProgramId"]));
+    const advertiserId = asString(pick(raw, ["AdvertiserId"]));
+    // Store identity stays on the campaign — never collapsed with the advertiser.
+    const id = campaignId ?? asString(pick(raw, ["Id"])) ?? advertiserId;
     const name = asString(pick(raw, ["CampaignName", "Name", "AdvertiserName"]));
     if (!id) return normalizerFail(PROVIDER, "Store record is missing CampaignId/Id", 0, ctx?.integrationId);
     if (!name) return normalizerFail(PROVIDER, `Store ${id} is missing a name`, 0, ctx?.integrationId);
@@ -122,14 +161,18 @@ export class ImpactNormalizer extends BaseNormalizer {
       "Country", "CountryCode", "AdvertiserCountry",
       "ContractStatus", "Status", "State",
       "ContractCommission", "PayoutType", "Commission", "DefaultPayout",
+      "TrackingLink", "TrackingUrl",
     ];
 
     const rawLogo = asString(pick(raw, ["CampaignLogoUri", "LogoUri", "Logo", "ImageUrl"]));
     const logo = normalizeLogoUrl(rawLogo);
+    const trackingLink = asString(pick(raw, ["TrackingLink", "TrackingUrl"]));
 
     const store: CanonicalStore = {
       provider: PROVIDER,
       providerStoreId: id,
+      providerCampaignId: campaignId ?? id,
+      providerAdvertiserId: advertiserId,
       name,
       description: asString(pick(raw, ["CampaignDescription", "Description"])),
       website: asString(pick(raw, ["CampaignUrl", "Url", "AdvertiserUrl", "LandingPageUrl"])),
@@ -140,10 +183,12 @@ export class ImpactNormalizer extends BaseNormalizer {
       commission: asString(pick(raw, ["ContractCommission", "PayoutType", "Commission", "DefaultPayout"])),
       metadata: {
         ...buildMetadata(raw, consumed),
+        ...(trackingLink ? { trackingLink } : {}),
         ...(rawLogo ? { originalLogo: rawLogo } : {}),
         ...(rawLogo && !logo ? { logoWarning: "logo could not be resolved to an absolute http(s) url" } : {}),
       },
     };
+
 
     return normalizerOk(PROVIDER, store, 0, ctx?.integrationId);
   }
@@ -153,21 +198,26 @@ export class ImpactNormalizer extends BaseNormalizer {
     if (!isRecord(raw)) return normalizerFail(PROVIDER, "Coupon record is not an object", 0, ctx?.integrationId);
 
     const id = asString(pick(raw, ["Id", "PromotionId", "AdId"]));
-    const title = asString(pick(raw, ["Name", "Title", "Description"]));
+    const title = asString(pick(raw, ["PromotionTitle", "Name", "Title", "Description"]));
     if (!id) return normalizerFail(PROVIDER, "Coupon record is missing Id", 0, ctx?.integrationId);
     if (!title) return normalizerFail(PROVIDER, `Coupon ${id} is missing a title`, 0, ctx?.integrationId);
 
+    const campaignId = asString(pick(raw, ["CampaignId", "ProgramId"]));
+    const advertiserId = asString(pick(raw, ["AdvertiserId"]));
     const { type, value } = mapDiscountType(raw);
+    const dates = parseEffectiveDates(pick(raw, ["PromotionEffectiveDates"]));
+    const tracking = resolveTrackingUrl(raw, ctx, advertiserId, campaignId);
     const consumed = [
       "Id", "PromotionId", "AdId",
       "CampaignId", "AdvertiserId", "ProgramId",
-      "Name", "Title", "Description", "ShortDescription",
-      "PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon",
+      "PromotionTitle", "Name", "Title", "Description", "ShortDescription",
+      "GenericRedemptionCode", "PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon",
       "DiscountPercent", "PercentOff", "Percentage",
       "DiscountAmount", "AmountOff", "FlatAmount", "Value",
+      "PromotionEffectiveDates",
       "StartDate", "CreationDate", "EffectiveDate",
       "EndDate", "ExpirationDate", "ExpiryDate",
-      "TrackingLink", "LandingPageUrl", "Url", "ClickUrl",
+      "TrackingLink", "TrackingUrl", "LandingPageUrl", "Url", "ClickUrl",
       "Terms", "TermsAndConditions", "Restrictions",
       "State", "Status",
     ];
@@ -175,20 +225,25 @@ export class ImpactNormalizer extends BaseNormalizer {
     const coupon: CanonicalCoupon = {
       provider: PROVIDER,
       providerCouponId: id,
-      providerStoreId:
-        asString(pick(raw, ["CampaignId", "AdvertiserId", "ProgramId"])) ?? ctx?.providerStoreId ?? null,
+      providerStoreId: advertiserId ?? campaignId ?? ctx?.providerStoreId ?? null,
+      providerAdvertiserId: advertiserId,
+      providerCampaignId: campaignId,
       title,
       description: asString(pick(raw, ["Description", "ShortDescription"])),
       code: promoCode(raw),
       discountType: type,
       discountValue: value,
-      startDate: asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])),
-      endDate: asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])),
-      trackingUrl: asString(pick(raw, ["TrackingLink", "LandingPageUrl", "Url", "ClickUrl"])),
+      startDate: asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])) ?? dates.start,
+      endDate: asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])) ?? dates.end,
+      trackingUrl: tracking.url,
       terms: asString(pick(raw, ["Terms", "TermsAndConditions", "Restrictions"])),
       status: mapStatus(pick(raw, ["State", "Status"])),
-      metadata: buildMetadata(raw, consumed),
+      metadata: {
+        ...buildMetadata(raw, consumed),
+        ...(tracking.warning ? { trackingUrlWarning: tracking.warning } : {}),
+      },
     };
+
 
     return normalizerOk(PROVIDER, coupon, 0, ctx?.integrationId);
   }
@@ -198,15 +253,21 @@ export class ImpactNormalizer extends BaseNormalizer {
     if (!isRecord(raw)) return normalizerFail(PROVIDER, "Deal record is not an object", 0, ctx?.integrationId);
 
     const id = asString(pick(raw, ["Id", "PromotionId", "AdId"]));
-    const title = asString(pick(raw, ["Name", "Title", "Description"]));
+    const title = asString(pick(raw, ["PromotionTitle", "Name", "Title", "Description"]));
     if (!id) return normalizerFail(PROVIDER, "Deal record is missing Id", 0, ctx?.integrationId);
     if (!title) return normalizerFail(PROVIDER, `Deal ${id} is missing a title`, 0, ctx?.integrationId);
+
+    const campaignId = asString(pick(raw, ["CampaignId", "ProgramId"]));
+    const advertiserId = asString(pick(raw, ["AdvertiserId"]));
+    const dates = parseEffectiveDates(pick(raw, ["PromotionEffectiveDates"]));
+    const tracking = resolveTrackingUrl(raw, ctx, advertiserId, campaignId);
 
     const consumed = [
       "Id", "PromotionId", "AdId",
       "CampaignId", "AdvertiserId", "ProgramId",
-      "Name", "Title", "Description", "ShortDescription",
-      "TrackingLink", "LandingPageUrl", "Url", "ClickUrl",
+      "PromotionTitle", "Name", "Title", "Description", "ShortDescription",
+      "TrackingLink", "TrackingUrl", "LandingPageUrl", "Url", "ClickUrl",
+      "PromotionEffectiveDates",
       "StartDate", "CreationDate", "EffectiveDate",
       "EndDate", "ExpirationDate", "ExpiryDate",
       "State", "Status",
@@ -215,16 +276,21 @@ export class ImpactNormalizer extends BaseNormalizer {
     const deal: CanonicalDeal = {
       provider: PROVIDER,
       providerDealId: id,
-      providerStoreId:
-        asString(pick(raw, ["CampaignId", "AdvertiserId", "ProgramId"])) ?? ctx?.providerStoreId ?? null,
+      providerStoreId: advertiserId ?? campaignId ?? ctx?.providerStoreId ?? null,
+      providerAdvertiserId: advertiserId,
+      providerCampaignId: campaignId,
       title,
       description: asString(pick(raw, ["Description", "ShortDescription"])),
-      trackingUrl: asString(pick(raw, ["TrackingLink", "LandingPageUrl", "Url", "ClickUrl"])),
-      startDate: asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])),
-      endDate: asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])),
+      trackingUrl: tracking.url,
+      startDate: asIsoDate(pick(raw, ["StartDate", "CreationDate", "EffectiveDate"])) ?? dates.start,
+      endDate: asIsoDate(pick(raw, ["EndDate", "ExpirationDate", "ExpiryDate"])) ?? dates.end,
       status: mapStatus(pick(raw, ["State", "Status"])),
-      metadata: buildMetadata(raw, consumed),
+      metadata: {
+        ...buildMetadata(raw, consumed),
+        ...(tracking.warning ? { trackingUrlWarning: tracking.warning } : {}),
+      },
     };
+
 
     return normalizerOk(PROVIDER, deal, 0, ctx?.integrationId);
   }

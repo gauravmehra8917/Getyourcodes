@@ -103,7 +103,9 @@ export const ImportValidator = {
   coupons(items: CanonicalCoupon[]): ValidationOutcome<CanonicalCoupon> {
     const valid: CanonicalCoupon[] = [];
     const errors: ImportIssue[] = [];
-    for (const c of items) {
+    const warnings: ImportIssue[] = [];
+    for (const input of items) {
+      const c: CanonicalCoupon = { ...input };
       let ok = checkCommon("coupon", c.providerCouponId, c.status, errors);
       if (!c.title?.trim()) {
         errors.push(issue("coupon", c.providerCouponId ?? null, "empty title", "title"));
@@ -113,12 +115,12 @@ export const ImportValidator = {
         errors.push(issue("coupon", c.providerCouponId ?? null, "missing store reference", "providerStoreId"));
         ok = false;
       }
+      // tracking url is optional and never fatal: drop it and warn instead.
       if (!c.trackingUrl) {
-        errors.push(issue("coupon", c.providerCouponId ?? null, "missing tracking url", "trackingUrl"));
-        ok = false;
+        warnings.push(issue("coupon", c.providerCouponId ?? null, "missing tracking url", "trackingUrl"));
       } else if (!isUrl(c.trackingUrl)) {
-        errors.push(issue("coupon", c.providerCouponId ?? null, "invalid tracking url", "trackingUrl"));
-        ok = false;
+        warnings.push(issue("coupon", c.providerCouponId ?? null, "invalid tracking url (ignored)", "trackingUrl"));
+        c.trackingUrl = null;
       }
       for (const [field, value] of [["startDate", c.startDate], ["endDate", c.endDate]] as const) {
         if (value && !isDate(value)) {
@@ -128,13 +130,15 @@ export const ImportValidator = {
       }
       if (ok) valid.push(c);
     }
-    return { valid, errors };
+    return { valid, errors, warnings };
   },
 
   deals(items: CanonicalDeal[]): ValidationOutcome<CanonicalDeal> {
     const valid: CanonicalDeal[] = [];
     const errors: ImportIssue[] = [];
-    for (const d of items) {
+    const warnings: ImportIssue[] = [];
+    for (const input of items) {
+      const d: CanonicalDeal = { ...input };
       let ok = checkCommon("deal", d.providerDealId, d.status, errors);
       if (!d.title?.trim()) {
         errors.push(issue("deal", d.providerDealId ?? null, "empty title", "title"));
@@ -145,11 +149,10 @@ export const ImportValidator = {
         ok = false;
       }
       if (!d.trackingUrl) {
-        errors.push(issue("deal", d.providerDealId ?? null, "missing tracking url", "trackingUrl"));
-        ok = false;
+        warnings.push(issue("deal", d.providerDealId ?? null, "missing tracking url", "trackingUrl"));
       } else if (!isUrl(d.trackingUrl)) {
-        errors.push(issue("deal", d.providerDealId ?? null, "invalid tracking url", "trackingUrl"));
-        ok = false;
+        warnings.push(issue("deal", d.providerDealId ?? null, "invalid tracking url (ignored)", "trackingUrl"));
+        d.trackingUrl = null;
       }
       for (const [field, value] of [["startDate", d.startDate], ["endDate", d.endDate]] as const) {
         if (value && !isDate(value)) {
@@ -159,6 +162,7 @@ export const ImportValidator = {
       }
       if (ok) valid.push(d);
     }
-    return { valid, errors };
+    return { valid, errors, warnings };
   },
 };
+

@@ -127,18 +127,48 @@ export function planImport(
     ...plan.storesToUpdate.map((r) => r.providerEntityId),
   ]);
 
+  // Advertiser id -> store provider entity id (campaign id). Campaign ids stay
+  // the store identity; advertiser ids are only an additional lookup key.
+  const storeIdByAdvertiser = new Map<string, string>();
+  for (const r of [...plan.storesToCreate, ...plan.storesToUpdate]) {
+    const advertiserId = r.source.providerAdvertiserId;
+    if (advertiserId) storeIdByAdvertiser.set(advertiserId, r.providerEntityId);
+  }
+
+  /** Promotion -> store: prefer the advertiser id, fall back to campaign id. */
+  const resolveStoreId = (
+    advertiserId: string | null | undefined,
+    campaignId: string | null | undefined,
+    providerStoreId: string | null,
+  ): string | null => {
+    if (advertiserId) {
+      const byAdvertiser = storeIdByAdvertiser.get(advertiserId);
+      if (byAdvertiser) return byAdvertiser;
+    }
+    for (const candidate of [campaignId, providerStoreId]) {
+      if (candidate && knownStoreProviderIds.has(candidate)) return candidate;
+    }
+    if (providerStoreId) {
+      const byAdvertiser = storeIdByAdvertiser.get(providerStoreId);
+      if (byAdvertiser) return byAdvertiser;
+    }
+    return null;
+  };
+
   // ── Coupons ─────────────────────────────────────────────────────────────
   {
-    const { valid, errors } = ImportValidator.coupons(sync.coupons);
+    const { valid, errors, warnings } = ImportValidator.coupons(sync.coupons);
     const { unique, duplicates } = DuplicateResolver.dedupe("coupon", valid, (c) => c.providerCouponId);
     push(errors, plan.validationErrors);
+    if (warnings?.length) push(warnings, plan.warnings);
     push(duplicates, plan.conflicts);
     counters.validated += sync.coupons.length;
     counters.validationFailures += errors.length;
     counters.duplicates += duplicates.length;
 
     for (const c of unique) {
-      if (!c.providerStoreId || !knownStoreProviderIds.has(c.providerStoreId)) {
+      const storeId = resolveStoreId(c.providerAdvertiserId, c.providerCampaignId, c.providerStoreId);
+      if (!storeId) {
         plan.skipped.push({
           entity: "coupon",
           providerEntityId: c.providerCouponId,
@@ -153,7 +183,7 @@ export function planImport(
         providerEntityId: c.providerCouponId,
         existingId,
         slug: null,
-        source: c,
+        source: { ...c, providerStoreId: storeId },
       };
       if (existingId) plan.couponsToUpdate.push(record);
       else plan.couponsToCreate.push(record);
@@ -173,16 +203,18 @@ export function planImport(
 
   // ── Deals ───────────────────────────────────────────────────────────────
   {
-    const { valid, errors } = ImportValidator.deals(sync.deals);
+    const { valid, errors, warnings } = ImportValidator.deals(sync.deals);
     const { unique, duplicates } = DuplicateResolver.dedupe("deal", valid, (d) => d.providerDealId);
     push(errors, plan.validationErrors);
+    if (warnings?.length) push(warnings, plan.warnings);
     push(duplicates, plan.conflicts);
     counters.validated += sync.deals.length;
     counters.validationFailures += errors.length;
     counters.duplicates += duplicates.length;
 
     for (const d of unique) {
-      if (!d.providerStoreId || !knownStoreProviderIds.has(d.providerStoreId)) {
+      const storeId = resolveStoreId(d.providerAdvertiserId, d.providerCampaignId, d.providerStoreId);
+      if (!storeId) {
         plan.skipped.push({
           entity: "deal",
           providerEntityId: d.providerDealId,
@@ -197,7 +229,7 @@ export function planImport(
         providerEntityId: d.providerDealId,
         existingId,
         slug: null,
-        source: d,
+        source: { ...d, providerStoreId: storeId },
       };
       if (existingId) plan.dealsToUpdate.push(record);
       else plan.dealsToCreate.push(record);
