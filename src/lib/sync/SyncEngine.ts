@@ -66,6 +66,21 @@ export class SyncEngine {
 
     const plan: SyncEntityType[] = entityTypes.filter((e) => !(splitPromotions && e === "deal"));
 
+    // Tracking urls already known from synced stores, keyed by every provider
+    // identifier the store exposes. Used as a fallback for promotions.
+    const promotionCtx = () => {
+      const storeTrackingUrls: Record<string, string> = {};
+      for (const s of stores) {
+        const url =
+          (typeof s.metadata?.trackingLink === "string" ? s.metadata.trackingLink : null) ?? s.website;
+        if (!url) continue;
+        for (const key of [s.providerStoreId, s.providerAdvertiserId, s.providerCampaignId]) {
+          if (key) storeTrackingUrls[key] = url;
+        }
+      }
+      return { integrationId: ctx.integrationId, storeTrackingUrls };
+    };
+
     for (const entity of plan) {
       let ok = true;
       if (entity === "store") {
@@ -78,9 +93,10 @@ export class SyncEngine {
         );
       } else if (entity === "coupon" && splitPromotions) {
         ok = await this.syncEntity("coupon", (o) => ctx.adapter.fetchCoupons(o), (records) => {
-          const res = (ctx.normalizer as unknown as PromotionAwareNormalizer).normalizePromotions(records, {
-            integrationId: ctx.integrationId,
-          });
+          const res = (ctx.normalizer as unknown as PromotionAwareNormalizer).normalizePromotions(
+            records,
+            promotionCtx(),
+          );
           if (!res.success || !res.body) {
             return { normalized: 0, skipped: Array.isArray(records) ? records.length : 0, error: res.error?.message };
           }
@@ -92,13 +108,14 @@ export class SyncEngine {
         });
       } else if (entity === "coupon") {
         ok = await this.syncEntity(entity, (o) => ctx.adapter.fetchCoupons(o), (records) =>
-          this.batch(ctx.normalizer.normalizeCoupons(records, { integrationId: ctx.integrationId }), coupons),
+          this.batch(ctx.normalizer.normalizeCoupons(records, promotionCtx()), coupons),
         );
       } else if (entity === "deal") {
         ok = await this.syncEntity(entity, (o) => ctx.adapter.fetchDeals(o), (records) =>
-          this.batch(ctx.normalizer.normalizeDeals(records, { integrationId: ctx.integrationId }), deals),
+          this.batch(ctx.normalizer.normalizeDeals(records, promotionCtx()), deals),
         );
       }
+
 
       if (!ok && !continueOnError) break;
     }
