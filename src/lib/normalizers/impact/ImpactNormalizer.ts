@@ -71,26 +71,44 @@ function mapDiscountType(raw: Record<string, unknown>): { type: DiscountType; va
 }
 
 function promoCode(raw: Record<string, unknown>): string | null {
-  return asString(pick(raw, ["PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon"]));
+  return asString(
+    pick(raw, ["GenericRedemptionCode", "PromoCode", "CouponCode", "Code", "DiscountCode", "Coupon"]),
+  );
 }
 
-/**
- * Logo values from Impact can be absolute, protocol-relative (//cdn/...) or junk.
- * Returns a valid absolute https/http URL, or null (never fatal).
- */
-export function normalizeLogoUrl(value: string | null): string | null {
-  const raw = value?.trim();
-  if (!raw) return null;
-  const candidate = raw.startsWith("//") ? `https:${raw}` : raw;
-  try {
-    const u = new URL(candidate);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    return u.toString();
-  } catch {
-    return null;
+/** Impact returns "2026-07-28/2026-07-29" style ranges in PromotionEffectiveDates. */
+export function parseEffectiveDates(value: unknown): { start: string | null; end: string | null } {
+  const raw = asString(value);
+  if (!raw) return { start: null, end: null };
+  const [a, b] = raw.split("/").map((p) => p.trim());
+  return { start: asIsoDate(a), end: asIsoDate(b ?? null) };
+}
+
+/** Resolve a promotion tracking url with a documented fallback order. */
+function resolveTrackingUrl(
+  raw: Record<string, unknown>,
+  ctx: NormalizerContext | undefined,
+  advertiserId: string | null,
+  campaignId: string | null,
+): { url: string | null; warning: string | null } {
+  const direct = asString(pick(raw, ["TrackingLink", "TrackingUrl", "LandingPageUrl", "Url", "ClickUrl"]));
+  if (direct) return { url: direct, warning: null };
+
+  const map = ctx?.storeTrackingUrls ?? {};
+  const fromStore =
+    (advertiserId ? map[advertiserId] : undefined) ??
+    (campaignId ? map[campaignId] : undefined) ??
+    (ctx?.providerStoreId ? map[ctx.providerStoreId] : undefined) ??
+    null;
+  if (fromStore) return { url: fromStore, warning: "tracking url fell back to the campaign tracking link" };
+
+  const uri = asString(pick(raw, ["Uri", "PromotionItemsUri"]));
+  if (uri && /^https?:\/\//i.test(uri)) {
+    return { url: uri, warning: "tracking url fell back to the promotion uri" };
   }
-}
 
+  return { url: null, warning: "no tracking url available for this promotion" };
+}
 
 /** Classification rule: a promotion with a usable code is a coupon. */
 export function isCouponPromotion(raw: unknown): boolean {
