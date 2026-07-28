@@ -79,9 +79,10 @@ export function planImport(
 
   // ── Stores ──────────────────────────────────────────────────────────────
   {
-    const { valid, errors } = ImportValidator.stores(sync.stores);
+    const { valid, errors, warnings } = ImportValidator.stores(sync.stores);
     const { unique, duplicates } = DuplicateResolver.dedupe("store", valid, (s) => s.providerStoreId);
     push(errors, plan.validationErrors);
+    if (warnings?.length) push(warnings, plan.warnings);
     push(duplicates, plan.conflicts);
     counters.validated += sync.stores.length;
     counters.validationFailures += errors.length;
