@@ -3,7 +3,14 @@
 import type { SyncResult } from "@/lib/sync";
 import { DuplicateResolver } from "./DuplicateResolver";
 import { buildSnapshot, EntityMatcher, type ExistingRow } from "./EntityMatcher";
-import { emptyPlan, type ImportIssue, type ImportPlan, type PlannedRecord } from "./ImportPlan";
+import {
+  emptyPlan,
+  type IdentitySummary,
+  type ImportEntityKind,
+  type ImportIssue,
+  type ImportPlan,
+  type PlannedRecord,
+} from "./ImportPlan";
 import { logImportEntity } from "./ImportLogger";
 import { ImportValidator } from "./ImportValidator";
 import { SlugGenerator, slugify } from "./SlugGenerator";
@@ -18,6 +25,32 @@ export interface PlannerCounters {
   validated: number;
   validationFailures: number;
   duplicates: number;
+}
+
+/** Raw provider identifier for diagnostics (e.g. Impact `PromotionIds`). */
+function rawProviderId(metadata: Record<string, unknown> | undefined, fallback: string): string {
+  const raw = metadata?.PromotionIds ?? metadata?.PromotionId ?? metadata?.Id;
+  return typeof raw === "string" || typeof raw === "number" ? String(raw) : fallback;
+}
+
+function identitySummary(
+  entity: ImportEntityKind,
+  fetched: number,
+  unique: number,
+  duplicates: ImportIssue[],
+  dropped: number,
+  toCreate: number,
+  toUpdate: number,
+): IdentitySummary {
+  return {
+    entity,
+    fetched,
+    uniqueIdentities: unique,
+    duplicateIdentities: duplicates.length,
+    duplicateRecords: dropped,
+    toCreate,
+    toUpdate,
+  };
 }
 
 export function planImport(
@@ -35,16 +68,22 @@ export function planImport(
   const categorySlugs = new SlugGenerator(categorySnap.slugs);
 
   const push = (issues: ImportIssue[], target: ImportIssue[]) => target.push(...issues);
+  const summaries: IdentitySummary[] = [];
 
   // ── Categories ──────────────────────────────────────────────────────────
   {
     const { valid, errors } = ImportValidator.categories(sync.categories);
-    const { unique, duplicates } = DuplicateResolver.dedupe("category", valid, (c) => c.providerCategoryId);
+    const { unique, duplicates, dropped } = DuplicateResolver.dedupe(
+      "category",
+      sync.provider,
+      valid,
+      (c) => ({ id: c.providerCategoryId, raw: c.providerCategoryId }),
+    );
     push(errors, plan.validationErrors);
     push(duplicates, plan.conflicts);
     counters.validated += sync.categories.length;
     counters.validationFailures += errors.length;
-    counters.duplicates += duplicates.length;
+    counters.duplicates += dropped;
 
     for (const c of unique) {
       const candidate = slugify(c.name);
@@ -73,20 +112,29 @@ export function planImport(
       invalid: errors.length,
       create: plan.categoriesToCreate.length,
       update: plan.categoriesToUpdate.length,
-      skip: duplicates.length,
+      skip: dropped,
     });
+
+    summaries.push(
+      identitySummary("category", sync.categories.length, unique.length, duplicates, dropped, plan.categoriesToCreate.length, plan.categoriesToUpdate.length),
+    );
   }
 
   // ── Stores ──────────────────────────────────────────────────────────────
   {
     const { valid, errors, warnings } = ImportValidator.stores(sync.stores);
-    const { unique, duplicates } = DuplicateResolver.dedupe("store", valid, (s) => s.providerStoreId);
+    const { unique, duplicates, dropped } = DuplicateResolver.dedupe(
+      "store",
+      sync.provider,
+      valid,
+      (s) => ({ id: s.providerStoreId, raw: s.providerStoreId }),
+    );
     push(errors, plan.validationErrors);
     if (warnings?.length) push(warnings, plan.warnings);
     push(duplicates, plan.conflicts);
     counters.validated += sync.stores.length;
     counters.validationFailures += errors.length;
-    counters.duplicates += duplicates.length;
+    counters.duplicates += dropped;
 
     for (const s of unique) {
       const candidate = slugify(s.name);
@@ -115,8 +163,12 @@ export function planImport(
       invalid: errors.length,
       create: plan.storesToCreate.length,
       update: plan.storesToUpdate.length,
-      skip: duplicates.length,
+      skip: dropped,
     });
+
+    summaries.push(
+      identitySummary("store", sync.stores.length, unique.length, duplicates, dropped, plan.storesToCreate.length, plan.storesToUpdate.length),
+    );
   }
 
   // Stores reachable after this run (existing + planned) — promotions that
@@ -158,13 +210,18 @@ export function planImport(
   // ── Coupons ─────────────────────────────────────────────────────────────
   {
     const { valid, errors, warnings } = ImportValidator.coupons(sync.coupons);
-    const { unique, duplicates } = DuplicateResolver.dedupe("coupon", valid, (c) => c.providerCouponId);
+    const { unique, duplicates, dropped } = DuplicateResolver.dedupe(
+      "coupon",
+      sync.provider,
+      valid,
+      (c) => ({ id: c.providerCouponId, raw: rawProviderId(c.metadata, c.providerCouponId) }),
+    );
     push(errors, plan.validationErrors);
     if (warnings?.length) push(warnings, plan.warnings);
     push(duplicates, plan.conflicts);
     counters.validated += sync.coupons.length;
     counters.validationFailures += errors.length;
-    counters.duplicates += duplicates.length;
+    counters.duplicates += dropped;
 
     for (const c of unique) {
       const storeId = resolveStoreId(c.providerAdvertiserId, c.providerCampaignId, c.providerStoreId);
@@ -197,20 +254,29 @@ export function planImport(
       invalid: errors.length,
       create: plan.couponsToCreate.length,
       update: plan.couponsToUpdate.length,
-      skip: duplicates.length,
+      skip: dropped,
     });
+
+    summaries.push(
+      identitySummary("coupon", sync.coupons.length, unique.length, duplicates, dropped, plan.couponsToCreate.length, plan.couponsToUpdate.length),
+    );
   }
 
   // ── Deals ───────────────────────────────────────────────────────────────
   {
     const { valid, errors, warnings } = ImportValidator.deals(sync.deals);
-    const { unique, duplicates } = DuplicateResolver.dedupe("deal", valid, (d) => d.providerDealId);
+    const { unique, duplicates, dropped } = DuplicateResolver.dedupe(
+      "deal",
+      sync.provider,
+      valid,
+      (d) => ({ id: d.providerDealId, raw: rawProviderId(d.metadata, d.providerDealId) }),
+    );
     push(errors, plan.validationErrors);
     if (warnings?.length) push(warnings, plan.warnings);
     push(duplicates, plan.conflicts);
     counters.validated += sync.deals.length;
     counters.validationFailures += errors.length;
-    counters.duplicates += duplicates.length;
+    counters.duplicates += dropped;
 
     for (const d of unique) {
       const storeId = resolveStoreId(d.providerAdvertiserId, d.providerCampaignId, d.providerStoreId);
@@ -243,9 +309,15 @@ export function planImport(
       invalid: errors.length,
       create: plan.dealsToCreate.length,
       update: plan.dealsToUpdate.length,
-      skip: duplicates.length,
+      skip: dropped,
     });
+
+    summaries.push(
+      identitySummary("deal", sync.deals.length, unique.length, duplicates, dropped, plan.dealsToCreate.length, plan.dealsToUpdate.length),
+    );
   }
+
+  plan.identity = summaries;
 
   for (const err of plan.validationErrors) {
     plan.warnings.push({ ...err, reason: `validation: ${err.reason}` });
