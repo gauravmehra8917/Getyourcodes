@@ -260,6 +260,8 @@ export function ImportResultModal({
                 </div>
               )}
 
+              <IdentitySummaryTable rows={report.identity} />
+
               {p && (
                 <Section title="Plan">
                   <Row label="Stores to Create" value={p.storesToCreate} />
@@ -313,9 +315,9 @@ export function ImportResultModal({
               {report.conflicts.length > 0 && (
                 <div className="mb-5">
                   <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Duplicates ({report.conflicts.length})
+                    Duplicate provider identities ({report.conflicts.length})
                   </div>
-                  <IssueTable issues={report.conflicts} emptyText="" />
+                  <DuplicateTable issues={report.conflicts} provider={report.provider} />
                 </div>
               )}
 
