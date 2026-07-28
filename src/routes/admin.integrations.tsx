@@ -410,6 +410,8 @@ function IntegrationsPage() {
                 onHistory={() => setDrawer({ rec, tab: "audit" })}
                 onPreviewImport={() => runImportFlow(rec, true)}
                 onRunImport={() => runImportFlow(rec, false)}
+                syncingLogos={logoMutation.isPending && logoMutation.variables?.id === rec.id}
+                onSyncLogos={() => logoMutation.mutate(rec)}
               />
             ))}
           </div>
@@ -591,6 +593,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 function IntegrationCard({
   rec, testing, onOpen, onEdit, onTest, onToggle, onDelete, onHistory, onPreviewImport, onRunImport,
+  syncingLogos, onSyncLogos,
 }: {
   rec: IntegrationRecord;
   testing: boolean;
@@ -602,6 +605,8 @@ function IntegrationCard({
   onHistory: () => void;
   onPreviewImport: () => void;
   onRunImport: () => void;
+  syncingLogos: boolean;
+  onSyncLogos: () => void;
 }) {
   const status = effectiveStatus(rec);
   return (
@@ -654,6 +659,14 @@ function IntegrationCard({
         </ActionBtn>
         <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewImport}>Preview Import</ActionBtn>
         <ActionBtn icon={<DownloadCloud className="h-3.5 w-3.5" />} onClick={onRunImport}>Run Import</ActionBtn>
+        <ActionBtn
+          icon={syncingLogos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+          onClick={onSyncLogos}
+          disabled={syncingLogos}
+          title="Download merchant logos into storage"
+        >
+          {syncingLogos ? "Syncing logos…" : "Sync Logos"}
+        </ActionBtn>
         <ActionBtn icon={<History className="h-3.5 w-3.5" />} onClick={onHistory}>History</ActionBtn>
         <ActionBtn icon={<Trash2 className="h-3.5 w-3.5" />} tone="danger" onClick={onDelete}>Delete</ActionBtn>
       </div>
