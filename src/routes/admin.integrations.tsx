@@ -124,8 +124,9 @@ function IntegrationsPage() {
   const logoFn = useServerFn(syncStoreLogos);
   const logoMutation = useMutation({
     mutationFn: (rec: { id: string; provider_type: string }) =>
-      logoFn({ data: { provider: rec.provider_type, integrationId: rec.id } }),
-    onSuccess: (r) =>
+      logoFn({ data: { provider: rec.provider_type, integrationId: rec.id } }) as Promise<LogoSyncReport>,
+    onSuccess: (r: LogoSyncReport) =>
+
       toast.success(
         `Logos synced — ${r.downloaded} downloaded, ${r.skipped} already cached${r.failed ? `, ${r.failed} failed` : ""}`,
       ),
