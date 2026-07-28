@@ -58,31 +58,43 @@ export async function runImport(
   let plan: ImportPlan;
   let committed = false;
 
+  // ── Stage A: identical for preview and run ────────────────────────────────
+  // existing rows + planning + validation happen exactly once, the same way in
+  // both modes. Nothing here may differ based on `preview`.
+  let existing: ExistingData = { stores: [], categories: [], coupons: [] };
   try {
-    const existing = options.existing ?? (await loadExisting(sync.provider));
-    const planned = ImportPlanner.planImport(sync, existing);
-    plan = planned.plan;
-    statistics.validated = planned.counters.validated;
-    statistics.validationFailures = planned.counters.validationFailures;
-    statistics.duplicates = planned.counters.duplicates;
-    statistics.skipped = plan.skipped.length + planned.counters.duplicates;
+    existing = options.existing ?? (await loadExisting(sync.provider));
+  } catch (err) {
+    warnings.push(
+      `could not load existing rows (${err instanceof Error ? err.message : String(err)}); planning as first import`,
+    );
+  }
 
-    if (plan.validationErrors.length) {
-      warnings.push(`${plan.validationErrors.length} record(s) failed validation and were excluded`);
-    }
-    if (plan.skipped.length) {
-      warnings.push(`${plan.skipped.length} record(s) skipped`);
-    }
+  const planned = ImportPlanner.planImport(sync, existing);
+  plan = planned.plan;
+  statistics.validated = planned.counters.validated;
+  statistics.validationFailures = planned.counters.validationFailures;
+  statistics.duplicates = planned.counters.duplicates;
+  statistics.skipped = plan.skipped.length + planned.counters.duplicates;
 
-    const totals = planTotals(plan);
+  if (plan.validationErrors.length) {
+    warnings.push(`${plan.validationErrors.length} record(s) failed validation and were excluded`);
+  }
+  if (plan.skipped.length) {
+    warnings.push(`${plan.skipped.length} record(s) skipped`);
+  }
 
-    if (preview) {
-      statistics.created = 0;
-      statistics.updated = 0;
-    } else if (totals.creates + totals.updates === 0) {
-      committed = true;
-    } else {
-      const txStarted = Date.now();
+  const totals = planTotals(plan);
+
+  // ── Stage B: the ONLY difference between preview and run ──────────────────
+  if (preview) {
+    statistics.created = 0;
+    statistics.updated = 0;
+  } else if (totals.creates + totals.updates === 0) {
+    committed = true;
+  } else {
+    const txStarted = Date.now();
+    try {
       const outcome = await ImportExecutor.executePlan(plan);
       statistics.transactionMs = Date.now() - txStarted;
       if (outcome.error) {
@@ -93,10 +105,11 @@ export async function runImport(
         statistics.updated = outcome.updated;
         statistics.skipped += outcome.skipped;
       }
+    } catch (err) {
+      statistics.transactionMs = Date.now() - txStarted;
+      // persistence failure must never alter the plan or validation results
+      errors.push(err instanceof Error ? err.message : String(err));
     }
-  } catch (err) {
-    plan = ImportPlanner.planImport(sync, { stores: [], categories: [], coupons: [] }).plan;
-    errors.push(err instanceof Error ? err.message : String(err));
   }
 
   statistics.durationMs = Date.now() - started;
