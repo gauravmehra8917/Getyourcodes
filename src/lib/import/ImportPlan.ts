@@ -64,6 +64,8 @@ export interface ImportPlan {
   validationErrors: ImportIssue[];
   conflicts: ImportIssue[];
   warnings: ImportIssue[];
+  /** Provider-identity accounting, per entity kind. */
+  identity: IdentitySummary[];
 }
 
 export function emptyPlan(provider: string, integrationId: string): ImportPlan {
@@ -83,6 +85,7 @@ export function emptyPlan(provider: string, integrationId: string): ImportPlan {
     validationErrors: [],
     conflicts: [],
     warnings: [],
+    identity: [],
   };
 }
 
