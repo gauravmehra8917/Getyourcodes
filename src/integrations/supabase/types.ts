@@ -437,10 +437,14 @@ export type Database = {
           coupon_type: Database["public"]["Enums"]["coupon_type"]
           created_at: string
           description: string | null
+          discount_type: string | null
+          discount_value: number | null
           expiry_date: string | null
           featured_in_banner: boolean
           id: string
           imported_at: string | null
+          landing_page_url: string | null
+          metadata: Json
           provider: string | null
           provider_entity_id: string | null
           seo_canonical_url: string | null
@@ -448,10 +452,13 @@ export type Database = {
           seo_og_image: string | null
           seo_robots: string
           seo_title: string | null
+          start_date: string | null
           status: Database["public"]["Enums"]["coupon_status"]
           store_id: string
+          structured_terms: Json | null
           terms: string | null
           title: string
+          updated_at: string
         }
         Insert: {
           affiliate_url?: string | null
@@ -459,10 +466,14 @@ export type Database = {
           coupon_type?: Database["public"]["Enums"]["coupon_type"]
           created_at?: string
           description?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
           expiry_date?: string | null
           featured_in_banner?: boolean
           id?: string
           imported_at?: string | null
+          landing_page_url?: string | null
+          metadata?: Json
           provider?: string | null
           provider_entity_id?: string | null
           seo_canonical_url?: string | null
@@ -470,10 +481,13 @@ export type Database = {
           seo_og_image?: string | null
           seo_robots?: string
           seo_title?: string | null
+          start_date?: string | null
           status?: Database["public"]["Enums"]["coupon_status"]
           store_id: string
+          structured_terms?: Json | null
           terms?: string | null
           title: string
+          updated_at?: string
         }
         Update: {
           affiliate_url?: string | null
@@ -481,10 +495,14 @@ export type Database = {
           coupon_type?: Database["public"]["Enums"]["coupon_type"]
           created_at?: string
           description?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
           expiry_date?: string | null
           featured_in_banner?: boolean
           id?: string
           imported_at?: string | null
+          landing_page_url?: string | null
+          metadata?: Json
           provider?: string | null
           provider_entity_id?: string | null
           seo_canonical_url?: string | null
@@ -492,10 +510,13 @@ export type Database = {
           seo_og_image?: string | null
           seo_robots?: string
           seo_title?: string | null
+          start_date?: string | null
           status?: Database["public"]["Enums"]["coupon_status"]
           store_id?: string
+          structured_terms?: Json | null
           terms?: string | null
           title?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -965,12 +986,15 @@ export type Database = {
         Row: {
           affiliate_url: string | null
           category_id: string | null
+          country: string | null
           created_at: string
           description: string | null
           featured: boolean
           id: string
           imported_at: string | null
+          logo_source_url: string | null
           logo_url: string | null
+          metadata: Json
           name: string
           provider: string | null
           provider_entity_id: string | null
@@ -979,17 +1003,22 @@ export type Database = {
           seo_og_image: string | null
           seo_robots: string
           seo_title: string | null
+          shipping_regions: string[]
           slug: string
+          updated_at: string
         }
         Insert: {
           affiliate_url?: string | null
           category_id?: string | null
+          country?: string | null
           created_at?: string
           description?: string | null
           featured?: boolean
           id?: string
           imported_at?: string | null
+          logo_source_url?: string | null
           logo_url?: string | null
+          metadata?: Json
           name: string
           provider?: string | null
           provider_entity_id?: string | null
@@ -998,17 +1027,22 @@ export type Database = {
           seo_og_image?: string | null
           seo_robots?: string
           seo_title?: string | null
+          shipping_regions?: string[]
           slug: string
+          updated_at?: string
         }
         Update: {
           affiliate_url?: string | null
           category_id?: string | null
+          country?: string | null
           created_at?: string
           description?: string | null
           featured?: boolean
           id?: string
           imported_at?: string | null
+          logo_source_url?: string | null
           logo_url?: string | null
+          metadata?: Json
           name?: string
           provider?: string | null
           provider_entity_id?: string | null
@@ -1017,7 +1051,9 @@ export type Database = {
           seo_og_image?: string | null
           seo_robots?: string
           seo_title?: string | null
+          shipping_regions?: string[]
           slug?: string
+          updated_at?: string
         }
         Relationships: [
           {
