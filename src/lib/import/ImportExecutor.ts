@@ -15,6 +15,7 @@ import {
   storeSeoDescription,
   storeSeoTitle,
 } from "@/lib/presentation/seo-templates";
+import { resolveOfferStatus } from "@/lib/presentation/publishing";
 
 type Row = Record<string, unknown>;
 
@@ -25,11 +26,6 @@ function isoToDate(value: string | null): string | null {
   return new Date(t).toISOString().slice(0, 10);
 }
 
-function couponStatus(status: string): "active" | "expired" | "draft" {
-  if (status === "active") return "active";
-  if (status === "expired") return "expired";
-  return "draft";
-}
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 const strArray = (v: unknown): string[] =>
