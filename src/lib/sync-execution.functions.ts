@@ -120,8 +120,17 @@ export interface SyncRunReport {
   presentation: PresentationRow[];
   /** Merchant logo download summary (run mode only). */
   logos: LogoSyncSummaryRow | null;
+  /** Post-import content coverage for this provider (run mode only). */
+  coverage: {
+    stores: number;
+    storesWithHostedLogo: number;
+    offers: number;
+    offersWithDescription: number;
+    offersWithTerms: number;
+  } | null;
   messages: string[];
   error: string | null;
+
 }
 
 type PlanRecordLike = {
