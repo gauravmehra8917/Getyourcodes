@@ -4,7 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { Field, TextInput, TextArea, SelectInput, FieldSet } from "@/components/admin/form-fields";
-import { SeoSettings, emptySeo, fromRow, toPayload, autofillSeo, type SeoValues } from "@/components/admin/seo-settings";
+import { SeoSettings, emptySeo, fromRow, toPayload, type SeoValues } from "@/components/admin/seo-settings";
+import { couponCanonical, couponSeoDescription, couponSeoTitle } from "@/lib/presentation/seo-templates";
+
 
 
 export const Route = createFileRoute("/admin/coupons/$id")({
@@ -19,10 +21,11 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
   const { data: stores = [] } = useQuery({
     queryKey: ["admin-stores-options"],
     queryFn: async () => {
-      const { data } = await sb.from("stores").select("id, name").order("name");
-      return (data ?? []) as { id: string; name: string }[];
+      const { data } = await sb.from("stores").select("id, name, slug").order("name");
+      return (data ?? []) as { id: string; name: string; slug: string | null }[];
     },
   });
+
 
   const [form, setForm] = useState({
     store_id: "",
@@ -67,7 +70,18 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
     setError(null);
     if (!form.store_id || !form.title) { setError("Store and title are required"); return; }
     setBusy(true);
-    const seoFilled = autofillSeo(seo, { name: form.title, description: form.description });
+    // Deterministic SEO for both CODE and DEAL offers — only empty fields are
+    // filled, so administrator edits are preserved.
+    const store = stores.find((s) => s.id === form.store_id);
+    const storeName = store?.name ?? "this store";
+    const seoFilled: SeoValues = {
+      ...seo,
+      seo_title: seo.seo_title || couponSeoTitle(form.title, storeName),
+      seo_description: seo.seo_description || couponSeoDescription(form.title, storeName),
+      seo_canonical_url:
+        seo.seo_canonical_url || (store?.slug ? couponCanonical(store.slug, form.title) : ""),
+    };
+
     const payload = {
       ...form,
       expiry_date: form.expiry_date || null,

@@ -15,6 +15,7 @@ import {
   storeSeoDescription,
   storeSeoTitle,
 } from "@/lib/presentation/seo-templates";
+import { resolveOfferStatus } from "@/lib/presentation/publishing";
 
 type Row = Record<string, unknown>;
 
@@ -25,11 +26,6 @@ function isoToDate(value: string | null): string | null {
   return new Date(t).toISOString().slice(0, 10);
 }
 
-function couponStatus(status: string): "active" | "expired" | "draft" {
-  if (status === "active") return "active";
-  if (status === "expired") return "expired";
-  return "draft";
-}
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 const strArray = (v: unknown): string[] =>
@@ -107,7 +103,16 @@ function promotionRow(
     affiliate_url: source.trackingUrl,
     expiry_date: isoToDate(source.endDate ?? null),
     start_date: isoToDate(source.startDate ?? null),
-    status: couponStatus(source.status),
+    // Records that reach the executor already passed validation, so the
+    // lifecycle window decides publication — no manual activation needed.
+    status: resolveOfferStatus({
+      providerStatus: source.status,
+      startDate: source.startDate ?? null,
+      endDate: source.endDate ?? null,
+      valid: true,
+      publiclyAvailable: meta.isPubliclyAvailable === false ? false : true,
+    }),
+
     terms: isCoupon ? (source.terms ?? null) : null,
     discount_type: isCoupon ? (source.discountType ?? null) : null,
     discount_value: isCoupon ? (source.discountValue ?? null) : null,
