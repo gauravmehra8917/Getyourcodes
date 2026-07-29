@@ -103,7 +103,16 @@ function promotionRow(
     affiliate_url: source.trackingUrl,
     expiry_date: isoToDate(source.endDate ?? null),
     start_date: isoToDate(source.startDate ?? null),
-    status: couponStatus(source.status),
+    // Records that reach the executor already passed validation, so the
+    // lifecycle window decides publication — no manual activation needed.
+    status: resolveOfferStatus({
+      providerStatus: source.status,
+      startDate: source.startDate ?? null,
+      endDate: source.endDate ?? null,
+      valid: true,
+      publiclyAvailable: meta.isPubliclyAvailable === false ? false : true,
+    }),
+
     terms: isCoupon ? (source.terms ?? null) : null,
     discount_type: isCoupon ? (source.discountType ?? null) : null,
     discount_value: isCoupon ? (source.discountValue ?? null) : null,
