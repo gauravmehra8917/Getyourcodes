@@ -292,6 +292,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
       identity: [],
       presentation: [],
       logos: null,
+      coverage: null,
 
       messages: [],
       error: null,
@@ -366,6 +367,33 @@ export const runProviderSync = createServerFn({ method: "POST" })
             failed: 0,
             errors: [err instanceof Error ? err.message : String(err)],
           };
+        }
+
+        // Verification report: how much imported content is actually populated.
+        try {
+          const countOf = async (
+            table: "stores" | "coupons",
+            build: (q: any) => any,
+          ): Promise<number> => {
+            const base = (supabaseAdmin as any)
+              .from(table)
+              .select("id", { count: "exact", head: true })
+              .eq("provider", report.provider);
+            const { count } = await build(base);
+            return count ?? 0;
+          };
+
+          report.coverage = {
+            stores: await countOf("stores", (q) => q),
+            storesWithHostedLogo: await countOf("stores", (q) =>
+              q.like("logo_url", "%/storage/v1/object/public/store-logos/%"),
+            ),
+            offers: await countOf("coupons", (q) => q),
+            offersWithDescription: await countOf("coupons", (q) => q.not("description", "is", null)),
+            offersWithTerms: await countOf("coupons", (q) => q.not("terms", "is", null)),
+          };
+        } catch {
+          report.coverage = null;
         }
       }
 
