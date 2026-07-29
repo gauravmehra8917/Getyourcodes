@@ -16,6 +16,7 @@ import {
   storeSeoTitle,
 } from "@/lib/presentation/seo-templates";
 import { resolveOfferStatus } from "@/lib/presentation/publishing";
+import { generateTermsText } from "@/lib/presentation/terms";
 
 type Row = Record<string, unknown>;
 
@@ -113,11 +114,16 @@ function promotionRow(
       publiclyAvailable: meta.isPubliclyAvailable === false ? false : true,
     }),
 
-    terms: isCoupon ? (source.terms ?? null) : null,
-    discount_type: isCoupon ? (source.discountType ?? null) : null,
-    discount_value: isCoupon ? (source.discountValue ?? null) : null,
+    // Terms apply to codes and deals alike; generated deterministically from
+    // provider values only (never AI, never invented).
+    terms:
+      source.terms ??
+      generateTermsText(meta.structuredTerms ?? null, isoToDate(source.endDate ?? null)),
+    discount_type: source.discountType ?? null,
+    discount_value: source.discountValue ?? null,
     landing_page_url: str(meta.landingPageUrl),
     structured_terms: (meta.structuredTerms as Row | undefined) ?? null,
+
     metadata: meta,
     seo_title: seoTitle,
     seo_description: seoDescription,

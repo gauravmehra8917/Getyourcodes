@@ -71,7 +71,16 @@ function domainOf(url: string | null): string | null {
 
 /** Currency code from an explicit field or a symbol in the text. */
 function currencyOf(raw: Rec, text: string): string | null {
-  const explicit = str(first(raw, ["Currency", "CurrencyCode", "PayoutCurrency", "DiscountCurrency"]));
+  const explicit = str(
+    first(raw, [
+      "MinimumPurchaseAmountCurrency",
+      "MaximumSavingsCurrency",
+      "DiscountCurrency",
+      "Currency",
+      "CurrencyCode",
+      "PayoutCurrency",
+    ]),
+  );
   if (explicit) return explicit.toUpperCase().slice(0, 3);
   if (/\$/.test(text)) return "USD";
   if (/£/.test(text)) return "GBP";
@@ -96,6 +105,13 @@ function discountOf(raw: Rec, text: string): { type: DiscountType | null; value:
   return { type: null, value: null };
 }
 
+/** "ENTIRE_STORE" → "Entire store". Provider vocabulary only, never invented. */
+function prettyScope(value: string | null): string | null {
+  if (!value) return null;
+  const words = value.replace(/[_-]+/g, " ").trim().toLowerCase();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : null;
+}
+
 /** Structured terms parsed from Impact's own terms/description text + fields. */
 function termsOf(raw: Rec, text: string): StructuredTerms | null {
   const explicitText = str(
@@ -103,10 +119,21 @@ function termsOf(raw: Rec, text: string): StructuredTerms | null {
   );
   const source = `${explicitText ?? ""} ${text}`.trim();
 
-  const minField = num(first(raw, ["MinimumPurchase", "MinPurchase", "MinimumOrderValue", "Threshold"]));
-  const maxField = num(first(raw, ["MaximumSavings", "MaxDiscount", "MaximumDiscount", "MaxSavings"]));
-  const limitField = num(first(raw, ["PurchaseLimit", "UsageLimit", "RedemptionLimit", "MaxUses"]));
-  const scopeField = str(first(raw, ["Scope", "AppliesTo", "PromotionScope", "Applicability"]));
+  // Impact /Ads?Type=COUPON deal fields take precedence over text parsing.
+  const minField = num(
+    first(raw, ["MinimumPurchaseAmount", "MinimumPurchase", "MinPurchase", "MinimumOrderValue", "Threshold"]),
+  );
+  const maxField = num(
+    first(raw, ["MaximumSavingsAmount", "MaximumSavings", "MaxDiscount", "MaximumDiscount", "MaxSavings"]),
+  );
+  const limitRaw = num(
+    first(raw, ["PurchaseLimitQuantity", "PurchaseLimit", "UsageLimit", "RedemptionLimit", "MaxUses"]),
+  );
+  // Impact sends 0 for "no limit".
+  const limitField = limitRaw && limitRaw > 0 ? limitRaw : null;
+  const scopeField = prettyScope(
+    str(first(raw, ["DealScope", "Scope", "AppliesTo", "PromotionScope", "Applicability"])),
+  );
 
   const minMatch = source.match(/(?:min(?:imum)?(?:\s+(?:purchase|order|spend))?|orders?\s+over|spend)\D{0,12}([\d.,]+)/i);
   const maxMatch = source.match(/(?:max(?:imum)?\s+(?:savings?|discount)|up\s+to)\D{0,12}([\d.,]+)/i);
@@ -133,6 +160,7 @@ function termsOf(raw: Rec, text: string): StructuredTerms | null {
   return hasAny ? terms : null;
 }
 
+
 export interface ImpactEnrichmentSources {
   /** Fetch one page of coupon ads. */
   fetchAds(page: number, pageSize: number): Promise<unknown[] | null>;
@@ -157,6 +185,10 @@ export class ImpactOfferEnricher implements OfferEnricher {
   private adsById = new Map<string, Rec>();
   private adsByCampaignTitle = new Map<string, Rec>();
   private adsByCampaign = new Map<string, Rec[]>();
+  // Impact promotions carry no CampaignId, only AdvertiserId — index both.
+  private adsByAdvertiserTitle = new Map<string, Rec>();
+  private adsByAdvertiserCode = new Map<string, Rec>();
+  private adsByAdvertiser = new Map<string, Rec[]>();
   private campaigns = new Map<string, CampaignInfo>();
   private counters: EnrichmentStats = { offers: 0, enriched: 0, adRecords: 0, campaignRecords: 0 };
 
@@ -201,14 +233,28 @@ export class ImpactOfferEnricher implements OfferEnricher {
       if (promoId) this.adsById.set(promoId, ad);
 
       const campaignId = str(first(ad, ["CampaignId", "ProgramId"]));
-      const title = str(first(ad, ["Name", "AdName", "Title", "Description"]));
+      const advertiserId = str(first(ad, ["AdvertiserId"]));
+      const title = str(first(ad, ["Name", "DealName", "AdName", "Title", "Description"]));
+      const code = str(first(ad, ["Code", "DealDefaultPromoCode", "CouponCode", "PromoCode"]));
       if (campaignId) {
         const list = this.adsByCampaign.get(campaignId) ?? [];
         list.push(ad);
         this.adsByCampaign.set(campaignId, list);
         if (title) this.adsByCampaignTitle.set(`${campaignId}::${normKey(title)}`, ad);
       }
+      if (advertiserId) {
+        const list = this.adsByAdvertiser.get(advertiserId) ?? [];
+        list.push(ad);
+        this.adsByAdvertiser.set(advertiserId, list);
+        if (title && !this.adsByAdvertiserTitle.has(`${advertiserId}::${normKey(title)}`)) {
+          this.adsByAdvertiserTitle.set(`${advertiserId}::${normKey(title)}`, ad);
+        }
+        if (code && !this.adsByAdvertiserCode.has(`${advertiserId}::${normKey(code)}`)) {
+          this.adsByAdvertiserCode.set(`${advertiserId}::${normKey(code)}`, ad);
+        }
+      }
     }
+
 
     for (const c of campaigns) {
       const trackingLink = str(first(c, ["TrackingLink", "TrackingUrl"]));
@@ -258,7 +304,25 @@ export class ImpactOfferEnricher implements OfferEnricher {
       if (list.length === 1) return { ad: list[0], matchedBy: "campaign (single coupon ad)" };
     }
 
+    // Promotions expose AdvertiserId only, so advertiser-scoped matching is the
+    // main path for the Impact Promotions stream.
+    const advertiserId = str(first(promo, ["AdvertiserId"]));
+    if (advertiserId) {
+      if (title) {
+        const byTitle = this.adsByAdvertiserTitle.get(`${advertiserId}::${normKey(title)}`);
+        if (byTitle) return { ad: byTitle, matchedBy: "advertiser + title" };
+      }
+      const code = str(first(promo, ["GenericRedemptionCode", "PromoCode", "CouponCode", "Code"]));
+      if (code) {
+        const byCode = this.adsByAdvertiserCode.get(`${advertiserId}::${normKey(code)}`);
+        if (byCode) return { ad: byCode, matchedBy: "advertiser + code" };
+      }
+      const list = this.adsByAdvertiser.get(advertiserId) ?? [];
+      if (list.length === 1) return { ad: list[0], matchedBy: "advertiser (single coupon ad)" };
+    }
+
     return null;
+
   }
 
   async enrichOffers(records: unknown[]): Promise<unknown[]> {
@@ -281,8 +345,8 @@ export class ImpactOfferEnricher implements OfferEnricher {
 
       const adText = ad
         ? [
-            str(first(ad, ["Name", "AdName", "Title"])),
-            str(first(ad, ["Description", "ShortDescription", "AdDescription"])),
+            str(first(ad, ["Name", "DealName", "AdName", "Title"])),
+            str(first(ad, ["Description", "DealDescription", "ShortDescription", "AdDescription"])),
             str(first(ad, ["Terms", "TermsAndConditions", "Restrictions"])),
           ]
             .filter(Boolean)
@@ -302,16 +366,22 @@ export class ImpactOfferEnricher implements OfferEnricher {
       if (landingDomain) deeplinkDomains.add(landingDomain);
 
       const enrichment: OfferEnrichment = {
-        description: ad ? str(first(ad, ["Description", "ShortDescription", "AdDescription"])) : null,
+        // Description priority: Ad Description → DealDescription → none.
+        description: ad
+          ? str(first(ad, ["Description", "DealDescription", "ShortDescription", "AdDescription"]))
+          : null,
         trackingUrl,
         trackingUrlSource: adTracking ? "ad" : trackingUrl ? "campaign" : null,
         landingPageUrl: landing,
-        code: ad ? str(first(ad, ["CouponCode", "PromoCode", "GenericRedemptionCode", "Code"])) : null,
+        code: ad
+          ? str(first(ad, ["CouponCode", "PromoCode", "GenericRedemptionCode", "Code", "DealDefaultPromoCode"]))
+          : null,
+
         discountType: discount.type,
         discountValue: discount.value,
         currency: (ad ? currencyOf(ad, adText) : null) ?? campaign?.currency ?? null,
-        startDate: ad ? iso(first(ad, ["StartDate", "EffectiveDate", "CreationDate"])) : null,
-        endDate: ad ? iso(first(ad, ["EndDate", "ExpirationDate", "ExpiryDate"])) : null,
+        startDate: ad ? iso(first(ad, ["DealStartDate", "StartDate", "EffectiveDate", "CreationDate"])) : null,
+        endDate: ad ? iso(first(ad, ["DealEndDate", "EndDate", "ExpirationDate", "ExpiryDate"])) : null,
         terms: ad ? termsOf(ad, adText) : null,
         shippingRegions:
           (ad ? strList(first(ad, ["ShippingRegions", "ShipsTo", "ShippingCountries"])) : []).length

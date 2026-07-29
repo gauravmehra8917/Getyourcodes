@@ -54,6 +54,38 @@ export function structuredTermsText(value: unknown): string | null {
   return text ? text : null;
 }
 
+/**
+ * Deterministic terms & conditions text built only from provider values.
+ * Returns null when the provider supplied nothing usable — never invents copy.
+ */
+export function generateTermsText(value: unknown, expiryDate?: string | null): string | null {
+  const providerText = structuredTermsText(value);
+  if (providerText) return providerText;
+
+  const rows = formatStructuredTerms(value);
+  const sentences = rows.map((r) => {
+    if (r.label === "Minimum purchase") return `Minimum purchase of ${r.value} required.`;
+    if (r.label === "Maximum savings") return `Maximum savings of ${r.value}.`;
+    if (r.label === "Purchase limit") return `Limited to ${r.value}.`;
+    if (r.label === "Deal scope") return `Applies to: ${r.value}.`;
+    return `${r.label}: ${r.value}.`;
+  });
+
+  if (expiryDate) {
+    const d = new Date(expiryDate);
+    if (!Number.isNaN(d.getTime())) {
+      sentences.push(
+        `Offer valid until ${d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}.`,
+      );
+    }
+  }
+
+  if (!sentences.length) return null;
+  sentences.push("Terms are set by the merchant and may change without notice.");
+  return sentences.join(" ");
+}
+
+
 /** "20% off" / "$15 off" / "Free shipping" — only from imported values. */
 export function formatDiscount(type: string | null | undefined, value: number | null | undefined, currency?: string | null): string | null {
   if (type === "free_shipping") return "Free shipping";
