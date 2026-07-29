@@ -19,10 +19,11 @@ export function CouponForm({ mode }: { mode: "new" | "edit" }) {
   const { data: stores = [] } = useQuery({
     queryKey: ["admin-stores-options"],
     queryFn: async () => {
-      const { data } = await sb.from("stores").select("id, name").order("name");
-      return (data ?? []) as { id: string; name: string }[];
+      const { data } = await sb.from("stores").select("id, name, slug").order("name");
+      return (data ?? []) as { id: string; name: string; slug: string | null }[];
     },
   });
+
 
   const [form, setForm] = useState({
     store_id: "",
