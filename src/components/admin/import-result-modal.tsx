@@ -328,7 +328,25 @@ export function ImportResultModal({
                 </Section>
               )}
 
+              {report.coverage && (
+                <Section title="Content coverage">
+                  <Row
+                    label="Stores with hosted logo"
+                    value={`${report.coverage.storesWithHostedLogo} / ${report.coverage.stores}`}
+                  />
+                  <Row
+                    label="Offers with description"
+                    value={`${report.coverage.offersWithDescription} / ${report.coverage.offers}`}
+                  />
+                  <Row
+                    label="Offers with terms"
+                    value={`${report.coverage.offersWithTerms} / ${report.coverage.offers}`}
+                  />
+                </Section>
+              )}
+
               {report.presentation.length > 0 && <PresentationTable rows={report.presentation} />}
+
 
 
 

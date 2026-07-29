@@ -36,33 +36,41 @@ type StoreRow = {
   metadata: Record<string, unknown> | null;
 };
 
-function normalizeSource(value: string | null | undefined): string | null {
+function normalizeSource(value: string | null | undefined, baseUrl: string | null = null): string | null {
   const raw = value?.trim();
   if (!raw) return null;
   const candidate = raw.startsWith("//") ? `https:${raw}` : raw;
   try {
-    const u = new URL(candidate);
+    // Providers such as Impact return relative URIs
+    // (/Mediapartners/{SID}/Campaigns/{id}/Logo) — resolve against the API base.
+    const u = candidate.startsWith("/") && baseUrl ? new URL(candidate, baseUrl) : new URL(candidate);
     return u.protocol === "http:" || u.protocol === "https:" ? u.toString() : null;
   } catch {
     return null;
   }
 }
 
-/** Auth headers derived from the integration's stored credentials, if any. */
-async function providerAuthHeaders(integrationId: string | null): Promise<Record<string, string>> {
-  if (!integrationId) return {};
+/** Auth headers + API base URL derived from the integration, if any. */
+async function providerConnection(
+  integrationId: string | null,
+): Promise<{ headers: Record<string, string>; baseUrl: string | null }> {
+  if (!integrationId) return { headers: {}, baseUrl: null };
   try {
     const { loadIntegrationConfig } = await import("@/lib/integration-engine/config-loader.server");
     const config = await loadIntegrationConfig(integrationId);
     const c = config.credentials ?? {};
+    const baseUrl = config.baseUrl ?? null;
     if (c.username && c.password) {
-      return { Authorization: `Basic ${Buffer.from(`${c.username}:${c.password}`).toString("base64")}` };
+      return {
+        headers: { Authorization: `Basic ${Buffer.from(`${c.username}:${c.password}`).toString("base64")}` },
+        baseUrl,
+      };
     }
-    if (c.accessToken) return { Authorization: `Bearer ${c.accessToken}` };
-    if (c.apiKey) return { [c.apiKeyName || "X-API-Key"]: c.apiKey };
-    return {};
+    if (c.accessToken) return { headers: { Authorization: `Bearer ${c.accessToken}` }, baseUrl };
+    if (c.apiKey) return { headers: { [c.apiKeyName || "X-API-Key"]: c.apiKey }, baseUrl };
+    return { headers: {}, baseUrl };
   } catch {
-    return {};
+    return { headers: {}, baseUrl: null };
   }
 }
 
@@ -70,10 +78,9 @@ async function fetchImage(url: string, authHeaders: Record<string, string>) {
   const attempt = async (headers: Record<string, string>) =>
     fetch(url, { headers: { Accept: "image/*", ...headers }, redirect: "follow" });
 
-  let res = await attempt({});
-  if ((res.status === 401 || res.status === 403) && Object.keys(authHeaders).length) {
-    res = await attempt(authHeaders);
-  }
+  // Provider logo endpoints are usually authenticated: try credentials first.
+  let res = Object.keys(authHeaders).length ? await attempt(authHeaders) : await attempt({});
+  if (!res.ok && Object.keys(authHeaders).length) res = await attempt({});
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
   const type = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
@@ -112,14 +119,14 @@ export async function syncStoreLogosForProvider(
   }
 
   const rows = (data ?? []) as StoreRow[];
-  const authHeaders = await providerAuthHeaders(integrationId);
+  const { headers: authHeaders, baseUrl } = await providerConnection(integrationId);
 
   for (const store of rows) {
     const meta = (store.metadata ?? {}) as Record<string, unknown>;
     const source =
-      normalizeSource(store.logo_source_url) ??
-      normalizeSource(typeof meta.originalLogo === "string" ? meta.originalLogo : null) ??
-      normalizeSource(store.logo_url);
+      normalizeSource(store.logo_source_url, baseUrl) ??
+      normalizeSource(typeof meta.originalLogo === "string" ? meta.originalLogo : null, baseUrl) ??
+      normalizeSource(store.logo_url, baseUrl);
 
     if (!source) {
       summary.skipped += 1;
