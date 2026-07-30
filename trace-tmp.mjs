@@ -33,3 +33,7 @@ for (const variant of [{n:'auth',h:{Authorization:auth,Accept:'image/*'}},{n:'no
   }
   console.log(variant.n, 'final', status, ct, '\n ', chain.join('\n  '));
 }
+for (const acc of ['*/*','image/png','application/json','image/*, */*']) {
+  const rr = await fetch(src,{headers:{Authorization:auth,Accept:acc},redirect:'follow'});
+  console.log('Accept:',acc,'->',rr.status, rr.headers.get('content-type'), rr.url===src?'no-redirect':rr.url, (await rr.arrayBuffer()).byteLength);
+}
