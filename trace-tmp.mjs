@@ -19,7 +19,7 @@ console.log('CAMPAIGNS', camp, r.status);
 const body = await r.text(); 
 const m = body.match(/CampaignLogoUri"?[:>]\s*"?([^",<]+)/);
 console.log('logoUri from campaigns:', m && m[1]);
-const src = st?.[0]?.logo_source_url || (m && new URL(m[1], imp.base_url).toString());
+const src = new URL(st?.[0]?.logo_source_url ?? m[1], imp.base_url).toString();
 console.log('resolved logo url:', src);
 for (const variant of [{n:'auth',h:{Authorization:auth,Accept:'image/*'}},{n:'noauth',h:{Accept:'image/*'}}]) {
   let u = src, chain=[], status=0, ct='';
