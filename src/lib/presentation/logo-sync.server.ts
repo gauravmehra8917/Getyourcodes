@@ -75,13 +75,17 @@ async function providerConnection(
 }
 
 async function fetchImage(url: string, authHeaders: Record<string, string>) {
+  // NOTE: Impact rejects "Accept: image/*" with HTTP 406, so use "*/*".
   const attempt = async (headers: Record<string, string>) =>
-    fetch(url, { headers: { Accept: "image/*", ...headers }, redirect: "follow" });
+    fetch(url, { headers: { Accept: "*/*", ...headers }, redirect: "follow" });
 
   // Provider logo endpoints are usually authenticated: try credentials first.
-  let res = Object.keys(authHeaders).length ? await attempt(authHeaders) : await attempt({});
-  if (!res.ok && Object.keys(authHeaders).length) res = await attempt({});
+  const hasAuth = Object.keys(authHeaders).length > 0;
+  let res = hasAuth ? await attempt(authHeaders) : await attempt({});
+  // Only retry anonymously when the credentials themselves were rejected.
+  if (!res.ok && hasAuth && (res.status === 401 || res.status === 403)) res = await attempt({});
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
 
   const type = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
   if (!type.startsWith("image/")) throw new Error(`not an image (${type || "unknown content-type"})`);
