@@ -39,6 +39,8 @@ const GROUPS: Group[] = [
     { to: "/admin/menus", label: "Menus", icon: ListOrdered },
     { to: "/admin/translations", label: "Translations", icon: Languages },
     { to: "/admin/theme", label: "Theme", icon: Brush },
+    { to: "/admin/head-manager", label: "Head Manager", icon: Code2 },
+
     { to: "/admin/etemplates", label: "Email Templates", icon: Mail },
     { to: "/admin/integrations", label: "API Integrations", icon: Plug },
     { to: "/admin/settings", label: "Settings", icon: Settings },
