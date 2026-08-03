@@ -555,6 +555,48 @@ export type Database = {
         }
         Relationships: []
       }
+      head_entries: {
+        Row: {
+          content: string | null
+          created_at: string
+          enabled: boolean
+          id: string
+          name: string
+          notes: string | null
+          provider: string
+          section: string
+          type: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          notes?: string | null
+          provider?: string
+          section: string
+          type?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          notes?: string | null
+          provider?: string
+          section?: string
+          type?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
       menus: {
         Row: {
           active: boolean
