@@ -455,7 +455,7 @@ export function FloatingAssistantTrigger({
     );
     io.observe(hero);
     return () => io.disconnect();
-  });
+  }, []);
 
   // Observe footer visibility to lift widget and auto-collapse.
   useEffect(() => {
