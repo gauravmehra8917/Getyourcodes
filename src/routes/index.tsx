@@ -189,7 +189,7 @@ function HomePage() {
 
 
       {/* Featured categories */}
-      <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pt-6 pb-4 sm:px-6">
+      <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pt-4 pb-8 sm:px-6">
         <SectionHeading
           icon={<Tag className="h-5 w-5" />}
           title="Featured Categories"
@@ -205,13 +205,16 @@ function HomePage() {
                   key={c.id}
                   to="/$slug"
                   params={{ slug: `${c.slug}-offers` }}
-                  className="group flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-5 text-center transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                  className="group relative flex flex-col items-center gap-2.5 overflow-hidden rounded-2xl border border-border bg-card p-5 text-center transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
                 >
-                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary-soft text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
+                  <span className="absolute inset-x-0 -top-16 h-24 bg-primary/10 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-foreground">{c.name}</p>
-                  <p className="text-xs text-muted-foreground">{c.offers} offers</p>
+                  <p className="line-clamp-1 text-sm font-semibold text-foreground">{c.name}</p>
+                  <span className="rounded-full bg-secondary/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    {c.offers} offers
+                  </span>
                 </Link>
               );
             })}
@@ -220,8 +223,9 @@ function HomePage() {
       </section>
 
       {/* Trending stores */}
-      <section id="stores" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-12 sm:px-6">
+      <section id="stores" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-8 sm:px-6">
         <SectionHeading
+          icon={<ShoppingBag className="h-5 w-5" />}
           title="Trending Stores"
           subtitle="Brands with the most active offers"
           action={<ViewAll to="/stores" label="View all stores" />}
@@ -233,15 +237,19 @@ function HomePage() {
                 key={s.id}
                 to="/$slug"
                 params={{ slug: `${s.slug}-coupons` }}
-                className="group flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                className="group flex flex-col items-center gap-2.5 rounded-2xl border border-border bg-card p-4 text-center transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
               >
-                {s.logo_url ? (
-                  <img src={s.logo_url} alt={`${s.name} logo`} width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 rounded-lg border border-border bg-background object-contain p-1.5" />
-                ) : (
-                  <span className="grid h-14 w-14 place-items-center rounded-lg bg-primary-soft text-primary"><Tag className="h-5 w-5" /></span>
-                )}
-                <span className="line-clamp-1 text-sm font-semibold text-foreground">{s.name}</span>
-                <span className="text-xs text-muted-foreground">{s.offers} offers</span>
+                <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-border bg-background transition-colors group-hover:border-primary/30">
+                  {s.logo_url ? (
+                    <img src={s.logo_url} alt={`${s.name} logo`} width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 object-contain p-1.5" />
+                  ) : (
+                    <span className="text-base font-bold text-primary">{s.name.slice(0, 2).toUpperCase()}</span>
+                  )}
+                </div>
+                <span className="line-clamp-1 w-full text-sm font-semibold text-foreground">{s.name}</span>
+                <span className="rounded-full bg-secondary/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  {s.offers} offers
+                </span>
               </Link>
             ))}
           </div>
@@ -252,7 +260,7 @@ function HomePage() {
       {/* Today's Top Offers banner */}
       <GlobalDealsBanner />
 
-      <div className="mx-auto max-w-7xl space-y-16 px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-7xl space-y-12 px-4 py-10 sm:px-6">
         {/* Personalized */}
         <RecommendedForYou />
 
@@ -294,13 +302,32 @@ function HomePage() {
               subtitle="Guides, deal alerts, and stories"
               action={<ViewAll to="/blog" label="View all blog posts" />}
             />
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-3">
               {blogPosts.data.map((p) => (
-                <Link key={p.id} to="/blog/$slug" params={{ slug: p.slug }} className="group overflow-hidden rounded-2xl border border-border bg-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
-                  {p.cover_image && <img src={p.cover_image} alt={p.title} loading="lazy" decoding="async" className="aspect-[16/9] w-full object-cover" />}
-                  <div className="p-5">
-                    <h3 className="font-display text-lg font-bold leading-snug group-hover:text-primary">{p.title}</h3>
+                <Link
+                  key={p.id}
+                  to="/blog/$slug"
+                  params={{ slug: p.slug }}
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
+                >
+                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-secondary/50">
+                    {p.cover_image ? (
+                      <img src={p.cover_image} alt={p.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center text-primary/40"><Sparkles className="h-8 w-8" /></div>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col p-5">
+                    {p.published_at && (
+                      <span className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {new Date(p.published_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
+                    )}
+                    <h3 className="line-clamp-2 font-display text-lg font-bold leading-snug transition-colors group-hover:text-primary">{p.title}</h3>
                     {p.excerpt && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
+                    <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                      Read article <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    </span>
                   </div>
                 </Link>
               ))}
