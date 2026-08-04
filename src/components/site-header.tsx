@@ -80,7 +80,7 @@ export function SiteHeader() {
           : "border-transparent bg-background"
       }`}
     >
-      <div className="container-page flex h-[70px] items-center gap-6">
+      <div className="container-page flex h-[70px] items-center gap-3 lg:gap-6">
         <Link to="/" className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Tag className="h-[18px] w-[18px]" />
@@ -122,7 +122,7 @@ export function SiteHeader() {
             type="button"
             onClick={() => assistant.open()}
             aria-label="Ask Dealio AI assistant"
-            className="focus-ring inline-grid h-10 w-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground"
+            className="focus-ring hidden h-10 w-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground sm:inline-grid"
           >
             <Sparkles className="h-[18px] w-[18px]" />
           </button>
@@ -171,7 +171,7 @@ export function SiteHeader() {
           ) : (
             <Link
               to="/auth"
-              className="focus-ring ml-1 inline-flex h-10 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90"
+              className="focus-ring ml-1 inline-flex h-10 items-center whitespace-nowrap rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90"
             >
               Sign in
             </Link>
