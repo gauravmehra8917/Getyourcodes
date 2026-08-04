@@ -5,8 +5,10 @@ import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { Field, TextInput, TextArea, SelectInput } from "@/components/admin/form-fields";
-import { Pencil, Trash2, Plus, X, Search, Code2 } from "lucide-react";
+import { Pencil, Trash2, Plus, X, Search, Code2, ClipboardPaste } from "lucide-react";
 import { renderHeadEntries, validateJsonLd, sanitizeHeadHtml } from "@/lib/head/render";
+import { ImportSnippetDialog } from "@/components/admin/import-snippet-dialog";
+
 
 export const Route = createFileRoute("/admin/head-manager")({
   head: () => ({ meta: [{ title: "Head Manager — Getyourcodes Admin" }, { name: "robots", content: "noindex,nofollow" }] }),
@@ -71,7 +73,9 @@ function HeadManagerPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<HeadEntry | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -252,10 +256,16 @@ function HeadManagerPage() {
       <PageHeader
         title="Head Manager"
         action={
-          <button onClick={() => startNew()} className="inline-flex items-center gap-2 rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow hover:bg-slate-900">
-            <Plus className="h-4 w-4" /> Add Entry
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setImportOpen(true)} className="inline-flex items-center gap-2 rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+              <ClipboardPaste className="h-4 w-4" /> Import Snippet
+            </button>
+            <button onClick={() => startNew()} className="inline-flex items-center gap-2 rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow hover:bg-slate-900">
+              <Plus className="h-4 w-4" /> Add Entry
+            </button>
+          </div>
         }
+
       />
 
       <p className="mb-4 max-w-3xl text-sm text-slate-600">
@@ -338,6 +348,10 @@ function HeadManagerPage() {
       />
 
       <RenderedHeadPreview rows={rows} />
+
+      {importOpen && <ImportSnippetDialog onClose={() => setImportOpen(false)} onSaved={refresh} />}
+
+
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4" onClick={() => setOpen(false)}>
