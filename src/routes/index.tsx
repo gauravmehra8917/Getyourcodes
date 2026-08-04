@@ -17,6 +17,8 @@ import { CouponCard } from "@/components/coupon-card";
 import { GlobalDealsBanner } from "@/components/global-deals-banner";
 import { RecommendedForYou } from "@/components/recommended-for-you";
 import { useAssistant } from "@/components/ai-assistant-provider";
+import { HeroSearchResults } from "@/components/hero-search-results";
+import { isConversationalQuery } from "@/lib/coupon-actions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -54,6 +56,7 @@ function HomePage() {
   const navigate = useNavigate();
   const assistant = useAssistant();
   const [aiQ, setAiQ] = useState("");
+  const [term, setTerm] = useState("");
 
   const offerCounts = useQuery(activeOfferCountsQuery);
   const storesLite = useQuery(storesLiteQuery);

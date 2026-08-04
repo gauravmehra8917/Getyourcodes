@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Copy, Check, Calendar, Tag, Percent, Globe, ExternalLink, Sparkles } from "lucide-react";
-import { trackClick, type Coupon, type Store } from "@/lib/db";
+import { type Coupon, type Store } from "@/lib/db";
+import { activateCoupon } from "@/lib/coupon-actions";
 import { formatDiscount, formatStructuredTerms, structuredTermsText } from "@/lib/presentation/terms";
 
 type Props = {
@@ -25,12 +26,8 @@ export function CouponCard({ coupon, store, best }: Props) {
   const country = store?.country ?? null;
 
   const handleClick = async () => {
-    await trackClick(coupon.id, typeof window !== "undefined" ? window.location.pathname : "");
-    if (isDeal) {
-      if (coupon.affiliate_url) window.open(coupon.affiliate_url, "_blank", "noopener,noreferrer");
-      return;
-    }
-    setOpen(true);
+    const result = await activateCoupon(coupon);
+    if (result === "reveal") setOpen(true);
   };
 
   const copy = async () => {
