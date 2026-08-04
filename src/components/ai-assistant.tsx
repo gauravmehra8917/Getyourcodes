@@ -4,6 +4,7 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { Sparkles, Send, X, Trash2, MessageCircle, Loader2, Tag, Store as StoreIcon, Minus, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { storeSlug } from "@/lib/coupon-actions";
 import { loadChatHistory, saveChatMessages, clearChatHistory } from "@/lib/chat.functions";
 
 type Props = {
@@ -330,7 +331,7 @@ function ToolResult({ part }: { part: ToolPart }) {
           <Link
             key={s.id}
             to="/$slug"
-            params={{ slug: s.slug }}
+            params={{ slug: storeSlug(s.slug) }}
             className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs hover:border-primary/40"
           >
             <StoreIcon className="h-3.5 w-3.5 text-primary" />
@@ -364,7 +365,8 @@ function ToolResult({ part }: { part: ToolPart }) {
           {c.stores?.slug && (
             <Link
               to="/$slug"
-              params={{ slug: c.stores.slug }}
+              params={{ slug: storeSlug(c.stores.slug) }}
+              hash={c.id}
               className="text-primary hover:underline"
             >
               Get
