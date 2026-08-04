@@ -101,16 +101,13 @@ function HomePage() {
 
   return (
     <div className="bg-background text-foreground">
-
-
-
       {/* HERO */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10">
           <div className="hero-glow-primary absolute left-1/2 top-0 h-[600px] w-[1200px] -translate-x-1/2 rounded-full blur-3xl" />
           <div className="hero-glow-accent absolute right-0 top-40 h-72 w-72 rounded-full blur-3xl" />
         </div>
-        <div className="mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 sm:py-28">
+        <div className="mx-auto max-w-7xl px-4 pb-12 pt-16 text-center sm:px-6 sm:pb-14 sm:pt-20">
           <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
             <Sparkles className="h-3.5 w-3.5 text-glow" /> Verified coupons from affiliate partners
           </div>
@@ -118,14 +115,14 @@ function HomePage() {
             Verified coupons,{" "}
             <span className="text-gradient">real savings.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground sm:text-lg">
+          <p className="mx-auto mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
             Getyourcodes brings together promo codes and deals sourced directly from our affiliate
             partners — each listing links straight to the store, so you always know where the offer
             comes from.
           </p>
 
           {/* AI-powered search */}
-          <div className="mx-auto mt-10 max-w-3xl" data-hero-assistant>
+          <div className="mx-auto mt-8 max-w-3xl" data-hero-assistant>
             <div className="rounded-3xl border border-border bg-card p-5 shadow-sm backdrop-blur sm:p-6">
               <div className="mb-2 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-glow">
                 <Wand2 className="h-3.5 w-3.5" /> Dealio · AI shopping assistant
@@ -185,102 +182,13 @@ function HomePage() {
         </div>
       </section>
 
-
-
-
-      {/* Featured categories */}
-      <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pt-4 pb-8 sm:px-6">
-        <SectionHeading
-          icon={<Tag className="h-5 w-5" />}
-          title="Featured Categories"
-          subtitle="Top categories by live offers"
-          action={<ViewAll to="/categories" label="View all categories" />}
-        />
-        {topCategories.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-            {topCategories.map((c, i) => {
-              const Icon = ICONS[i % ICONS.length]!;
-              return (
-                <Link
-                  key={c.id}
-                  to="/$slug"
-                  params={{ slug: `${c.slug}-offers` }}
-                  className="group relative flex flex-col items-center gap-2.5 overflow-hidden rounded-2xl border border-border bg-card p-5 text-center transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
-                >
-                  <span className="absolute inset-x-0 -top-16 h-24 bg-primary/10 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <p className="line-clamp-1 text-sm font-semibold text-foreground">{c.name}</p>
-                  <span className="rounded-full bg-secondary/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                    {c.offers} offers
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        ) : <EmptyHint text="No categories yet." />}
-      </section>
-
-      {/* Trending stores */}
-      <section id="stores" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-8 sm:px-6">
-        <SectionHeading
-          icon={<ShoppingBag className="h-5 w-5" />}
-          title="Trending Stores"
-          subtitle="Brands with the most active offers"
-          action={<ViewAll to="/stores" label="View all stores" />}
-        />
-        {topStores.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
-            {topStores.map((s) => (
-              <Link
-                key={s.id}
-                to="/$slug"
-                params={{ slug: `${s.slug}-coupons` }}
-                className="group flex flex-col items-center gap-2.5 rounded-2xl border border-border bg-card p-4 text-center transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
-              >
-                <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-border bg-background transition-colors group-hover:border-primary/30">
-                  {s.logo_url ? (
-                    <img src={s.logo_url} alt={`${s.name} logo`} width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 object-contain p-1.5" />
-                  ) : (
-                    <span className="text-base font-bold text-primary">{s.name.slice(0, 2).toUpperCase()}</span>
-                  )}
-                </div>
-                <span className="line-clamp-1 w-full text-sm font-semibold text-foreground">{s.name}</span>
-                <span className="rounded-full bg-secondary/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {s.offers} offers
-                </span>
-              </Link>
-            ))}
-          </div>
-        ) : <EmptyHint text="No stores yet." />}
-      </section>
-
-
       {/* Today's Top Offers banner */}
       <GlobalDealsBanner />
 
-      <div className="mx-auto max-w-7xl space-y-12 px-4 py-10 sm:px-6">
-        {/* Personalized */}
-        <RecommendedForYou />
-
-        {/* Latest coupons */}
-        <section id="coupons" className="scroll-mt-24">
-          <SectionHeading
-            icon={<TrendingUp className="h-5 w-5" />}
-            title="Latest Coupons"
-            subtitle="Most recently imported promo codes"
-            action={<ViewAll to="/coupons" label="View all coupons" />}
-          />
-          {trending.data && trending.data.length > 0 ? (
-            <div className="grid gap-3 lg:grid-cols-2">
-              {trending.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}
-            </div>
-          ) : <EmptyHint text="No active coupons yet." />}
-        </section>
-
-        {/* Featured deals */}
-        <section>
+      {/* FEATURED DEALS — hero section of the page */}
+      <section className="relative overflow-hidden border-y border-border bg-surface/60">
+        <div className="pointer-events-none absolute -left-24 top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
           <SectionHeading
             icon={<Gift className="h-5 w-5" />}
             title="Featured Deals"
@@ -288,60 +196,189 @@ function HomePage() {
             action={<ViewAll to="/deals" label="View all deals" />}
           />
           {latestDeals.data && latestDeals.data.length > 0 ? (
-            <div className="grid gap-3 lg:grid-cols-2">
-              {latestDeals.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}
+            <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+              <div className="grid gap-4">
+                {latestDeals.data.slice(0, 2).map((c) => (
+                  <div key={c.id} className="rounded-3xl bg-gradient-to-br from-primary/25 via-primary/10 to-transparent p-[1.5px] shadow-sm">
+                    <div className="rounded-3xl bg-card">
+                      <CouponCard coupon={c} store={c.stores} best />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="grid content-start gap-3">
+                {latestDeals.data.slice(2, 6).map((c) => (
+                  <CouponCard key={c.id} coupon={c} store={c.stores} />
+                ))}
+              </div>
             </div>
           ) : <EmptyHint text="No deals yet." />}
-        </section>
+        </div>
+      </section>
 
-        {/* Blog teasers */}
-        {blogPosts.data && blogPosts.data.length > 0 && (
-          <section>
+      {/* TRENDING STORES — brand showcase strip */}
+      <section id="stores" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 sm:py-12">
+        <SectionHeading
+          icon={<ShoppingBag className="h-5 w-5" />}
+          title="Trending Stores"
+          subtitle="Brands with the most active offers"
+          action={<ViewAll to="/stores" label="View all stores" />}
+        />
+        {topStores.length > 0 ? (
+          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
+            {topStores.map((s) => (
+              <Link
+                key={s.id}
+                to="/$slug"
+                params={{ slug: `${s.slug}-coupons` }}
+                className="group flex min-w-[220px] snap-start items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md sm:min-w-0"
+              >
+                <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-background transition-colors group-hover:border-primary/30">
+                  {s.logo_url ? (
+                    <img src={s.logo_url} alt={`${s.name} logo`} width={44} height={44} loading="lazy" decoding="async" className="h-11 w-11 object-contain p-1" />
+                  ) : (
+                    <span className="text-sm font-bold text-primary">{s.name.slice(0, 2).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{s.name}</p>
+                  <p className="text-xs text-muted-foreground">{s.offers} offers</p>
+                </div>
+                <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+              </Link>
+            ))}
+          </div>
+        ) : <EmptyHint text="No stores yet." />}
+      </section>
+
+      {/* LATEST COUPONS — dense offer list */}
+      <section id="coupons" className="border-y border-border bg-surface/40">
+        <div className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 sm:py-12">
+          <SectionHeading
+            icon={<TrendingUp className="h-5 w-5" />}
+            title="Latest Coupons"
+            subtitle="Most recently imported promo codes"
+            action={<ViewAll to="/coupons" label="View all coupons" />}
+          />
+          {trending.data && trending.data.length > 0 ? (
+            <div className="grid gap-2.5 md:grid-cols-2">
+              {trending.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}
+            </div>
+          ) : <EmptyHint text="No active coupons yet." />}
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
+        {/* Personalized */}
+        <RecommendedForYou />
+      </div>
+
+      {/* BROWSE CATEGORIES — compact nav tiles */}
+      <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pb-10 sm:px-6 sm:pb-12">
+        <SectionHeading
+          icon={<Tag className="h-5 w-5" />}
+          title="Browse Categories"
+          subtitle="Top categories by live offers"
+          action={<ViewAll to="/categories" label="View all categories" />}
+        />
+        {topCategories.length > 0 ? (
+          <div className="flex flex-wrap gap-2.5">
+            {topCategories.map((c, i) => {
+              const Icon = ICONS[i % ICONS.length]!;
+              return (
+                <Link
+                  key={c.id}
+                  to="/$slug"
+                  params={{ slug: `${c.slug}-offers` }}
+                  className="group inline-flex flex-1 items-center gap-2.5 rounded-full border border-border bg-card px-4 py-2.5 transition-colors hover:border-primary/40 hover:bg-hover sm:flex-none"
+                >
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary-soft text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                    <Icon className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="truncate text-sm font-medium text-foreground">{c.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{c.offers}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : <EmptyHint text="No categories yet." />}
+      </section>
+
+      {/* BLOG — image led, one lead post */}
+      {blogPosts.data && blogPosts.data.length > 0 && (
+        <section className="border-t border-border bg-surface/40">
+          <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
             <SectionHeading
               title="Latest Blog Posts"
               subtitle="Guides, deal alerts, and stories"
               action={<ViewAll to="/blog" label="View all blog posts" />}
             />
-            <div className="grid gap-5 md:grid-cols-3">
-              {blogPosts.data.map((p) => (
+            <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+              {blogPosts.data.slice(0, 1).map((p) => (
                 <Link
                   key={p.id}
                   to="/blog/$slug"
                   params={{ slug: p.slug }}
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
+                  className="group relative flex min-h-[280px] flex-col justify-end overflow-hidden rounded-3xl border border-border bg-card"
                 >
-                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-secondary/50">
-                    {p.cover_image ? (
-                      <img src={p.cover_image} alt={p.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center text-primary/40"><Sparkles className="h-8 w-8" /></div>
-                    )}
-                  </div>
-                  <div className="flex flex-1 flex-col p-5">
+                  {p.cover_image ? (
+                    <img src={p.cover_image} alt={p.title} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  ) : (
+                    <div className="absolute inset-0 grid place-items-center bg-secondary/50 text-primary/40"><Sparkles className="h-10 w-10" /></div>
+                  )}
+                  <div className="relative bg-gradient-to-t from-background via-background/85 to-transparent p-6 pt-16">
                     {p.published_at && (
-                      <span className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         {new Date(p.published_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                       </span>
                     )}
-                    <h3 className="line-clamp-2 font-display text-lg font-bold leading-snug transition-colors group-hover:text-primary">{p.title}</h3>
+                    <h3 className="line-clamp-2 font-display text-2xl font-bold leading-snug transition-colors group-hover:text-primary">{p.title}</h3>
                     {p.excerpt && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
-                    <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                      Read article <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                    </span>
                   </div>
                 </Link>
               ))}
+              <div className="grid content-start gap-4">
+                {blogPosts.data.slice(1, 3).map((p) => (
+                  <Link
+                    key={p.id}
+                    to="/blog/$slug"
+                    params={{ slug: p.slug }}
+                    className="group flex gap-4 overflow-hidden rounded-2xl border border-border bg-card p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                  >
+                    <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-xl bg-secondary/50">
+                      {p.cover_image ? (
+                        <img src={p.cover_image} alt={p.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center text-primary/40"><Sparkles className="h-6 w-6" /></div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {p.published_at && (
+                        <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {new Date(p.published_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                        </span>
+                      )}
+                      <h3 className="line-clamp-2 font-display text-base font-bold leading-snug transition-colors group-hover:text-primary">{p.title}</h3>
+                      <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                        Read article <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
-        {/* Newsletter strip */}
+      {/* Newsletter strip */}
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
         <NewsletterStrip />
-
       </div>
     </div>
   );
 }
+
 
 function ViewAll({ to, label }: { to: "/categories" | "/stores" | "/coupons" | "/deals" | "/blog"; label: string }) {
   return (
