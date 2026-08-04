@@ -121,38 +121,43 @@ function HomePage() {
             comes from.
           </p>
 
-          {/* AI Deal Assistant */}
-          <div className="mx-auto mt-10 max-w-2xl" data-hero-assistant>
+          {/* AI-powered search */}
+          <div className="mx-auto mt-10 max-w-3xl" data-hero-assistant>
             <div className="rounded-3xl border border-border bg-card p-5 shadow-sm backdrop-blur sm:p-6">
               <div className="mb-2 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-glow">
                 <Wand2 className="h-3.5 w-3.5" /> Dealio · AI shopping assistant
               </div>
               <h2 className="mb-4 font-display text-xl font-bold text-foreground sm:text-2xl">
-                What are you shopping for today?
+                Search a store, code or offer — or ask Dealio
               </h2>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   const t = aiQ.trim();
                   if (!t) return;
-                  trackSearch(t, "ai");
-                  assistant.open(t);
-                  setAiQ("");
+                  if (isConversationalQuery(t)) {
+                    trackSearch(t, "ai");
+                    assistant.open(t);
+                    setTerm("");
+                  } else {
+                    trackSearch(t, "search");
+                    setTerm(t);
+                  }
                 }}
                 className="flex flex-col gap-2 sm:flex-row"
               >
                 <input
                   value={aiQ}
                   onChange={(e) => setAiQ(e.target.value)}
-                  placeholder="Tell Dealio what you need — “running shoes under $100”"
-                  aria-label="Ask Dealio: describe what you're shopping for"
+                  placeholder="Search “Nike”, “SAVE20” — or ask “best laptop deals”"
+                  aria-label="Search stores, coupons and deals, or ask Dealio"
                   className="h-12 flex-1 rounded-full border border-border bg-surface-2 px-5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
                 />
                 <button
                   type="submit"
                   className="gradient-primary inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-primary-foreground shadow-glow"
                 >
-                  <Sparkles className="h-4 w-4" /> Ask Dealio
+                  <Sparkles className="h-4 w-4" /> Search
                 </button>
               </form>
               <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs">
@@ -168,6 +173,11 @@ function HomePage() {
                 ))}
               </div>
             </div>
+            <HeroSearchResults
+              term={term}
+              onAskDealio={() => { if (term) assistant.open(term); }}
+              onClear={() => { setTerm(""); setAiQ(""); }}
+            />
           </div>
         </div>
       </section>
