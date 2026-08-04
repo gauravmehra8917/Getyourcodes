@@ -197,7 +197,7 @@ function HomePage() {
           />
           {latestDeals.data && latestDeals.data.length > 0 ? (
             <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
-              <div className="grid gap-4">
+              <div className="grid content-start gap-4">
                 {latestDeals.data.slice(0, 2).map((c) => (
                   <div key={c.id} className="rounded-3xl bg-gradient-to-br from-primary/25 via-primary/10 to-transparent p-[1.5px] shadow-sm">
                     <div className="rounded-3xl bg-card">
