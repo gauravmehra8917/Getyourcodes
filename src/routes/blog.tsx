@@ -1,8 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
+import { parsePage } from "@/lib/home-data";
+import { Pagination } from "@/components/pagination";
+
+const PER_PAGE = 12;
 
 export const Route = createFileRoute("/blog")({
+  validateSearch: parsePage,
   head: () => ({
     meta: [
       { title: "Deals Blog — Getyourcodes" },
@@ -20,18 +25,22 @@ export const Route = createFileRoute("/blog")({
 type Post = { id: string; title: string; slug: string; excerpt: string | null; cover_image: string | null; published_at: string | null };
 
 function BlogIndex() {
-  const { data: posts = [] } = useQuery({
-    queryKey: ["public-posts"],
+  const { page } = Route.useSearch();
+  const { data } = useQuery({
+    queryKey: ["public-posts", page],
+    staleTime: 60 * 1000,
     queryFn: async () => {
-      const { data } = await sb
+      const from = (page - 1) * PER_PAGE;
+      const { data, count } = await sb
         .from("posts")
-        .select("id,title,slug,excerpt,cover_image,published_at")
+        .select("id,title,slug,excerpt,cover_image,published_at", { count: "exact" })
         .eq("status", "published")
         .order("published_at", { ascending: false })
-        .limit(50);
-      return (data ?? []) as Post[];
+        .range(from, from + PER_PAGE - 1);
+      return { rows: (data ?? []) as Post[], total: count ?? 0 };
     },
   });
+  const posts = data?.rows ?? [];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
@@ -57,6 +66,7 @@ function BlogIndex() {
           ))}
         </div>
       )}
+      <Pagination page={page} total={data?.total ?? 0} perPage={PER_PAGE} to="/blog" />
     </div>
   );
 }
