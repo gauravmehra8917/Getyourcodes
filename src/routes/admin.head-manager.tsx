@@ -73,7 +73,9 @@ function HeadManagerPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<HeadEntry | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
