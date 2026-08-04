@@ -256,10 +256,16 @@ function HeadManagerPage() {
       <PageHeader
         title="Head Manager"
         action={
-          <button onClick={() => startNew()} className="inline-flex items-center gap-2 rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow hover:bg-slate-900">
-            <Plus className="h-4 w-4" /> Add Entry
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setImportOpen(true)} className="inline-flex items-center gap-2 rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+              <ClipboardPaste className="h-4 w-4" /> Import Snippet
+            </button>
+            <button onClick={() => startNew()} className="inline-flex items-center gap-2 rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow hover:bg-slate-900">
+              <Plus className="h-4 w-4" /> Add Entry
+            </button>
+          </div>
         }
+
       />
 
       <p className="mb-4 max-w-3xl text-sm text-slate-600">
