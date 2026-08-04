@@ -168,7 +168,7 @@ export function renderHeadEntries(entries: HeadEntryInput[]): RenderedHead {
   const seenAnalyticsProvider = new Set<string>();
 
   const push = (kind: "meta" | "link" | "script", attrs: Record<string, string>, children?: string, sectionKey = "") => {
-    const key = entryKey(sectionKey, kind, attrs) + (children ? `|${children.length}` : "");
+    const key = entryKey(sectionKey, kind, attrs) + (children ? `|${children}` : "");
     if (seenTags.has(key)) return false;
     seenTags.add(key);
     if (kind === "meta") meta.push(attrs);
