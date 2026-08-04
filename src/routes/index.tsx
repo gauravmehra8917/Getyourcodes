@@ -169,8 +169,7 @@ function HomePage() {
         </div>
       </section>
 
-        </div>
-      </section>
+
 
 
       {/* Top categories grid */}
