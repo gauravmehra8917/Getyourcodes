@@ -101,18 +101,18 @@ function HomePage() {
       {/* HERO */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10">
-          <div className="absolute left-1/2 top-0 h-[600px] w-[1200px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(79,70,229,0.35),transparent_60%)] blur-3xl" />
-          <div className="absolute right-0 top-40 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.3),transparent_70%)] blur-3xl" />
+          <div className="hero-glow-primary absolute left-1/2 top-0 h-[600px] w-[1200px] -translate-x-1/2 rounded-full blur-3xl" />
+          <div className="hero-glow-accent absolute right-0 top-40 h-72 w-72 rounded-full blur-3xl" />
         </div>
         <div className="mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 sm:py-28">
-          <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-white/80 backdrop-blur">
+          <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
             <Sparkles className="h-3.5 w-3.5 text-glow" /> Verified coupons from affiliate partners
           </div>
-          <h1 className="mx-auto max-w-4xl font-display text-5xl font-bold leading-[1.05] tracking-tight sm:text-7xl">
+          <h1 className="mx-auto max-w-4xl font-display text-5xl font-bold leading-[1.05] tracking-tight text-foreground sm:text-7xl">
             Verified coupons,{" "}
             <span className="text-gradient">real savings.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-base text-white/70 sm:text-lg">
+          <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground sm:text-lg">
             Getyourcodes brings together promo codes and deals sourced directly from our affiliate
             partners — each listing links straight to the store, so you always know where the offer
             comes from.
@@ -120,11 +120,11 @@ function HomePage() {
 
           {/* AI Deal Assistant */}
           <div className="mx-auto mt-10 max-w-2xl" data-hero-assistant>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur sm:p-6">
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm backdrop-blur sm:p-6">
               <div className="mb-2 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-glow">
                 <Wand2 className="h-3.5 w-3.5" /> Dealio · AI shopping assistant
               </div>
-              <h2 className="mb-4 font-display text-xl font-bold sm:text-2xl">
+              <h2 className="mb-4 font-display text-xl font-bold text-foreground sm:text-2xl">
                 What are you shopping for today?
               </h2>
               <form
@@ -143,11 +143,11 @@ function HomePage() {
                   onChange={(e) => setAiQ(e.target.value)}
                   placeholder="Tell Dealio what you need — “running shoes under $100”"
                   aria-label="Ask Dealio: describe what you're shopping for"
-                  className="h-12 flex-1 rounded-full border border-white/10 bg-background/40 px-5 text-sm text-white placeholder:text-white/40 outline-none focus:border-primary"
+                  className="h-12 flex-1 rounded-full border border-border bg-surface-2 px-5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
                 />
                 <button
                   type="submit"
-                  className="gradient-primary inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white shadow-glow"
+                  className="gradient-primary inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-primary-foreground shadow-glow"
                 >
                   <Sparkles className="h-4 w-4" /> Ask Dealio
                 </button>
@@ -158,7 +158,7 @@ function HomePage() {
                     key={s}
                     type="button"
                     onClick={() => assistant.open(s)}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/70 hover:border-primary/50 hover:text-white"
+                    className="rounded-full border border-border bg-surface px-3 py-1 text-muted-foreground hover:border-primary/50 hover:text-foreground"
                   >
                     {s}
                   </button>
@@ -166,6 +166,9 @@ function HomePage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
         </div>
       </section>
 
