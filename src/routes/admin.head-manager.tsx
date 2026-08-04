@@ -5,8 +5,10 @@ import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { Field, TextInput, TextArea, SelectInput } from "@/components/admin/form-fields";
-import { Pencil, Trash2, Plus, X, Search, Code2 } from "lucide-react";
+import { Pencil, Trash2, Plus, X, Search, Code2, ClipboardPaste } from "lucide-react";
 import { renderHeadEntries, validateJsonLd, sanitizeHeadHtml } from "@/lib/head/render";
+import { ImportSnippetDialog } from "@/components/admin/import-snippet-dialog";
+
 
 export const Route = createFileRoute("/admin/head-manager")({
   head: () => ({ meta: [{ title: "Head Manager — Getyourcodes Admin" }, { name: "robots", content: "noindex,nofollow" }] }),
