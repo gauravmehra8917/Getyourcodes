@@ -349,6 +349,10 @@ function HeadManagerPage() {
 
       <RenderedHeadPreview rows={rows} />
 
+      {importOpen && <ImportSnippetDialog onClose={() => setImportOpen(false)} onSaved={refresh} />}
+
+
+
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4" onClick={() => setOpen(false)}>
           <div className="my-8 w-full max-w-xl rounded-md bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
