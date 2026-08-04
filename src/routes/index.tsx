@@ -357,11 +357,11 @@ function ViewAll({ to, label }: { to: "/categories" | "/stores" | "/coupons" | "
 
 function SectionHeading({ icon, title, subtitle, action }: { icon?: React.ReactNode; title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h2 className="flex items-center gap-2 font-display text-2xl font-bold sm:text-3xl">
-          {icon && <span className="text-primary">{icon}</span>}
-          {title}
+    <div className="mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:flex sm:flex-wrap sm:justify-between sm:gap-4">
+      <div className="min-w-0">
+        <h2 className="flex items-center gap-2 font-display text-xl font-bold tracking-tight sm:text-3xl">
+          {icon && <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">{icon}</span>}
+          <span className="truncate">{title}</span>
         </h2>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
@@ -373,7 +373,7 @@ function SectionHeading({ icon, title, subtitle, action }: { icon?: React.ReactN
 
 function EmptyHint({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-white/10 bg-surface/50 p-10 text-center text-sm text-white/50">
+    <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-10 text-center text-sm text-muted-foreground">
       {text}
     </div>
   );
