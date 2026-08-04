@@ -560,6 +560,8 @@ export function FloatingAssistantTrigger({
     onClick();
   };
 
+  if (heroVisible) return null;
+
   return (
     <div
       aria-hidden={false}
