@@ -5,7 +5,8 @@ import { sb } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { Field, TextInput, TextArea, SelectInput } from "@/components/admin/form-fields";
-import { Pencil, Trash2, Plus, X, Search } from "lucide-react";
+import { Pencil, Trash2, Plus, X, Search, Code2 } from "lucide-react";
+import { renderHeadEntries, validateJsonLd, sanitizeHeadHtml } from "@/lib/head/render";
 
 export const Route = createFileRoute("/admin/head-manager")({
   head: () => ({ meta: [{ title: "Head Manager — Getyourcodes Admin" }, { name: "robots", content: "noindex,nofollow" }] }),
@@ -120,6 +121,35 @@ function HeadManagerPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.provider.trim()) { setError("Provider is required."); return; }
+
+    const others = rows.filter((r) => r.id !== editing?.id);
+    if (form.section === "verification") {
+      if (!form.name.trim() || !form.value.trim()) { setError("Verification tags require a name and a value."); return; }
+      const dup = others.some(
+        (r) => r.section === "verification" && r.type === form.type && r.name.trim().toLowerCase() === form.name.trim().toLowerCase(),
+      );
+      if (dup) { setError(`A verification tag named "${form.name.trim()}" already exists.`); return; }
+    }
+    if (form.section === "analytics") {
+      const dup = others.some(
+        (r) => r.section === "analytics" && r.provider.trim().toLowerCase() === form.provider.trim().toLowerCase(),
+      );
+      if (dup) { setError(`Analytics provider "${form.provider.trim()}" already has an entry.`); return; }
+      if (!form.value.trim() && !form.content.trim()) { setError("Provide a script URL or an inline snippet."); return; }
+      if (form.content.trim() && form.content.trim().startsWith("<")) {
+        const html = sanitizeHeadHtml(form.content);
+        if (!html.ok) { setError(html.error); return; }
+      }
+    }
+    if (form.section === "structured_data") {
+      const json = validateJsonLd(form.content || form.value);
+      if (!json.ok) { setError(json.error); return; }
+    }
+    if (form.section === "custom_html") {
+      const html = sanitizeHeadHtml(form.content || form.value);
+      if (!html.ok) { setError(html.error); return; }
+    }
+
     setSaving(true);
     setError(null);
     const payload = {
@@ -230,7 +260,7 @@ function HeadManagerPage() {
 
       <p className="mb-4 max-w-3xl text-sm text-slate-600">
         Central store for everything injected into the site <code className="rounded bg-slate-100 px-1">&lt;head&gt;</code>.
-        Entries are stored and managed here only — frontend rendering is not enabled yet.
+        Enabled entries are rendered server-side into every page head, in order, with validation, sanitization and duplicate protection.
       </p>
 
       <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -307,6 +337,8 @@ function HeadManagerPage() {
         emptyText={isLoading ? "Loading…" : "No head entries match these filters."}
       />
 
+      <RenderedHeadPreview rows={rows} />
+
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4" onClick={() => setOpen(false)}>
           <div className="my-8 w-full max-w-xl rounded-md bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -367,5 +399,47 @@ function HeadManagerPage() {
         </div>
       )}
     </div>
+  );
+}
+
+
+function RenderedHeadPreview({ rows }: { rows: HeadEntry[] }) {
+  const [show, setShow] = useState(true);
+  const rendered = useMemo(() => renderHeadEntries(rows.filter((r) => r.enabled)), [rows]);
+  const skipped = rendered.skipped.filter((s) => s.reason !== "Disabled");
+
+  return (
+    <section className="mt-6 rounded-md border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <Code2 className="h-4 w-4" /> Rendered Head
+        </h2>
+        <button onClick={() => setShow(!show)} className="text-xs font-medium text-slate-600 hover:underline">
+          {show ? "Hide" : "Show"}
+        </button>
+      </div>
+      {show && (
+        <div className="space-y-3 p-5">
+          <p className="text-xs text-slate-500">
+            Exact HTML injected into <code className="rounded bg-slate-100 px-1">&lt;head&gt;</code> for enabled entries.
+          </p>
+          <pre className="max-h-80 overflow-auto rounded bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
+            {rendered.html || "<!-- no enabled entries render any output -->"}
+          </pre>
+          {skipped.length > 0 && (
+            <div className="rounded border border-amber-200 bg-amber-50 p-3">
+              <div className="text-xs font-semibold text-amber-800">Skipped entries ({skipped.length})</div>
+              <ul className="mt-1.5 space-y-1 text-xs text-amber-800">
+                {skipped.map((s, i) => (
+                  <li key={i}>
+                    <span className="font-medium">{s.entry.provider || "—"}{s.entry.name ? ` · ${s.entry.name}` : ""}</span>: {s.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

@@ -13,6 +13,8 @@ import appCss from "../styles.css?url";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { AssistantProvider } from "@/components/ai-assistant-provider";
+import { getEnabledHeadEntries } from "@/lib/head.functions";
+import { renderHeadEntries } from "@/lib/head/render";
 
 
 function NotFoundComponent() {
@@ -49,7 +51,15 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  loader: async () => {
+    try {
+      const entries = await getEnabledHeadEntries();
+      return { head: renderHeadEntries(entries) };
+    } catch {
+      return { head: renderHeadEntries([]) };
+    }
+  },
+  head: ({ loaderData }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -60,6 +70,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@getyourcodes" },
       { name: "google-site-verification", content: "Ow_7FR3k57CCSHvT7EMJWaR_3FJgra9yDeC8ctsp4wY" },
+      // Head Manager entries (server-rendered, order preserved)
+      ...((loaderData?.head.meta ?? []) as Record<string, string>[]),
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -80,6 +92,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap",
       },
+      ...((loaderData?.head.links ?? []) as Record<string, string>[]),
     ],
     scripts: [
       {
@@ -107,6 +120,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           },
         }),
       },
+      ...((loaderData?.head.scripts ?? []) as Record<string, string>[]),
     ],
   }),
   shellComponent: RootShell,
