@@ -436,6 +436,26 @@ export function FloatingAssistantTrigger({
   });
   const btnRef = useRef<HTMLButtonElement>(null);
   const rafRef = useRef<number | null>(null);
+  const [heroVisible, setHeroVisible] = useState(false);
+
+  // Hide the floating widget while an inline hero assistant is on screen.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hero = document.querySelector("[data-hero-assistant]");
+    if (!hero) {
+      setHeroVisible(false);
+      return;
+    }
+    setHeroVisible(true);
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) setHeroVisible(e.isIntersecting);
+      },
+      { threshold: 0 },
+    );
+    io.observe(hero);
+    return () => io.disconnect();
+  });
 
   // Observe footer visibility to lift widget and auto-collapse.
   useEffect(() => {
