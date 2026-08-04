@@ -171,7 +171,7 @@ function HomePage() {
 
 
       {/* Top categories grid */}
-      <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pb-4 sm:px-6">
+      <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pt-6 pb-4 sm:px-6">
         <SectionHeading icon={<Tag className="h-5 w-5" />} title="Top Categories" subtitle="Discover offers across every category" />
         {categories.data && categories.data.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
