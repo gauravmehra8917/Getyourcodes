@@ -95,18 +95,8 @@ function HomePage() {
 
   return (
     <div className="bg-background text-foreground">
-      {/* Top utility bar — categories nav */}
-      <div className="hidden border-b border-white/5 bg-surface/60 backdrop-blur md:block">
-        <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-2.5 text-xs">
-          <span className="font-semibold text-white/60">Browse:</span>
-          {categories.data?.slice(0, 8).map((c) => (
-            <Link key={c.id} to="/$slug" params={{ slug: `${c.slug}-offers` }} className="text-white/70 transition hover:text-white">
-              {c.name}
-            </Link>
-          ))}
-          <Link to="/blog" className="ml-auto text-white/70 hover:text-white">Blog</Link>
-        </div>
-      </div>
+
+
 
       {/* HERO */}
       <section className="relative overflow-hidden">
@@ -175,7 +165,7 @@ function HomePage() {
       </section>
 
       {/* Top categories grid */}
-      <section className="mx-auto max-w-7xl px-4 pb-4 sm:px-6">
+      <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pb-4 sm:px-6">
         <SectionHeading icon={<Tag className="h-5 w-5" />} title="Top Categories" subtitle="Discover offers across every category" />
         {categories.data && categories.data.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
@@ -200,7 +190,7 @@ function HomePage() {
       </section>
 
       {/* Featured stores logo strip */}
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+      <section id="stores" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-12 sm:px-6">
         <SectionHeading title="Featured Stores" subtitle="Top brands picked by our editors" />
         {featured.data && featured.data.length > 0 ? (
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9">
@@ -230,7 +220,7 @@ function HomePage() {
         <RecommendedForYou />
 
         {/* Trending coupons */}
-        <section>
+        <section id="coupons" className="scroll-mt-24">
           <SectionHeading icon={<TrendingUp className="h-5 w-5" />} title="Trending Coupon Codes" subtitle="Most-used codes this week" />
           {trending.data && trending.data.length > 0 ? (
             <div className="grid gap-3 lg:grid-cols-2">
