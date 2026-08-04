@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { AssistantProvider } from "@/components/ai-assistant-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { getEnabledHeadEntries } from "@/lib/head.functions";
 import { renderHeadEntries } from "@/lib/head/render";
 
@@ -156,6 +157,7 @@ function RootComponent() {
             <SiteFooter />
           </div>
         )}
+        <Toaster />
       </AssistantProvider>
     </QueryClientProvider>
   );
