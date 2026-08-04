@@ -117,12 +117,12 @@ export function SiteHeader() {
           </div>
         </form>
 
-        <div className="ml-auto flex items-center gap-1 md:ml-0">
+        <div className="ml-auto flex items-center gap-0.5 sm:gap-1 md:ml-0">
           <button
             type="button"
             onClick={() => assistant.open()}
             aria-label="Ask Dealio AI assistant"
-            className="focus-ring hidden h-10 w-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground sm:inline-grid"
+            className="focus-ring hidden h-9 w-9 place-items-center sm:h-10 sm:w-10 rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground sm:inline-grid"
           >
             <Sparkles className="h-[18px] w-[18px]" />
           </button>
@@ -131,7 +131,7 @@ export function SiteHeader() {
             to="/search"
             search={{ q: "" }}
             aria-label="Search"
-            className="focus-ring inline-grid h-10 w-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground md:hidden"
+            className="focus-ring inline-grid h-9 w-9 place-items-center sm:h-10 sm:w-10 rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground md:hidden"
           >
             <Search className="h-[18px] w-[18px]" />
           </Link>
@@ -171,7 +171,7 @@ export function SiteHeader() {
           ) : (
             <Link
               to="/auth"
-              className="focus-ring ml-1 inline-flex h-10 items-center whitespace-nowrap rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90"
+              className="focus-ring ml-1 inline-flex h-9 items-center whitespace-nowrap rounded-full bg-primary px-3.5 text-[0.8125rem] sm:h-10 sm:px-4 sm:text-sm font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90"
             >
               Sign in
             </Link>
@@ -182,7 +182,7 @@ export function SiteHeader() {
             onClick={() => setMobileOpen((o) => !o)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            className="focus-ring inline-grid h-10 w-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground lg:hidden"
+            className="focus-ring inline-grid h-9 w-9 place-items-center sm:h-10 sm:w-10 rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground lg:hidden"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
