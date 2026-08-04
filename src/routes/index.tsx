@@ -48,15 +48,16 @@ function HomePage() {
   const assistant = useAssistant();
   const [aiQ, setAiQ] = useState("");
 
-  const featured = useQuery({
-    queryKey: ["stores", "featured"],
-    queryFn: async () => {
-      const { data } = await sb.from("stores").select("*").eq("featured", true).limit(18);
-      return (data ?? []) as Store[];
-    },
-  });
+  const offerCounts = useQuery(activeOfferCountsQuery);
+  const storesLite = useQuery(storesLiteQuery);
+  const allCategories = useQuery(categoriesQuery);
+
+  const topCategories = rankCategories(allCategories.data ?? [], storesLite.data ?? [], offerCounts.data ?? {}).slice(0, 8);
+  const topStores = rankStores(storesLite.data ?? [], offerCounts.data ?? {}).slice(0, 12);
+
   const trending = useQuery({
     queryKey: ["coupons", "trending"],
+    staleTime: 60 * 1000,
     queryFn: async () => {
       const { data } = await sb.from("coupons")
         .select("*, stores(name, slug, logo_url)")
@@ -67,6 +68,7 @@ function HomePage() {
   });
   const latestDeals = useQuery({
     queryKey: ["coupons", "deals"],
+    staleTime: 60 * 1000,
     queryFn: async () => {
       const { data } = await sb.from("coupons")
         .select("*, stores(name, slug, logo_url)")
@@ -75,15 +77,9 @@ function HomePage() {
       return (data ?? []) as (Coupon & { stores: Pick<Store, "name" | "slug" | "logo_url"> })[];
     },
   });
-  const categories = useQuery({
-    queryKey: ["categories"],
-    queryFn: async () => {
-      const { data } = await sb.from("categories").select("*").order("name").limit(8);
-      return (data ?? []) as Category[];
-    },
-  });
   const blogPosts = useQuery({
     queryKey: ["home-blog"],
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data } = await sb.from("posts")
         .select("id,title,slug,excerpt,cover_image,published_at")
