@@ -28,6 +28,10 @@ const STATIC_SLUG_TO_PATH: Record<string, string> = {
   home: "/",
   search: "/search",
   blog: "/blog",
+  categories: "/categories",
+  stores: "/stores",
+  coupons: "/coupons",
+  deals: "/deals",
   about: "/about",
   contact: "/contact",
 };

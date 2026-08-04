@@ -11,9 +11,10 @@ type NavItem = { label: string; to: string; hash?: string };
 
 const NAV: NavItem[] = [
   { label: "Home", to: "/" },
-  { label: "Categories", to: "/", hash: "categories" },
-  { label: "Stores", to: "/", hash: "stores" },
-  { label: "Coupons", to: "/", hash: "coupons" },
+  { label: "Categories", to: "/categories" },
+  { label: "Stores", to: "/stores" },
+  { label: "Coupons", to: "/coupons" },
+  { label: "Deals", to: "/deals" },
   { label: "Blog", to: "/blog" },
 ];
 

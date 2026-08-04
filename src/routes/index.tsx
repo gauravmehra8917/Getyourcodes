@@ -5,7 +5,14 @@ import {
   Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home,
   Wand2, Tag, Gift, TrendingUp, Mail, ArrowRight,
 } from "lucide-react";
-import { sb, trackSearch, type Store, type Coupon, type Category } from "@/lib/db";
+import { sb, trackSearch, type Store, type Coupon } from "@/lib/db";
+import {
+  activeOfferCountsQuery,
+  categoriesQuery,
+  rankCategories,
+  rankStores,
+  storesLiteQuery,
+} from "@/lib/home-data";
 import { CouponCard } from "@/components/coupon-card";
 import { GlobalDealsBanner } from "@/components/global-deals-banner";
 import { RecommendedForYou } from "@/components/recommended-for-you";
@@ -48,15 +55,16 @@ function HomePage() {
   const assistant = useAssistant();
   const [aiQ, setAiQ] = useState("");
 
-  const featured = useQuery({
-    queryKey: ["stores", "featured"],
-    queryFn: async () => {
-      const { data } = await sb.from("stores").select("*").eq("featured", true).limit(18);
-      return (data ?? []) as Store[];
-    },
-  });
+  const offerCounts = useQuery(activeOfferCountsQuery);
+  const storesLite = useQuery(storesLiteQuery);
+  const allCategories = useQuery(categoriesQuery);
+
+  const topCategories = rankCategories(allCategories.data ?? [], storesLite.data ?? [], offerCounts.data ?? {}).slice(0, 8);
+  const topStores = rankStores(storesLite.data ?? [], offerCounts.data ?? {}).slice(0, 12);
+
   const trending = useQuery({
     queryKey: ["coupons", "trending"],
+    staleTime: 60 * 1000,
     queryFn: async () => {
       const { data } = await sb.from("coupons")
         .select("*, stores(name, slug, logo_url)")
@@ -67,6 +75,7 @@ function HomePage() {
   });
   const latestDeals = useQuery({
     queryKey: ["coupons", "deals"],
+    staleTime: 60 * 1000,
     queryFn: async () => {
       const { data } = await sb.from("coupons")
         .select("*, stores(name, slug, logo_url)")
@@ -75,15 +84,9 @@ function HomePage() {
       return (data ?? []) as (Coupon & { stores: Pick<Store, "name" | "slug" | "logo_url"> })[];
     },
   });
-  const categories = useQuery({
-    queryKey: ["categories"],
-    queryFn: async () => {
-      const { data } = await sb.from("categories").select("*").order("name").limit(8);
-      return (data ?? []) as Category[];
-    },
-  });
   const blogPosts = useQuery({
     queryKey: ["home-blog"],
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data } = await sb.from("posts")
         .select("id,title,slug,excerpt,cover_image,published_at")
@@ -172,24 +175,30 @@ function HomePage() {
 
 
 
-      {/* Top categories grid */}
+      {/* Featured categories */}
       <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pt-6 pb-4 sm:px-6">
-        <SectionHeading icon={<Tag className="h-5 w-5" />} title="Top Categories" subtitle="Discover offers across every category" />
-        {categories.data && categories.data.length > 0 ? (
+        <SectionHeading
+          icon={<Tag className="h-5 w-5" />}
+          title="Featured Categories"
+          subtitle="Top categories by live offers"
+          action={<ViewAll to="/categories" label="View all categories" />}
+        />
+        {topCategories.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-            {categories.data.map((c, i) => {
-              const Icon = ICONS[i % ICONS.length];
+            {topCategories.map((c, i) => {
+              const Icon = ICONS[i % ICONS.length]!;
               return (
                 <Link
                   key={c.id}
                   to="/$slug"
                   params={{ slug: `${c.slug}-offers` }}
-                  className="group flex flex-col items-center gap-2 rounded-2xl border border-white/8 bg-surface p-5 text-center transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-surface-2"
+                  className="group flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-5 text-center transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                 >
-                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary-soft text-glow transition group-hover:gradient-primary group-hover:text-white">
+                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary-soft text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-white/90">{c.name}</p>
+                  <p className="text-sm font-medium text-foreground">{c.name}</p>
+                  <p className="text-xs text-muted-foreground">{c.offers} offers</p>
                 </Link>
               );
             })}
@@ -197,28 +206,35 @@ function HomePage() {
         ) : <EmptyHint text="No categories yet." />}
       </section>
 
-      {/* Featured stores logo strip */}
+      {/* Trending stores */}
       <section id="stores" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-12 sm:px-6">
-        <SectionHeading title="Featured Stores" subtitle="Top brands picked by our editors" />
-        {featured.data && featured.data.length > 0 ? (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9">
-            {featured.data.map((s) => (
+        <SectionHeading
+          title="Trending Stores"
+          subtitle="Brands with the most active offers"
+          action={<ViewAll to="/stores" label="View all stores" />}
+        />
+        {topStores.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
+            {topStores.map((s) => (
               <Link
                 key={s.id}
                 to="/$slug"
                 params={{ slug: `${s.slug}-coupons` }}
-                className="group grid aspect-square place-items-center rounded-xl border border-white/8 bg-white/95 p-4 transition hover:-translate-y-0.5 hover:shadow-glow"
+                className="group flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
               >
                 {s.logo_url ? (
-                  <img src={s.logo_url} alt={`${s.name} logo`} loading="lazy" className="max-h-12 max-w-[80%] object-contain" />
+                  <img src={s.logo_url} alt={`${s.name} logo`} width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 rounded-lg border border-border bg-background object-contain p-1.5" />
                 ) : (
-                  <span className="text-sm font-bold text-slate-700">{s.name}</span>
+                  <span className="grid h-14 w-14 place-items-center rounded-lg bg-primary-soft text-primary"><Tag className="h-5 w-5" /></span>
                 )}
+                <span className="line-clamp-1 text-sm font-semibold text-foreground">{s.name}</span>
+                <span className="text-xs text-muted-foreground">{s.offers} offers</span>
               </Link>
             ))}
           </div>
-        ) : <EmptyHint text="No featured stores yet." />}
+        ) : <EmptyHint text="No stores yet." />}
       </section>
+
 
       {/* Today's Top Offers banner */}
       <GlobalDealsBanner />
@@ -227,9 +243,14 @@ function HomePage() {
         {/* Personalized */}
         <RecommendedForYou />
 
-        {/* Trending coupons */}
+        {/* Latest coupons */}
         <section id="coupons" className="scroll-mt-24">
-          <SectionHeading icon={<TrendingUp className="h-5 w-5" />} title="Trending Coupon Codes" subtitle="Most-used codes this week" />
+          <SectionHeading
+            icon={<TrendingUp className="h-5 w-5" />}
+            title="Latest Coupons"
+            subtitle="Most recently imported promo codes"
+            action={<ViewAll to="/coupons" label="View all coupons" />}
+          />
           {trending.data && trending.data.length > 0 ? (
             <div className="grid gap-3 lg:grid-cols-2">
               {trending.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}
@@ -237,9 +258,14 @@ function HomePage() {
           ) : <EmptyHint text="No active coupons yet." />}
         </section>
 
-        {/* Editor's Picks / Latest Deals */}
+        {/* Featured deals */}
         <section>
-          <SectionHeading icon={<Gift className="h-5 w-5" />} title="Editor's Picks" subtitle="No code needed — just click and save" />
+          <SectionHeading
+            icon={<Gift className="h-5 w-5" />}
+            title="Featured Deals"
+            subtitle="No code needed — just click and save"
+            action={<ViewAll to="/deals" label="View all deals" />}
+          />
           {latestDeals.data && latestDeals.data.length > 0 ? (
             <div className="grid gap-3 lg:grid-cols-2">
               {latestDeals.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}
@@ -250,14 +276,18 @@ function HomePage() {
         {/* Blog teasers */}
         {blogPosts.data && blogPosts.data.length > 0 && (
           <section>
-            <SectionHeading title="From the Blog" subtitle="Guides, deal alerts, and stories" />
+            <SectionHeading
+              title="Latest Blog Posts"
+              subtitle="Guides, deal alerts, and stories"
+              action={<ViewAll to="/blog" label="View all blog posts" />}
+            />
             <div className="grid gap-6 md:grid-cols-3">
               {blogPosts.data.map((p) => (
-                <Link key={p.id} to="/blog/$slug" params={{ slug: p.slug }} className="group overflow-hidden rounded-2xl border border-white/8 bg-surface transition hover:-translate-y-0.5 hover:border-primary/40">
-                  {p.cover_image && <img src={p.cover_image} alt={p.title} loading="lazy" className="aspect-[16/9] w-full object-cover" />}
+                <Link key={p.id} to="/blog/$slug" params={{ slug: p.slug }} className="group overflow-hidden rounded-2xl border border-border bg-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                  {p.cover_image && <img src={p.cover_image} alt={p.title} loading="lazy" decoding="async" className="aspect-[16/9] w-full object-cover" />}
                   <div className="p-5">
-                    <h3 className="font-display text-lg font-bold leading-snug group-hover:text-glow">{p.title}</h3>
-                    {p.excerpt && <p className="mt-2 line-clamp-2 text-sm text-white/60">{p.excerpt}</p>}
+                    <h3 className="font-display text-lg font-bold leading-snug group-hover:text-primary">{p.title}</h3>
+                    {p.excerpt && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
                   </div>
                 </Link>
               ))}
@@ -273,19 +303,33 @@ function HomePage() {
   );
 }
 
-function SectionHeading({ icon, title, subtitle }: { icon?: React.ReactNode; title: string; subtitle?: string }) {
+function ViewAll({ to, label }: { to: "/categories" | "/stores" | "/coupons" | "/deals" | "/blog"; label: string }) {
   return (
-    <div className="mb-6 flex items-end justify-between gap-4">
+    <Link
+      to={to}
+      search={{ page: 1 }}
+      className="focus-ring inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+    >
+      {label} <ArrowRight className="h-4 w-4" />
+    </Link>
+  );
+}
+
+function SectionHeading({ icon, title, subtitle, action }: { icon?: React.ReactNode; title: string; subtitle?: string; action?: React.ReactNode }) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <h2 className="flex items-center gap-2 font-display text-2xl font-bold sm:text-3xl">
-          {icon && <span className="text-glow">{icon}</span>}
+          {icon && <span className="text-primary">{icon}</span>}
           {title}
         </h2>
-        {subtitle && <p className="mt-1 text-sm text-white/60">{subtitle}</p>}
+        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
+      {action}
     </div>
   );
 }
+
 
 function EmptyHint({ text }: { text: string }) {
   return (
