@@ -168,24 +168,30 @@ function HomePage() {
 
 
 
-      {/* Top categories grid */}
+      {/* Featured categories */}
       <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pt-6 pb-4 sm:px-6">
-        <SectionHeading icon={<Tag className="h-5 w-5" />} title="Top Categories" subtitle="Discover offers across every category" />
-        {categories.data && categories.data.length > 0 ? (
+        <SectionHeading
+          icon={<Tag className="h-5 w-5" />}
+          title="Featured Categories"
+          subtitle="Top categories by live offers"
+          action={<ViewAll to="/categories" label="View all categories" />}
+        />
+        {topCategories.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-            {categories.data.map((c, i) => {
-              const Icon = ICONS[i % ICONS.length];
+            {topCategories.map((c, i) => {
+              const Icon = ICONS[i % ICONS.length]!;
               return (
                 <Link
                   key={c.id}
                   to="/$slug"
                   params={{ slug: `${c.slug}-offers` }}
-                  className="group flex flex-col items-center gap-2 rounded-2xl border border-white/8 bg-surface p-5 text-center transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-surface-2"
+                  className="group flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-5 text-center transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                 >
-                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary-soft text-glow transition group-hover:gradient-primary group-hover:text-white">
+                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary-soft text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <p className="text-sm font-medium text-white/90">{c.name}</p>
+                  <p className="text-sm font-medium text-foreground">{c.name}</p>
+                  <p className="text-xs text-muted-foreground">{c.offers} offers</p>
                 </Link>
               );
             })}
@@ -193,28 +199,35 @@ function HomePage() {
         ) : <EmptyHint text="No categories yet." />}
       </section>
 
-      {/* Featured stores logo strip */}
+      {/* Trending stores */}
       <section id="stores" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-12 sm:px-6">
-        <SectionHeading title="Featured Stores" subtitle="Top brands picked by our editors" />
-        {featured.data && featured.data.length > 0 ? (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9">
-            {featured.data.map((s) => (
+        <SectionHeading
+          title="Trending Stores"
+          subtitle="Brands with the most active offers"
+          action={<ViewAll to="/stores" label="View all stores" />}
+        />
+        {topStores.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
+            {topStores.map((s) => (
               <Link
                 key={s.id}
                 to="/$slug"
                 params={{ slug: `${s.slug}-coupons` }}
-                className="group grid aspect-square place-items-center rounded-xl border border-white/8 bg-white/95 p-4 transition hover:-translate-y-0.5 hover:shadow-glow"
+                className="group flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
               >
                 {s.logo_url ? (
-                  <img src={s.logo_url} alt={`${s.name} logo`} loading="lazy" className="max-h-12 max-w-[80%] object-contain" />
+                  <img src={s.logo_url} alt={`${s.name} logo`} width={56} height={56} loading="lazy" decoding="async" className="h-14 w-14 rounded-lg border border-border bg-background object-contain p-1.5" />
                 ) : (
-                  <span className="text-sm font-bold text-slate-700">{s.name}</span>
+                  <span className="grid h-14 w-14 place-items-center rounded-lg bg-primary-soft text-primary"><Tag className="h-5 w-5" /></span>
                 )}
+                <span className="line-clamp-1 text-sm font-semibold text-foreground">{s.name}</span>
+                <span className="text-xs text-muted-foreground">{s.offers} offers</span>
               </Link>
             ))}
           </div>
-        ) : <EmptyHint text="No featured stores yet." />}
+        ) : <EmptyHint text="No stores yet." />}
       </section>
+
 
       {/* Today's Top Offers banner */}
       <GlobalDealsBanner />
