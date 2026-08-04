@@ -104,24 +104,29 @@ function HomePage() {
           <div className="absolute left-1/2 top-0 h-[600px] w-[1200px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(79,70,229,0.35),transparent_60%)] blur-3xl" />
           <div className="absolute right-0 top-40 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.3),transparent_70%)] blur-3xl" />
         </div>
-        <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 sm:py-20">
+        <div className="mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 sm:py-28">
           <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-white/80 backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5 text-glow" /> Updated daily · 10,000+ verified deals
+            <Sparkles className="h-3.5 w-3.5 text-glow" /> Verified coupons from affiliate partners
           </div>
           <h1 className="mx-auto max-w-4xl font-display text-5xl font-bold leading-[1.05] tracking-tight sm:text-7xl">
-            Best Deals,{" "}
-            <span className="text-gradient">Across the Globe.</span>
+            Verified coupons,{" "}
+            <span className="text-gradient">real savings.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-base text-white/70 sm:text-lg">
-            Hand-picked coupons, cashback offers and flash deals from thousands of stores — refreshed every hour.
+            Getyourcodes brings together promo codes and deals sourced directly from our affiliate
+            partners — each listing links straight to the store, so you always know where the offer
+            comes from.
           </p>
 
           {/* AI Deal Assistant */}
-          <div className="mx-auto mt-6 max-w-2xl">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur sm:p-5">
-              <div className="mb-3 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-glow">
-                <Wand2 className="h-3.5 w-3.5" /> Ask Dealio · AI Deal Assistant
+          <div className="mx-auto mt-10 max-w-2xl" data-hero-assistant>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur sm:p-6">
+              <div className="mb-2 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-glow">
+                <Wand2 className="h-3.5 w-3.5" /> Dealio · AI shopping assistant
               </div>
+              <h2 className="mb-4 font-display text-xl font-bold sm:text-2xl">
+                What are you shopping for today?
+              </h2>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -136,8 +141,8 @@ function HomePage() {
                 <input
                   value={aiQ}
                   onChange={(e) => setAiQ(e.target.value)}
-                  placeholder="What deal are you looking for? e.g. Nike sneakers under $100"
-                  aria-label="Ask Dealio: describe the deal you're looking for"
+                  placeholder="Tell Dealio what you need — “running shoes under $100”"
+                  aria-label="Ask Dealio: describe what you're shopping for"
                   className="h-12 flex-1 rounded-full border border-white/10 bg-background/40 px-5 text-sm text-white placeholder:text-white/40 outline-none focus:border-primary"
                 />
                 <button
@@ -147,8 +152,8 @@ function HomePage() {
                   <Sparkles className="h-4 w-4" /> Ask Dealio
                 </button>
               </form>
-              <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs">
-                {["Best laptop deals", "Food delivery codes", "Travel discounts this week"].map((s) => (
+              <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs">
+                {["Find me laptop deals", "Any food delivery codes?", "Travel offers this week"].map((s) => (
                   <button
                     key={s}
                     type="button"
@@ -163,6 +168,7 @@ function HomePage() {
           </div>
         </div>
       </section>
+
 
       {/* Top categories grid */}
       <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pb-4 sm:px-6">
