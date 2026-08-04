@@ -5,7 +5,14 @@ import {
   Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home,
   Wand2, Tag, Gift, TrendingUp, Mail, ArrowRight,
 } from "lucide-react";
-import { sb, trackSearch, type Store, type Coupon, type Category } from "@/lib/db";
+import { sb, trackSearch, type Store, type Coupon } from "@/lib/db";
+import {
+  activeOfferCountsQuery,
+  categoriesQuery,
+  rankCategories,
+  rankStores,
+  storesLiteQuery,
+} from "@/lib/home-data";
 import { CouponCard } from "@/components/coupon-card";
 import { GlobalDealsBanner } from "@/components/global-deals-banner";
 import { RecommendedForYou } from "@/components/recommended-for-you";
@@ -236,9 +243,14 @@ function HomePage() {
         {/* Personalized */}
         <RecommendedForYou />
 
-        {/* Trending coupons */}
+        {/* Latest coupons */}
         <section id="coupons" className="scroll-mt-24">
-          <SectionHeading icon={<TrendingUp className="h-5 w-5" />} title="Trending Coupon Codes" subtitle="Most-used codes this week" />
+          <SectionHeading
+            icon={<TrendingUp className="h-5 w-5" />}
+            title="Latest Coupons"
+            subtitle="Most recently imported promo codes"
+            action={<ViewAll to="/coupons" label="View all coupons" />}
+          />
           {trending.data && trending.data.length > 0 ? (
             <div className="grid gap-3 lg:grid-cols-2">
               {trending.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}
@@ -246,9 +258,14 @@ function HomePage() {
           ) : <EmptyHint text="No active coupons yet." />}
         </section>
 
-        {/* Editor's Picks / Latest Deals */}
+        {/* Featured deals */}
         <section>
-          <SectionHeading icon={<Gift className="h-5 w-5" />} title="Editor's Picks" subtitle="No code needed — just click and save" />
+          <SectionHeading
+            icon={<Gift className="h-5 w-5" />}
+            title="Featured Deals"
+            subtitle="No code needed — just click and save"
+            action={<ViewAll to="/deals" label="View all deals" />}
+          />
           {latestDeals.data && latestDeals.data.length > 0 ? (
             <div className="grid gap-3 lg:grid-cols-2">
               {latestDeals.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}
@@ -259,14 +276,18 @@ function HomePage() {
         {/* Blog teasers */}
         {blogPosts.data && blogPosts.data.length > 0 && (
           <section>
-            <SectionHeading title="From the Blog" subtitle="Guides, deal alerts, and stories" />
+            <SectionHeading
+              title="Latest Blog Posts"
+              subtitle="Guides, deal alerts, and stories"
+              action={<ViewAll to="/blog" label="View all blog posts" />}
+            />
             <div className="grid gap-6 md:grid-cols-3">
               {blogPosts.data.map((p) => (
-                <Link key={p.id} to="/blog/$slug" params={{ slug: p.slug }} className="group overflow-hidden rounded-2xl border border-white/8 bg-surface transition hover:-translate-y-0.5 hover:border-primary/40">
-                  {p.cover_image && <img src={p.cover_image} alt={p.title} loading="lazy" className="aspect-[16/9] w-full object-cover" />}
+                <Link key={p.id} to="/blog/$slug" params={{ slug: p.slug }} className="group overflow-hidden rounded-2xl border border-border bg-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                  {p.cover_image && <img src={p.cover_image} alt={p.title} loading="lazy" decoding="async" className="aspect-[16/9] w-full object-cover" />}
                   <div className="p-5">
-                    <h3 className="font-display text-lg font-bold leading-snug group-hover:text-glow">{p.title}</h3>
-                    {p.excerpt && <p className="mt-2 line-clamp-2 text-sm text-white/60">{p.excerpt}</p>}
+                    <h3 className="font-display text-lg font-bold leading-snug group-hover:text-primary">{p.title}</h3>
+                    {p.excerpt && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
                   </div>
                 </Link>
               ))}
@@ -282,19 +303,33 @@ function HomePage() {
   );
 }
 
-function SectionHeading({ icon, title, subtitle }: { icon?: React.ReactNode; title: string; subtitle?: string }) {
+function ViewAll({ to, label }: { to: "/categories" | "/stores" | "/coupons" | "/deals" | "/blog"; label: string }) {
   return (
-    <div className="mb-6 flex items-end justify-between gap-4">
+    <Link
+      to={to}
+      search={{ page: 1 }}
+      className="focus-ring inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+    >
+      {label} <ArrowRight className="h-4 w-4" />
+    </Link>
+  );
+}
+
+function SectionHeading({ icon, title, subtitle, action }: { icon?: React.ReactNode; title: string; subtitle?: string; action?: React.ReactNode }) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <h2 className="flex items-center gap-2 font-display text-2xl font-bold sm:text-3xl">
-          {icon && <span className="text-glow">{icon}</span>}
+          {icon && <span className="text-primary">{icon}</span>}
           {title}
         </h2>
-        {subtitle && <p className="mt-1 text-sm text-white/60">{subtitle}</p>}
+        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
+      {action}
     </div>
   );
 }
+
 
 function EmptyHint({ text }: { text: string }) {
   return (
