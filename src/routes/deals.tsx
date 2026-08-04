@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { couponPageQuery, parsePage } from "@/lib/home-data";
 import { CouponCard } from "@/components/coupon-card";
@@ -9,6 +9,7 @@ const PER_PAGE = 24;
 
 export const Route = createFileRoute("/deals")({
   validateSearch: parsePage,
+  search: { middlewares: [stripSearchParams({ page: 1 })] },
   head: () => ({
     meta: [
       { title: `All Deals & Offers — ${SITE_NAME}` },

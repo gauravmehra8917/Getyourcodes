@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { activeOfferCountsQuery, parsePage, rankStores, storesLiteQuery } from "@/lib/home-data";
 import { StoreCard } from "@/components/store-card";
@@ -10,6 +10,7 @@ const PER_PAGE = 24;
 
 export const Route = createFileRoute("/stores")({
   validateSearch: parsePage,
+  search: { middlewares: [stripSearchParams({ page: 1 })] },
   head: () => ({
     meta: [
       { title: `All Stores with Coupons & Promo Codes — ${SITE_NAME}` },

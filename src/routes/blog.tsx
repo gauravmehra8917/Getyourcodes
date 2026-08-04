@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, stripSearchParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { sb } from "@/lib/db";
 import { parsePage } from "@/lib/home-data";
@@ -8,6 +8,7 @@ const PER_PAGE = 12;
 
 export const Route = createFileRoute("/blog")({
   validateSearch: parsePage,
+  search: { middlewares: [stripSearchParams({ page: 1 })] },
   head: () => ({
     meta: [
       { title: "Deals Blog — Getyourcodes" },

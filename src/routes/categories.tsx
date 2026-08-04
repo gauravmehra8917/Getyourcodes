@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, stripSearchParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Tag } from "lucide-react";
 import { activeOfferCountsQuery, categoriesQuery, parsePage, rankCategories, storesLiteQuery } from "@/lib/home-data";
@@ -9,6 +9,7 @@ const PER_PAGE = 24;
 
 export const Route = createFileRoute("/categories")({
   validateSearch: parsePage,
+  search: { middlewares: [stripSearchParams({ page: 1 })] },
   head: () => ({
     meta: [
       { title: `All Coupon Categories — ${SITE_NAME}` },
