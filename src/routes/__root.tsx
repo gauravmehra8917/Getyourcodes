@@ -78,19 +78,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "alternate icon", href: "/favicon.ico" },
       { rel: "apple-touch-icon", href: "/favicon.svg" },
-      // Font loading: preconnect to Google's CDNs (DNS+TLS upfront),
-      // preload the CSS so it doesn't render-block on discovery, then
-      // the actual stylesheet with display=swap to avoid FOIT/CLS.
+      // Font loading: one family (Plus Jakarta Sans) for the whole design
+      // system — preconnect, preload the CSS, then swap to avoid FOIT/CLS.
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "preload",
         as: "style",
-        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap",
       },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap",
       },
       ...((loaderData?.head.links ?? []) as Record<string, string>[]),
     ],
