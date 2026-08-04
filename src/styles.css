@@ -4,12 +4,21 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+   DESIGN TOKENS -> TAILWIND THEME
+   Everything below is exposed as utilities (bg-*, text-*, etc.)
+   ============================================================ */
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
+  /* Radius scale */
+  --radius-xs: calc(var(--radius) - 12px);
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: calc(var(--radius) - 6px);
+  --radius-lg: calc(var(--radius) - 4px);
+  --radius-xl: var(--radius);
+  --radius-2xl: calc(var(--radius) + 6px);
+  --radius-3xl: calc(var(--radius) + 14px);
+
+  /* Semantic colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -19,6 +28,7 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-soft: var(--primary-soft);
+  --color-primary-hover: var(--primary-hover);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -28,21 +38,49 @@
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-hover: var(--hover);
+  --color-disabled: var(--disabled);
+  --color-disabled-foreground: var(--disabled-foreground);
   --color-glow: var(--glow);
-  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Outfit", "Figtree", ui-sans-serif, system-ui, sans-serif;
+
+  /* Typography — one family, two roles */
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Elevation */
+  --shadow-xs: var(--elevation-xs);
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-lg: var(--elevation-lg);
+  --shadow-xl: var(--elevation-xl);
+
+  /* Motion */
+  --default-transition-duration: 160ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Midnight Indigo theme — dark by default for the public site */
+/* ============================================================
+   BASE TOKENS — Midnight Indigo (dark-first public site)
+   ============================================================ */
 :root {
   --radius: 1rem;
+
   --background: #0a0a1a;
   --foreground: #f4f4ff;
   --surface: #141432;
@@ -51,59 +89,246 @@
   --card-foreground: #f4f4ff;
   --popover: #141432;
   --popover-foreground: #f4f4ff;
+
   --primary: #4f46e5;
   --primary-foreground: #ffffff;
+  --primary-hover: #6366f1;
   --primary-soft: rgba(79, 70, 229, 0.14);
+
   --secondary: #1e1e5a;
   --secondary-foreground: #e6e6ff;
   --muted: #1a1a3a;
-  --muted-foreground: #a3a3c2;
+  --muted-foreground: #a9a9cb;
   --accent: rgba(167, 139, 250, 0.18);
   --accent-foreground: #c4b5fd;
   --glow: #a78bfa;
+
   --success: #22c55e;
   --success-foreground: #ffffff;
   --success-soft: rgba(34, 197, 94, 0.18);
+  --warning: #f59e0b;
+  --warning-foreground: #1a1200;
+  --warning-soft: rgba(245, 158, 11, 0.18);
+  --info: #38bdf8;
+  --info-foreground: #041521;
+  --info-soft: rgba(56, 189, 248, 0.16);
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
+  --destructive-soft: rgba(239, 68, 68, 0.16);
+
   --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
   --input: rgba(255, 255, 255, 0.08);
   --ring: #6366f1;
+  --hover: rgba(255, 255, 255, 0.06);
+  --disabled: rgba(255, 255, 255, 0.06);
+  --disabled-foreground: rgba(244, 244, 255, 0.38);
+
+  /* Elevation scale — soft, low-contrast, no gradients */
+  --elevation-xs: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --elevation-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.24);
+  --elevation-md: 0 4px 12px -2px rgba(0, 0, 0, 0.36);
+  --elevation-lg: 0 12px 28px -8px rgba(0, 0, 0, 0.45);
+  --elevation-xl: 0 24px 56px -16px rgba(0, 0, 0, 0.55);
 }
 
-/* Admin panel keeps a clean light look */
-.admin-shell {
+/* Light surface context (admin + any .theme-light subtree) */
+.admin-shell,
+.theme-light {
   --background: #f6f7fb;
   --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
   --card: #ffffff;
   --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
   --muted: #f1f5f9;
   --muted-foreground: #475569;
   --border: #e2e8f0;
+  --border-strong: #cbd5e1;
   --input: #e2e8f0;
+
   --primary: #1f2937;
   --primary-foreground: #ffffff;
+  --primary-hover: #111827;
   --primary-soft: #eef2ff;
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
   --accent: #eef2ff;
   --accent-foreground: #3730a3;
   --ring: #1f2937;
+
+  --warning-foreground: #422006;
+  --info-foreground: #082f49;
+  --hover: rgba(15, 23, 42, 0.04);
+  --disabled: #f1f5f9;
+  --disabled-foreground: #94a3b8;
+
+  --elevation-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --elevation-sm: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.06);
+  --elevation-md: 0 4px 12px -2px rgba(15, 23, 42, 0.1);
+  --elevation-lg: 0 12px 28px -8px rgba(15, 23, 42, 0.14);
+  --elevation-xl: 0 24px 56px -16px rgba(15, 23, 42, 0.18);
+
   background-color: var(--background);
   color: var(--foreground);
 }
 
 @layer base {
   * { border-color: var(--color-border); }
-  html { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-feature-settings: "cv11", "ss01";
   }
-  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  /* Visible, consistent keyboard focus everywhere (WCAG AA) */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Motion: subtle only, and fully respectful of user preference */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
+/* ============================================================
+   TYPOGRAPHY SCALE
+   ============================================================ */
+@utility text-display {
+  font-family: var(--font-display);
+  font-size: clamp(2.75rem, 6vw, 4.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+}
+@utility text-h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+@utility text-h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2.125rem);
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+}
+@utility text-h3 {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  line-height: 1.28;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+@utility text-h4 {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+@utility text-body-lg {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  font-weight: 400;
+}
+@utility text-body {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+@utility text-small {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  font-weight: 400;
+}
+@utility text-caption {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* ============================================================
+   LAYOUT PRIMITIVES (8px rhythm)
+   ============================================================ */
+@utility container-page {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 80rem;
+  padding-inline: 1rem;
+  @media (min-width: 640px) { padding-inline: 1.5rem; }
+  @media (min-width: 1280px) { padding-inline: 2rem; }
+}
+@utility container-narrow {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 48rem;
+  padding-inline: 1rem;
+  @media (min-width: 640px) { padding-inline: 1.5rem; }
+}
+@utility section-y {
+  padding-block: 2.5rem;
+  @media (min-width: 768px) { padding-block: 4rem; }
+}
+@utility stack-md { display: flex; flex-direction: column; gap: 1rem; }
+@utility stack-lg { display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* ============================================================
+   SURFACE / INTERACTION UTILITIES
+   ============================================================ */
+@utility surface-card {
+  background-color: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elevation-sm);
+}
+@utility interactive-raise {
+  transition: transform 160ms var(--ease-standard), box-shadow 160ms var(--ease-standard),
+    border-color 160ms var(--ease-standard), opacity 160ms var(--ease-standard);
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--elevation-lg);
+  }
+}
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+@utility skeleton-block {
+  background-color: color-mix(in oklab, var(--muted-foreground) 18%, transparent);
+  border-radius: var(--radius-md);
+  animation: pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Legacy accents (kept: referenced across existing pages) */
 @utility gradient-primary {
   background-image: linear-gradient(135deg, #4f46e5 0%, #a78bfa 100%);
 }
