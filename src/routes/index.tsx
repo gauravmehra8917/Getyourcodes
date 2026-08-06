@@ -217,7 +217,7 @@ function HomePage() {
       </section>
 
       {/* TRENDING STORES — brand showcase strip */}
-      <section id="stores" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 sm:py-12">
+      <section id="stores" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-14 sm:px-6 sm:py-16">
         <SectionHeading
           icon={<ShoppingBag className="h-5 w-5" />}
           title="Trending Stores"
@@ -231,29 +231,31 @@ function HomePage() {
                 key={s.id}
                 to="/$slug"
                 params={{ slug: `${s.slug}-coupons` }}
-                className="group flex min-w-[220px] snap-start items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md sm:min-w-0"
+                className="group flex min-w-[220px] snap-start items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-colors duration-200 hover:border-primary/40 hover:bg-hover sm:min-w-0"
               >
-                <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-background transition-colors group-hover:border-primary/30">
+                <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-background transition-colors group-hover:border-primary/30">
                   {s.logo_url ? (
-                    <img src={s.logo_url} alt={`${s.name} logo`} width={44} height={44} loading="lazy" decoding="async" className="h-11 w-11 object-contain p-1" />
+                    <img src={s.logo_url} alt={`${s.name} logo`} width={40} height={40} loading="lazy" decoding="async" className="h-10 w-10 object-contain p-1" />
                   ) : (
                     <span className="text-sm font-bold text-primary">{s.name.slice(0, 2).toUpperCase()}</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">{s.offers} offers</p>
+                  <p className="text-xs text-muted-foreground">{s.offers} live offers</p>
                 </div>
-                <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors group-hover:border-primary/40 group-hover:text-primary">
+                  Browse <ArrowRight className="h-3 w-3" />
+                </span>
               </Link>
             ))}
           </div>
         ) : <EmptyHint text="No stores yet." />}
       </section>
 
-      {/* LATEST COUPONS — dense offer list */}
+      {/* LATEST COUPONS — compact card grid */}
       <section id="coupons" className="border-y border-border bg-surface/40">
-        <div className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 sm:py-12">
+        <div className="mx-auto max-w-7xl scroll-mt-24 px-4 py-14 sm:px-6 sm:py-16">
           <SectionHeading
             icon={<TrendingUp className="h-5 w-5" />}
             title="Latest Coupons"
@@ -261,21 +263,20 @@ function HomePage() {
             action={<ViewAll to="/coupons" label="View all coupons" />}
           />
           {trending.data && trending.data.length > 0 ? (
-            <div className="grid gap-2.5 md:grid-cols-2">
-              {trending.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {trending.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} variant="tile" />)}
             </div>
           ) : <EmptyHint text="No active coupons yet." />}
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 sm:pt-12">
-
-        {/* Personalized */}
+      {/* Personalized */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <RecommendedForYou />
       </div>
 
-      {/* BROWSE CATEGORIES — compact nav tiles */}
-      <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 pb-10 sm:px-6 sm:pb-12">
+      {/* BROWSE CATEGORIES — compact dense cards */}
+      <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-14 sm:px-6 sm:py-16">
         <SectionHeading
           icon={<Tag className="h-5 w-5" />}
           title="Browse Categories"
@@ -283,7 +284,7 @@ function HomePage() {
           action={<ViewAll to="/categories" label="View all categories" />}
         />
         {topCategories.length > 0 ? (
-          <div className="flex flex-wrap gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
             {topCategories.map((c, i) => {
               const Icon = ICONS[i % ICONS.length]!;
               return (
@@ -291,19 +292,20 @@ function HomePage() {
                   key={c.id}
                   to="/$slug"
                   params={{ slug: `${c.slug}-offers` }}
-                  className="group inline-flex flex-1 items-center gap-2.5 rounded-full border border-border bg-card px-4 py-2.5 transition-colors hover:border-primary/40 hover:bg-hover sm:flex-none"
+                  className="group flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-hover"
                 >
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary-soft text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                     <Icon className="h-3.5 w-3.5" />
                   </span>
                   <span className="truncate text-sm font-medium text-foreground">{c.name}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{c.offers}</span>
+                  <span className="ml-auto shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{c.offers}</span>
                 </Link>
               );
             })}
           </div>
         ) : <EmptyHint text="No categories yet." />}
       </section>
+
 
       {/* BLOG — image led, one lead post */}
       {blogPosts.data && blogPosts.data.length > 0 && (
