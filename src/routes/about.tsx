@@ -36,8 +36,8 @@ function AboutPage() {
         </span>
         <h1 className="mt-4 font-display text-4xl font-bold sm:text-5xl">Smarter savings, made simple.</h1>
         <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-          Getyourcodes helps shoppers discover verified coupons, promo codes, and the latest deals from trusted
-          brands. Our goal is to make saving money simple, transparent, and reliable.
+          Getyourcodes is owned and operated by Pixorads. We help shoppers discover verified coupons, promo codes and
+          deals sourced from trusted affiliate partners, presented in a clean, searchable experience.
         </p>
       </section>
 
@@ -47,10 +47,10 @@ function AboutPage() {
             <Building2 className="h-6 w-6" />
           </div>
           <div>
-            <h2 className="font-display text-2xl font-semibold">Owned by Pixoads</h2>
+            <h2 className="font-display text-2xl font-semibold">Owned by Pixorads</h2>
             <p className="mt-3 text-muted-foreground">
-              Getyourcodes is a product of Pixoads, our parent company focused on building digital products that help
-              consumers save money and make smarter online purchasing decisions.
+              Getyourcodes is owned and operated by Pixorads, our parent company focused on building digital products
+              that help consumers save money and make smarter online purchasing decisions.
             </p>
           </div>
         </div>
@@ -96,7 +96,8 @@ function AboutPage() {
               by sites cluttered with expired codes. We're building the experience we always wanted: clean, fast, honest, and free.
             </p>
             <p className="mt-3 text-muted-foreground">
-              We work with brands and affiliate partners to bring you offers worth your time.
+              Offers are imported and maintained through our affiliate network integrations, then reviewed and
+              presented in a clean, searchable experience.
             </p>
 
           </div>
