@@ -9,9 +9,12 @@ type Props = {
   store?: Pick<Store, "name" | "logo_url" | "slug"> & { country?: string | null };
   /** Highlights the strongest offer from a store. */
   best?: boolean;
+  /** "row" = horizontal list row (default), "tile" = compact vertical card. */
+  variant?: "row" | "tile";
 };
 
-export function CouponCard({ coupon, store, best }: Props) {
+export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
+
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
