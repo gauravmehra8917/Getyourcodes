@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { sb, type Coupon, type Store } from "@/lib/db";
 import { CouponCard } from "@/components/coupon-card";
@@ -29,6 +29,8 @@ export function RecommendedForYou() {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  const scroller = useRef<HTMLDivElement>(null);
 
   const rec = useQuery({
     queryKey: ["recommendations", userId],
@@ -107,11 +109,11 @@ export function RecommendedForYou() {
   if (!ready || !userId) return null;
   if (rec.isLoading) {
     return (
-      <section>
+      <section className="py-14 sm:py-16">
         <Header />
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="flex gap-4 overflow-hidden">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl bg-secondary/50" />
+            <div key={i} className="h-52 w-[260px] shrink-0 animate-pulse rounded-2xl bg-secondary/50" />
           ))}
         </div>
       </section>
@@ -120,21 +122,30 @@ export function RecommendedForYou() {
   if (!rec.data || rec.data.length === 0) return null;
 
   return (
-    <section>
-      <Header />
-      <div className="grid gap-3 lg:grid-cols-2">
+    <section className="py-14 sm:py-16">
+      <Header scroller={scroller} />
+      <div
+        ref={scroller}
+        className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-4 pb-2 sm:mx-0 sm:px-0"
+      >
         {rec.data.map((c) => (
-          <CouponCard key={c.id} coupon={c} store={c.stores ?? undefined} />
+          <div key={c.id} className="w-[260px] shrink-0 snap-start sm:w-[280px]">
+            <CouponCard coupon={c} store={c.stores ?? undefined} variant="tile" />
+          </div>
         ))}
       </div>
     </section>
   );
 }
 
-function Header() {
+function Header({ scroller }: { scroller?: React.RefObject<HTMLDivElement | null> }) {
+  const nudge = (dir: -1 | 1) => {
+    const el = scroller?.current;
+    if (el) el.scrollBy({ left: dir * (el.clientWidth * 0.8), behavior: "smooth" });
+  };
   return (
-    <div className="mb-6 flex items-end justify-between gap-4">
-      <div>
+    <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
+      <div className="min-w-0">
         <h2 className="flex items-center gap-2 font-display text-2xl font-bold sm:text-3xl">
           <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-primary to-accent-foreground text-primary-foreground">
             <Sparkles className="h-4 w-4" />
@@ -145,6 +156,16 @@ function Header() {
           Based on the stores you've saved and deals you've explored.
         </p>
       </div>
+      {scroller && (
+        <div className="hidden shrink-0 gap-2 sm:flex">
+          <button type="button" aria-label="Scroll recommendations left" onClick={() => nudge(-1)} className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-hover hover:text-foreground">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button type="button" aria-label="Scroll recommendations right" onClick={() => nudge(1)} className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-hover hover:text-foreground">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
