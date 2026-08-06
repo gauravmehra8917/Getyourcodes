@@ -150,6 +150,8 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
           {isDeal ? "Get Deal" : "Get Code"}
         </button>
       </article>
+      )}
+
 
       {open && !isDeal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={() => setOpen(false)}>
