@@ -188,7 +188,7 @@ function HomePage() {
       {/* FEATURED DEALS — hero section of the page */}
       <section className="relative overflow-hidden border-y border-border bg-surface/60">
         <div className="pointer-events-none absolute -left-24 top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-        <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
+        <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16">
           <SectionHeading
             icon={<Gift className="h-5 w-5" />}
             title="Featured Deals"
@@ -310,7 +310,7 @@ function HomePage() {
       {/* BLOG — image led, one lead post */}
       {blogPosts.data && blogPosts.data.length > 0 && (
         <section className="border-t border-border bg-surface/40">
-          <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
+          <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16">
             <SectionHeading
               title="Latest Blog Posts"
               subtitle="Guides, deal alerts, and stories"
@@ -375,7 +375,7 @@ function HomePage() {
       )}
 
       {/* Newsletter strip */}
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
+      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16">
         <NewsletterStrip />
       </div>
     </div>
