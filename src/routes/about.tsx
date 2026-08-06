@@ -96,7 +96,8 @@ function AboutPage() {
               by sites cluttered with expired codes. We're building the experience we always wanted: clean, fast, honest, and free.
             </p>
             <p className="mt-3 text-muted-foreground">
-              We work with brands and affiliate partners to bring you offers worth your time.
+              Offers are imported and maintained through our affiliate network integrations, then reviewed and
+              presented in a clean, searchable experience.
             </p>
 
           </div>

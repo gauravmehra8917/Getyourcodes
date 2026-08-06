@@ -24,7 +24,8 @@ function ContactPage() {
         </span>
         <h1 className="mt-4 font-display text-4xl font-bold sm:text-5xl">Let's talk.</h1>
         <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-          Whether you're a brand looking to partner with us, a shopper with feedback, or a media inquiry — we'd love to hear from you.
+          Getyourcodes is owned and operated by Pixorads. Whether you're a brand looking to partner with us, a shopper
+          with feedback, or a media inquiry — we'd love to hear from you.
         </p>
       </section>
 
