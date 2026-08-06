@@ -42,7 +42,59 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
 
   return (
     <>
+      {variant === "tile" ? (
+        <article
+          id={coupon.id}
+          className={`group flex h-full flex-col rounded-2xl border bg-card p-4 transition hover:-translate-y-0.5 hover:shadow-md ${
+            best ? "border-primary/60 ring-1 ring-primary/20" : "border-border hover:border-primary/30"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            {store?.logo_url ? (
+              <img src={store.logo_url} alt={`${store.name} official store logo`} width={40} height={40} loading="lazy" decoding="async" className="h-10 w-10 shrink-0 rounded-lg border border-border bg-background object-contain p-1" />
+            ) : (
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
+                <Tag className="h-4 w-4" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-muted-foreground">{store?.name ?? "Offer"}</p>
+              <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${isDeal ? "bg-success-soft text-success" : "bg-primary-soft text-primary"}`}>
+                {isDeal ? <><Percent className="h-3 w-3" /> Deal</> : <><Tag className="h-3 w-3" /> Code</>}
+              </span>
+            </div>
+            {discount && (
+              <span className="shrink-0 rounded-full bg-foreground px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-background">
+                {discount}
+              </span>
+            )}
+          </div>
+
+          <h3 className="mt-3 line-clamp-2 text-sm font-semibold leading-snug text-foreground">{coupon.title}</h3>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {!isDeal && coupon.coupon_code && (
+              <span className="rounded-md border border-dashed border-primary/40 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-primary">
+                {coupon.coupon_code.length > 3 ? `${coupon.coupon_code.slice(0, 3)}•••` : coupon.coupon_code}
+              </span>
+            )}
+            {expiry && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Calendar className="h-3 w-3" /> {expiry}
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={handleClick}
+            className="mt-4 w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+          >
+            {isDeal ? "Get Deal" : "Get Code"}
+          </button>
+        </article>
+      ) : (
       <article
+
         id={coupon.id}
         className={`group flex items-center gap-4 rounded-2xl border bg-card p-4 transition hover:shadow-sm sm:p-5 ${
           best ? "border-primary/60 ring-1 ring-primary/20" : "border-border hover:border-primary/30"
