@@ -248,6 +248,59 @@ function toCsv(report: SyncRunReport) {
 }
 
 
+function PublishingSummaryPanel({ summary }: { summary: NonNullable<SyncRunReport["publishing"]> }) {
+  const total = summary.couponsFetched + summary.dealsFetched;
+  const published = summary.couponsPublished + summary.dealsPublished;
+  const held = summary.couponsHeld + summary.dealsHeld;
+  return (
+    <Section title={`Publishing policy — ${summary.policyName}${summary.applied ? "" : " (disabled)"}`}>
+      <Row label="Offers Evaluated" value={total} />
+      <Row label="Published" value={<span className="font-semibold text-emerald-700">{published}</span>} />
+      <Row label="Held Back" value={<span className="font-semibold text-amber-700">{held}</span>} />
+      <Row label="Coupons (published / held)" value={`${summary.couponsPublished} / ${summary.couponsHeld}`} />
+      <Row label="Deals (published / held)" value={`${summary.dealsPublished} / ${summary.dealsHeld}`} />
+      <Row label="Stores Covered" value={summary.storesCovered} />
+      <Row label="Avg Offers per Store" value={`${summary.averageCouponsPerStore} coupons · ${summary.averageDealsPerStore} deals`} />
+      <Row label="Coverage" value={`${summary.coveragePercent}%`} />
+      {summary.holdReasons.length > 0 && (
+        <Row
+          label="Hold Reasons"
+          value={
+            <span className="text-slate-700">
+              {summary.holdReasons.slice(0, 5).map((r) => `${r.reason} (${r.count})`).join("; ")}
+            </span>
+          }
+        />
+      )}
+      {summary.distribution.length > 0 && (
+        <div className="mt-2 max-h-48 overflow-auto rounded border border-slate-200 bg-white">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-100 text-slate-600">
+              <tr>
+                <th className="px-2 py-1">Store</th>
+                <th className="px-2 py-1">Coupons</th>
+                <th className="px-2 py-1">Deals</th>
+                <th className="px-2 py-1">Held</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.distribution.map((d) => (
+                <tr key={d.storeKey} className="border-t border-slate-100">
+                  <td className="px-2 py-1 text-slate-800">{d.storeName}</td>
+                  <td className="px-2 py-1">{d.couponsPublished}</td>
+                  <td className="px-2 py-1">{d.dealsPublished}</td>
+                  <td className="px-2 py-1 text-amber-700">{d.couponsHeld + d.dealsHeld}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+
 export function ImportResultModal({
   title,
   running,
@@ -312,6 +365,8 @@ export function ImportResultModal({
               )}
 
               <IdentitySummaryTable rows={report.identity} />
+
+              {report.publishing && <PublishingSummaryPanel summary={report.publishing} />}
 
               {report.logos && (
                 <Section title="Merchant logos">

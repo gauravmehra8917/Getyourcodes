@@ -47,7 +47,7 @@ function ForgotPasswordPage() {
             If an account exists for <strong>{email}</strong>, a reset link is on its way.
             Check your inbox (and spam folder).
           </p>
-          <button onClick={() => navigate({ to: "/auth" })} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <button onClick={() => navigate({ to: "/auth", search: { next: undefined } })} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> Back to sign in
           </button>
         </div>
@@ -68,7 +68,7 @@ function ForgotPasswordPage() {
             {loading ? "Sending…" : "Send reset link"}
           </button>
 
-          <Link to="/auth" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <Link to="/auth" search={{ next: undefined }} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> Back to sign in
           </Link>
         </form>

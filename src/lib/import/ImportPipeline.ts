@@ -9,6 +9,7 @@ import { logImportSummary } from "./ImportLogger";
 import { planTotals, type ImportPlan } from "./ImportPlan";
 import { ImportPlanner, type ExistingData } from "./ImportPlanner";
 import type { ImportResult } from "./ImportResult";
+import type { PolicyContext, PublishingPolicy, PublishingSummary } from "@/lib/publishing-policy";
 import { emptyImportStatistics } from "./ImportStatistics";
 
 export interface ImportOptions {
@@ -16,6 +17,10 @@ export interface ImportOptions {
   preview?: boolean;
   /** Pre-loaded existing rows (mainly for tests); loaded from the DB otherwise. */
   existing?: ExistingData;
+  /** Publishing policy applied after deduplication, before persistence. */
+  policy?: PublishingPolicy;
+  /** Rotation cursors, merchant priority and manual-disable hints. */
+  policyContext?: PolicyContext;
 }
 
 async function loadExisting(provider: string): Promise<ExistingData> {
@@ -57,6 +62,8 @@ export async function runImport(
   const warnings: string[] = [];
   let plan: ImportPlan;
   let committed = false;
+  let publishing: PublishingSummary | null = null;
+  let rotationCursors: Record<string, number> = {};
 
   // ── Stage A: identical for preview and run ────────────────────────────────
   // existing rows + planning + validation happen exactly once, the same way in
@@ -82,6 +89,20 @@ export async function runImport(
   }
   if (plan.skipped.length) {
     warnings.push(`${plan.skipped.length} record(s) skipped`);
+  }
+
+  // ── Publishing Policy Engine (provider-agnostic, pre-database) ────────────
+  if (options.policy) {
+    const { applyPublishingPolicy } = await import("@/lib/publishing-policy");
+    const outcome = applyPublishingPolicy(plan, options.policy, options.policyContext ?? {});
+    plan = outcome.plan;
+    publishing = outcome.summary;
+    rotationCursors = outcome.rotationCursors;
+    const heldTotal = publishing.couponsHeld + publishing.dealsHeld;
+    if (heldTotal > 0) {
+      warnings.push(`${heldTotal} offer(s) held back by publishing policy "${publishing.policyName}"`);
+    }
+    statistics.skipped += heldTotal;
   }
 
   const totals = planTotals(plan);
@@ -123,6 +144,8 @@ export async function runImport(
     finishedAt: new Date().toISOString(),
     plan,
     statistics,
+    publishing,
+    rotationCursors,
     warnings,
     errors,
   };

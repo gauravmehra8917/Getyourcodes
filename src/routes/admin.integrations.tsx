@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { ImportResultModal } from "@/components/admin/import-result-modal";
-import { runProviderSync, type SyncRunReport } from "@/lib/sync-execution.functions";
+import { runProviderSync, getImportHistory, type SyncRunReport } from "@/lib/sync-execution.functions";
+import { listPublishingPolicies, setIntegrationPolicy } from "@/lib/publishing-policies.functions";
 import { syncStoreLogos, type LogoSyncReport } from "@/lib/presentation.functions";
 import { IntegrationWizard, type IntegrationRecord as WizardRecord } from "@/components/admin/integration-wizard";
 import {
@@ -858,13 +859,16 @@ function DetailsDrawer({
   rec, initialTab, onClose, onTest, onEdit,
 }: {
   rec: IntegrationRecord;
-  initialTab: "overview" | "history" | "audit";
+  initialTab: "overview" | "history" | "audit" | "imports";
   onClose: () => void;
   onTest: () => void;
   onEdit: () => void;
 }) {
   const [tab, setTab] = useState(initialTab);
   const historyFn = useServerFn(getTestHistory);
+  const importsFn = useServerFn(getImportHistory);
+  const policiesFn = useServerFn(listPublishingPolicies);
+  const assignPolicyFn = useServerFn(setIntegrationPolicy);
   const auditFn = useServerFn(getAuditHistory);
   const credsFn = useServerFn(getMaskedCredentials);
 
@@ -878,6 +882,20 @@ function DetailsDrawer({
     queryFn: () => auditFn({ data: { id: rec.id } }) as Promise<any[]>,
     enabled: tab === "audit",
   });
+  const importsQ = useQuery({
+    queryKey: ["integration-imports", rec.id],
+    queryFn: () => importsFn({ data: { integrationId: rec.id } }),
+    enabled: tab === "imports",
+  });
+  const policiesQ = useQuery({
+    queryKey: ["admin-publishing-policies"],
+    queryFn: () => policiesFn(),
+    enabled: tab === "overview",
+  });
+  const [policyId, setPolicyId] = useState<string>(
+    ((rec as unknown as { publishing_policy_id?: string | null }).publishing_policy_id ?? "") || "",
+  );
+
   const credsQ = useQuery({
     queryKey: ["integration-masked-creds", rec.id],
     queryFn: () => credsFn({ data: { id: rec.id } }) as Promise<Record<string, string>>,
@@ -908,13 +926,13 @@ function DetailsDrawer({
         </div>
 
         <div className="flex gap-1 border-b border-slate-200 px-3 pt-2">
-          {(["overview", "history", "audit"] as const).map((t) => (
+          {(["overview", "history", "imports", "audit"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`rounded-t px-3 py-2 text-sm font-medium ${tab === t ? "border-b-2 border-slate-800 text-slate-800" : "text-slate-500 hover:text-slate-700"}`}
             >
-              {t === "overview" ? "Overview" : t === "history" ? "Test History" : "Audit"}
+              {t === "overview" ? "Overview" : t === "history" ? "Test History" : t === "imports" ? "Imports" : "Audit"}
             </button>
           ))}
         </div>
@@ -940,6 +958,30 @@ function DetailsDrawer({
                 {Object.entries(endpoints).filter(([, v]) => v).map(([k, v]) => (
                   <KV key={k} k={`Endpoint · ${k}`} v={v} />
                 ))}
+              </Section>
+              <Section title="Publishing Policy">
+                <select
+                  aria-label="Publishing policy for this integration"
+                  value={policyId}
+                  onChange={async (e) => {
+                    const v = e.target.value;
+                    setPolicyId(v);
+                    await assignPolicyFn({ data: { integrationId: rec.id, policyId: v || null } });
+                  }}
+                  className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm text-slate-800"
+                >
+                  <option value="">Global default policy</option>
+                  {(policiesQ.data ?? []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.is_default ? " (default)" : ""}
+                      {p.enabled ? "" : " — disabled"}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-slate-500">
+                  Applied after deduplication and before anything is published to the catalog.
+                </p>
               </Section>
               <Section title="Credentials (masked)">
                 {credsQ.isLoading ? (
@@ -972,6 +1014,34 @@ function DetailsDrawer({
                     <div><span className="text-slate-400">Auth</span> {authLabel(h.auth_status)}</div>
                   </div>
                   {h.message && <div className="mt-1 text-xs text-slate-500">{h.message}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tab === "imports" && (
+            <div className="space-y-2 text-sm">
+              {importsQ.isLoading && <div className="text-slate-500">Loading import history…</div>}
+              {importsQ.data && importsQ.data.length === 0 && (
+                <div className="rounded border border-dashed border-slate-200 p-6 text-center text-slate-500">No imports recorded yet.</div>
+              )}
+              {importsQ.data?.map((r) => (
+                <div key={r.id} className="rounded border border-slate-200 p-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${r.success ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                      {r.preview ? "Preview" : "Import"} · {r.success ? "Success" : "Failed"}
+                    </span>
+                    <span className="text-xs text-slate-500">{new Date(r.started_at).toLocaleString()}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs text-slate-600">
+                    <div><span className="text-slate-400">Created</span> {r.records_created}</div>
+                    <div><span className="text-slate-400">Updated</span> {r.records_updated}</div>
+                    <div><span className="text-slate-400">Skipped</span> {r.records_skipped}</div>
+                    <div><span className="text-slate-400">Published</span> {Math.max(0, r.records_created + r.records_updated)}</div>
+                    <div><span className="text-slate-400">Held</span> <span className="text-amber-700">{r.records_held ?? 0}</span></div>
+                    <div><span className="text-slate-400">Policy</span> {r.policy_name ?? "—"}</div>
+                  </div>
+                  {r.error_message && <div className="mt-1 text-xs text-rose-600">{r.error_message}</div>}
                 </div>
               ))}
             </div>

@@ -321,6 +321,7 @@ function HomePage() {
                 <Link
                   key={p.id}
                   to="/blog/$slug"
+                  search={{ page: 1 }}
                   params={{ slug: p.slug }}
                   className="group relative flex min-h-[280px] flex-col justify-end overflow-hidden rounded-3xl border border-border bg-card"
                 >
@@ -345,6 +346,7 @@ function HomePage() {
                   <Link
                     key={p.id}
                     to="/blog/$slug"
+                  search={{ page: 1 }}
                     params={{ slug: p.slug }}
                     className="group flex gap-4 overflow-hidden rounded-2xl border border-border bg-card p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                   >

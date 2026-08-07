@@ -71,6 +71,8 @@ export interface ImportRunRow {
   validation_errors: number;
   warnings: number;
   error_message: string | null;
+  policy_name: string | null;
+  records_held: number;
 }
 
 export interface SyncRunReport {
@@ -128,6 +130,8 @@ export interface SyncRunReport {
     offersWithDescription: number;
     offersWithTerms: number;
   } | null;
+  /** Publishing Policy Engine outcome (held vs published). */
+  publishing: import("@/lib/publishing-policy").PublishingSummary | null;
   messages: string[];
   error: string | null;
 
@@ -293,6 +297,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
       presentation: [],
       logos: null,
       coverage: null,
+      publishing: null,
 
       messages: [],
       error: null,
@@ -319,7 +324,27 @@ export const runProviderSync = createServerFn({ method: "POST" })
       report.syncErrors = sync.errors.map((e) => `[${e.entity ?? "run"}] ${e.message}`);
       report.syncWarnings = sync.warnings.map((w) => `[${w.entity ?? "run"}] ${w.message}`);
 
-      const imported = await runImport(sync, { preview: data.preview });
+      // Publishing Policy Engine: resolve the policy for this integration and
+      // hand it to the import pipeline (applied after dedupe, before writes).
+      const { loadPolicyForIntegration, loadPolicyContext, saveRotationState } = await import(
+        "@/lib/publishing-policy/PolicyLoader.server"
+      );
+      let policy = null as Awaited<ReturnType<typeof loadPolicyForIntegration>> | null;
+      let policyContext = {};
+      try {
+        policy = await loadPolicyForIntegration(data.integrationId);
+        policyContext = await loadPolicyContext(policy, sync.provider);
+      } catch (err) {
+        report.syncWarnings.push(
+          `[policy] could not load publishing policy: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        policy = null;
+      }
+
+      const imported = await runImport(sync, {
+        preview: data.preview,
+        ...(policy ? { policy, policyContext } : {}),
+      });
       const body = imported.body;
       if (body) {
         const p = body.plan;
@@ -349,6 +374,10 @@ export const runProviderSync = createServerFn({ method: "POST" })
         report.conflicts = toIssues(p.conflicts);
         report.identity = p.identity.map((row) => ({ ...row }));
         report.presentation = buildPresentation(p);
+        report.publishing = body.publishing;
+        if (policy && !data.preview && body.committed) {
+          await saveRotationState(policy, sync.provider, body.rotationCursors);
+        }
         report.messages = body.warnings;
       }
       if (!imported.success) report.error = imported.error?.message ?? "Import failed";
@@ -405,7 +434,8 @@ export const runProviderSync = createServerFn({ method: "POST" })
 
     const stats = report.statistics;
     try {
-      await supabaseAdmin.from("affiliate_import_runs").insert({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabaseAdmin as any).from("affiliate_import_runs").insert({
         integration_id: data.integrationId,
         provider: report.provider,
         preview: data.preview,
@@ -420,6 +450,10 @@ export const runProviderSync = createServerFn({ method: "POST" })
         warnings: report.messages.length,
         error_message: report.error,
         statistics: stats ?? {},
+        policy_id: report.publishing?.policyId ?? null,
+        policy_name: report.publishing?.policyName ?? null,
+        records_held: (report.publishing?.couponsHeld ?? 0) + (report.publishing?.dealsHeld ?? 0),
+        publishing_summary: report.publishing ?? null,
         triggered_by: ctx.userId,
       });
     } catch {
@@ -439,7 +473,7 @@ export const getImportHistory = createServerFn({ method: "GET" })
     const { data: rows, error } = await ctx.supabase
       .from("affiliate_import_runs")
       .select(
-        "id, provider, preview, started_at, finished_at, duration_ms, success, records_processed, records_created, records_updated, records_skipped, validation_errors, warnings, error_message",
+        "id, provider, preview, started_at, finished_at, duration_ms, success, records_processed, records_created, records_updated, records_skipped, validation_errors, warnings, error_message, policy_name, records_held",
       )
       .eq("integration_id", data.integrationId)
       .order("started_at", { ascending: false })
