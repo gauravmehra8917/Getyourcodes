@@ -432,7 +432,8 @@ export const runProviderSync = createServerFn({ method: "POST" })
 
     const stats = report.statistics;
     try {
-      await supabaseAdmin.from("affiliate_import_runs").insert({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabaseAdmin as any).from("affiliate_import_runs").insert({
         integration_id: data.integrationId,
         provider: report.provider,
         preview: data.preview,
@@ -450,7 +451,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
         policy_id: report.publishing?.policyId ?? null,
         policy_name: report.publishing?.policyName ?? null,
         records_held: (report.publishing?.couponsHeld ?? 0) + (report.publishing?.dealsHeld ?? 0),
-        publishing_summary: (report.publishing ?? null) as unknown as Record<string, unknown> | null,
+        publishing_summary: report.publishing ?? null,
         triggered_by: ctx.userId,
       });
     } catch {
