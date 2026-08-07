@@ -162,19 +162,19 @@ export function applyPublishingPolicy(
         endDate: s.endDate,
         now,
       });
-      if (policy.skipExpired && status === "expired") {
-        hold(held, o, "expired offer");
-      } else if (policy.publishOnlyActive && status !== "active") {
-        hold(held, o, `offer is not active (${status})`);
-      } else if (policy.respectManualDisable && o.record.existingId && disabled.has(o.record.existingId)) {
-        hold(held, o, "manually disabled by an administrator");
-      } else {
-        eligible.push(o);
-      }
-      if (!eligible.includes(o)) {
+      let reason: string | null = null;
+      if (policy.skipExpired && status === "expired") reason = "expired offer";
+      else if (policy.publishOnlyActive && status !== "active") reason = `offer is not active (${status})`;
+      else if (policy.respectManualDisable && o.record.existingId && disabled.has(o.record.existingId))
+        reason = "manually disabled by an administrator";
+
+      if (reason) {
+        hold(held, o, reason);
         const r = row(o);
         if (kind === "coupon") r.couponsHeld++;
         else r.dealsHeld++;
+      } else {
+        eligible.push(o);
       }
     }
 
