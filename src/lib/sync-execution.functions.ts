@@ -450,7 +450,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
         policy_id: report.publishing?.policyId ?? null,
         policy_name: report.publishing?.policyName ?? null,
         records_held: (report.publishing?.couponsHeld ?? 0) + (report.publishing?.dealsHeld ?? 0),
-        publishing_summary: report.publishing ?? null,
+        publishing_summary: (report.publishing ?? null) as unknown as Record<string, unknown> | null,
         triggered_by: ctx.userId,
       });
     } catch {
