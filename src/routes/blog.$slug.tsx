@@ -47,7 +47,7 @@ export const Route = createFileRoute("/blog/$slug")({
   notFoundComponent: () => (
     <div className="mx-auto max-w-2xl px-4 py-20 text-center">
       <h1 className="font-display text-4xl font-bold">Post not found</h1>
-      <Link to="/blog" className="mt-6 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Back to blog</Link>
+      <Link to="/blog" search={{ page: 1 }} className="mt-6 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Back to blog</Link>
     </div>
   ),
 });
@@ -56,7 +56,7 @@ function BlogPost() {
   const post = Route.useLoaderData();
   return (
     <article className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <Link to="/blog" className="text-sm text-muted-foreground hover:text-primary">← Back to blog</Link>
+      <Link to="/blog" search={{ page: 1 }} className="text-sm text-muted-foreground hover:text-primary">← Back to blog</Link>
       <header className="mt-6">
         {post.published_at && <time className="text-xs uppercase tracking-wide text-muted-foreground">{new Date(post.published_at).toLocaleDateString()}</time>}
         <h1 className="mt-2 font-display text-4xl font-bold leading-tight sm:text-5xl">{post.title}</h1>

@@ -229,6 +229,7 @@ function SignedOutState() {
       </p>
       <Link
         to="/auth"
+        search={{}}
         className="mt-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
       >
         Sign in

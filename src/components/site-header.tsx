@@ -172,6 +172,7 @@ export function SiteHeader() {
           ) : (
             <Link
               to="/auth"
+              search={{}}
               className="focus-ring ml-1 inline-flex h-9 items-center whitespace-nowrap rounded-full bg-primary px-3.5 text-[0.8125rem] sm:h-10 sm:px-4 sm:text-sm font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90"
             >
               Sign in

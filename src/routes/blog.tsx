@@ -56,7 +56,7 @@ function BlogIndex() {
       ) : (
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
           {posts.map((p) => (
-            <Link key={p.id} to="/blog/$slug" params={{ slug: p.slug }} className="group block overflow-hidden rounded-2xl border border-border bg-card transition hover:-translate-y-1 hover:shadow-lg">
+            <Link key={p.id} to="/blog/$slug" search={{ page: 1 }} params={{ slug: p.slug }} className="group block overflow-hidden rounded-2xl border border-border bg-card transition hover:-translate-y-1 hover:shadow-lg">
               {p.cover_image && <img src={p.cover_image} alt={p.title} loading="lazy" className="aspect-[16/9] w-full object-cover" />}
               <div className="p-5">
                 {p.published_at && <time className="text-xs uppercase tracking-wide text-muted-foreground">{new Date(p.published_at).toLocaleDateString()}</time>}
