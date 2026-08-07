@@ -88,6 +88,8 @@ export type Database = {
           finished_at: string | null
           id: string
           integration_id: string
+          policy_id: string | null
+          policy_name: string | null
           preview: boolean
           provider: string
           publishing_policy_id: string | null
@@ -113,6 +115,8 @@ export type Database = {
           finished_at?: string | null
           id?: string
           integration_id: string
+          policy_id?: string | null
+          policy_name?: string | null
           preview?: boolean
           provider: string
           publishing_policy_id?: string | null
@@ -138,6 +142,8 @@ export type Database = {
           finished_at?: string | null
           id?: string
           integration_id?: string
+          policy_id?: string | null
+          policy_name?: string | null
           preview?: boolean
           provider?: string
           publishing_policy_id?: string | null
