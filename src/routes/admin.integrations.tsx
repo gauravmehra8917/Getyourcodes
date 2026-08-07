@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { ImportResultModal } from "@/components/admin/import-result-modal";
-import { runProviderSync, type SyncRunReport } from "@/lib/sync-execution.functions";
+import { runProviderSync, getImportHistory, type SyncRunReport } from "@/lib/sync-execution.functions";
+import { listPublishingPolicies, setIntegrationPolicy } from "@/lib/publishing-policies.functions";
 import { syncStoreLogos, type LogoSyncReport } from "@/lib/presentation.functions";
 import { IntegrationWizard, type IntegrationRecord as WizardRecord } from "@/components/admin/integration-wizard";
 import {
