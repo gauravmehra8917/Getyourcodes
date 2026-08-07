@@ -90,8 +90,13 @@ export type Database = {
           integration_id: string
           preview: boolean
           provider: string
+          publishing_policy_id: string | null
+          publishing_policy_name: string | null
+          publishing_summary: Json
           records_created: number
+          records_held: number
           records_processed: number
+          records_published: number
           records_skipped: number
           records_updated: number
           started_at: string
@@ -110,8 +115,13 @@ export type Database = {
           integration_id: string
           preview?: boolean
           provider: string
+          publishing_policy_id?: string | null
+          publishing_policy_name?: string | null
+          publishing_summary?: Json
           records_created?: number
+          records_held?: number
           records_processed?: number
+          records_published?: number
           records_skipped?: number
           records_updated?: number
           started_at?: string
@@ -130,8 +140,13 @@ export type Database = {
           integration_id?: string
           preview?: boolean
           provider?: string
+          publishing_policy_id?: string | null
+          publishing_policy_name?: string | null
+          publishing_summary?: Json
           records_created?: number
+          records_held?: number
           records_processed?: number
+          records_published?: number
           records_skipped?: number
           records_updated?: number
           started_at?: string
@@ -147,6 +162,13 @@ export type Database = {
             columns: ["integration_id"]
             isOneToOne: false
             referencedRelation: "affiliate_integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_import_runs_publishing_policy_id_fkey"
+            columns: ["publishing_policy_id"]
+            isOneToOne: false
+            referencedRelation: "publishing_policies"
             referencedColumns: ["id"]
           },
         ]
@@ -249,6 +271,7 @@ export type Database = {
           last_tested_at: string | null
           provider_name: string
           provider_type: string
+          publishing_policy_id: string | null
           retry_attempts: number
           status: string
           timeout_seconds: number
@@ -272,6 +295,7 @@ export type Database = {
           last_tested_at?: string | null
           provider_name: string
           provider_type: string
+          publishing_policy_id?: string | null
           retry_attempts?: number
           status?: string
           timeout_seconds?: number
@@ -295,12 +319,21 @@ export type Database = {
           last_tested_at?: string | null
           provider_name?: string
           provider_type?: string
+          publishing_policy_id?: string | null
           retry_attempts?: number
           status?: string
           timeout_seconds?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_integrations_publishing_policy_id_fkey"
+            columns: ["publishing_policy_id"]
+            isOneToOne: false
+            referencedRelation: "publishing_policies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       blog_categories: {
         Row: {
@@ -852,6 +885,113 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      publishing_policies: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          fair_distribution: boolean
+          id: string
+          is_default: boolean
+          max_coupons_per_store: number
+          max_deals_per_store: number
+          min_coupons_per_store: number
+          min_deals_per_store: number
+          name: string
+          never_overwrite_admin_edits: boolean
+          preview_before_import: boolean
+          publish_only_active: boolean
+          ranking_priority: string[]
+          respect_manual_disable: boolean
+          rotation: boolean
+          skip_duplicate_identities: boolean
+          skip_expired: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          fair_distribution?: boolean
+          id?: string
+          is_default?: boolean
+          max_coupons_per_store?: number
+          max_deals_per_store?: number
+          min_coupons_per_store?: number
+          min_deals_per_store?: number
+          name: string
+          never_overwrite_admin_edits?: boolean
+          preview_before_import?: boolean
+          publish_only_active?: boolean
+          ranking_priority?: string[]
+          respect_manual_disable?: boolean
+          rotation?: boolean
+          skip_duplicate_identities?: boolean
+          skip_expired?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          fair_distribution?: boolean
+          id?: string
+          is_default?: boolean
+          max_coupons_per_store?: number
+          max_deals_per_store?: number
+          min_coupons_per_store?: number
+          min_deals_per_store?: number
+          name?: string
+          never_overwrite_admin_edits?: boolean
+          preview_before_import?: boolean
+          publish_only_active?: boolean
+          ranking_priority?: string[]
+          respect_manual_disable?: boolean
+          rotation?: boolean
+          skip_duplicate_identities?: boolean
+          skip_expired?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      publishing_rotation_state: {
+        Row: {
+          created_at: string
+          cursor: number
+          id: string
+          policy_id: string
+          provider: string
+          store_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cursor?: number
+          id?: string
+          policy_id: string
+          provider: string
+          store_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cursor?: number
+          id?: string
+          policy_id?: string
+          provider?: string
+          store_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publishing_rotation_state_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "publishing_policies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       saved_coupons: {
         Row: {
