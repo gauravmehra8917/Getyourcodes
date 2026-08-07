@@ -42,6 +42,7 @@ import { Route as AdminSlidersRouteImport } from './routes/admin.sliders'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
+import { Route as AdminPublishingPoliciesRouteImport } from './routes/admin.publishing-policies'
 import { Route as AdminPostsRouteImport } from './routes/admin.posts'
 import { Route as AdminPagesRouteImport } from './routes/admin.pages'
 import { Route as AdminNewslettersRouteImport } from './routes/admin.newsletters'
@@ -237,6 +238,11 @@ const AdminReportsRoute = AdminReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPublishingPoliciesRoute = AdminPublishingPoliciesRouteImport.update({
+  id: '/publishing-policies',
+  path: '/publishing-policies',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPostsRoute = AdminPostsRouteImport.update({
   id: '/posts',
   path: '/posts',
@@ -427,6 +433,7 @@ export interface FileRoutesByFullPath {
   '/admin/newsletters': typeof AdminNewslettersRoute
   '/admin/pages': typeof AdminPagesRoute
   '/admin/posts': typeof AdminPostsRouteWithChildren
+  '/admin/publishing-policies': typeof AdminPublishingPoliciesRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -488,6 +495,7 @@ export interface FileRoutesByTo {
   '/admin/menus': typeof AdminMenusRoute
   '/admin/newsletters': typeof AdminNewslettersRoute
   '/admin/pages': typeof AdminPagesRoute
+  '/admin/publishing-policies': typeof AdminPublishingPoliciesRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -552,6 +560,7 @@ export interface FileRoutesById {
   '/admin/newsletters': typeof AdminNewslettersRoute
   '/admin/pages': typeof AdminPagesRoute
   '/admin/posts': typeof AdminPostsRouteWithChildren
+  '/admin/publishing-policies': typeof AdminPublishingPoliciesRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -618,6 +627,7 @@ export interface FileRouteTypes {
     | '/admin/newsletters'
     | '/admin/pages'
     | '/admin/posts'
+    | '/admin/publishing-policies'
     | '/admin/reports'
     | '/admin/reviews'
     | '/admin/settings'
@@ -679,6 +689,7 @@ export interface FileRouteTypes {
     | '/admin/menus'
     | '/admin/newsletters'
     | '/admin/pages'
+    | '/admin/publishing-policies'
     | '/admin/reports'
     | '/admin/reviews'
     | '/admin/settings'
@@ -742,6 +753,7 @@ export interface FileRouteTypes {
     | '/admin/newsletters'
     | '/admin/pages'
     | '/admin/posts'
+    | '/admin/publishing-policies'
     | '/admin/reports'
     | '/admin/reviews'
     | '/admin/settings'
@@ -1030,6 +1042,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/admin/reports'
       preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/publishing-policies': {
+      id: '/admin/publishing-policies'
+      path: '/publishing-policies'
+      fullPath: '/admin/publishing-policies'
+      preLoaderRoute: typeof AdminPublishingPoliciesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/posts': {
@@ -1333,6 +1352,7 @@ interface AdminRouteChildren {
   AdminNewslettersRoute: typeof AdminNewslettersRoute
   AdminPagesRoute: typeof AdminPagesRoute
   AdminPostsRoute: typeof AdminPostsRouteWithChildren
+  AdminPublishingPoliciesRoute: typeof AdminPublishingPoliciesRoute
   AdminReportsRoute: typeof AdminReportsRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
@@ -1360,6 +1380,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminNewslettersRoute: AdminNewslettersRoute,
   AdminPagesRoute: AdminPagesRoute,
   AdminPostsRoute: AdminPostsRouteWithChildren,
+  AdminPublishingPoliciesRoute: AdminPublishingPoliciesRoute,
   AdminReportsRoute: AdminReportsRoute,
   AdminReviewsRoute: AdminReviewsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
