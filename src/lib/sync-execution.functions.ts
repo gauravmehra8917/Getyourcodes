@@ -71,6 +71,8 @@ export interface ImportRunRow {
   validation_errors: number;
   warnings: number;
   error_message: string | null;
+  policy_name: string | null;
+  records_held: number;
 }
 
 export interface SyncRunReport {
@@ -471,7 +473,7 @@ export const getImportHistory = createServerFn({ method: "GET" })
     const { data: rows, error } = await ctx.supabase
       .from("affiliate_import_runs")
       .select(
-        "id, provider, preview, started_at, finished_at, duration_ms, success, records_processed, records_created, records_updated, records_skipped, validation_errors, warnings, error_message",
+        "id, provider, preview, started_at, finished_at, duration_ms, success, records_processed, records_created, records_updated, records_skipped, validation_errors, warnings, error_message, policy_name, records_held",
       )
       .eq("integration_id", data.integrationId)
       .order("started_at", { ascending: false })
