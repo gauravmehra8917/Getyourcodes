@@ -31,6 +31,7 @@ function batch<T>(items: T[]): StandardResponse<NormalizationBatch<T>> {
 
 function makeAdapter(pages: Array<ProviderResult<RawOffer[]>>) {
   const couponPages: number[] = [];
+  const storePages: number[] = [];
   const adapter = {
     providerKey: "test-provider",
     getConfig: () => ({ id: "test-integration", providerName: "test", providerType: "test", baseUrl: "https://example.test" }),
@@ -40,10 +41,14 @@ function makeAdapter(pages: Array<ProviderResult<RawOffer[]>>) {
       return pages[page - 1] ?? response([]);
     },
     fetchDeals: async () => response([]),
-    fetchStores: async () => response([]),
+    fetchStores: async (options?: { page?: number }) => {
+      const page = options?.page ?? 1;
+      storePages.push(page);
+      return pages[page - 1] ?? response([]);
+    },
     fetchCategories: async () => response([]),
   } as unknown as ProviderAdapter;
-  return { adapter, couponPages };
+  return { adapter, couponPages, storePages };
 }
 
 function couponNormalizer(withPromotionSplit = false) {
@@ -55,6 +60,7 @@ function couponNormalizer(withPromotionSplit = false) {
     normalizeDeals: (raw: unknown) => batch(
       (raw as RawOffer[]).map((offer) => ({ providerDealId: offer.external_id })),
     ),
+    normalizeStores: () => batch([]),
   } as Record<string, unknown>;
 
   if (withPromotionSplit) {
@@ -126,6 +132,25 @@ test("stops the run when the shared API-call budget is exhausted", async () => {
   assert.deepEqual(couponPages, [1, 2]);
   assert.equal(result.orchestration.apiCallsUsed, 2);
   assert.equal(result.orchestration.stopReason, "max_api_calls");
+});
+
+test("a shared API-call cap can be consumed by stores before coupon discovery", async () => {
+  const { adapter, couponPages, storePages } = makeAdapter([
+    response([{ external_id: "store-page-one" }]),
+    response([{ external_id: "store-page-two" }]),
+  ]);
+  const engine = new SyncEngine(new SyncContext({
+    adapter,
+    normalizer: couponNormalizer(),
+    options: { entityTypes: ["store", "coupon"], strategy: "full_sync", pageSize: 1, maxPages: 10, maxApiCalls: 2 },
+  }));
+  const result = await engine.run();
+
+  assert.equal(result.success, true);
+  assert.ok(result.body);
+  assert.deepEqual(storePages, [1, 2]);
+  assert.deepEqual(couponPages, []);
+  assert.equal(result.body!.orchestration.stopReason, "max_api_calls");
 });
 
 test("uses a provider's explicit end-of-pagination signal", async () => {
