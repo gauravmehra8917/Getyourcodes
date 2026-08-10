@@ -117,6 +117,12 @@ export interface PolicyContext {
 export interface PolicyOutcome<TPlan> {
   plan: TPlan;
   summary: PublishingSummary;
+  /** Offers that passed policy eligibility before ranking/caps. */
+  eligibleCoupons: unknown[];
+  eligibleDeals: unknown[];
+  /** Offers selected after ranking/caps (identical to the rebuilt plan lists). */
+  selectedCoupons: unknown[];
+  selectedDeals: unknown[];
   /** New rotation cursors to persist (run mode only). */
   rotationCursors: Record<string, number>;
 }
