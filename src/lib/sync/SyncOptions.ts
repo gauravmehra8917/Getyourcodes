@@ -2,7 +2,7 @@
 // limits or endpoint knowledge lives here.
 
 import type { EntityKind } from "@/lib/normalizers";
-import type { ImportStrategy } from "./ImportOrchestration";
+import { resolveOrchestrationSettings, type ImportStrategy } from "./ImportOrchestration";
 
 export type SyncEntityType = EntityKind;
 
@@ -13,10 +13,10 @@ export interface SyncOptions {
   entityTypes?: SyncEntityType[];
   /** Records requested per page. Passed straight to the adapter. */
   pageSize?: number;
-  /** Hard cap on pages per entity. Undefined = until the provider runs dry. */
-  maxPages?: number;
+  /** Hard cap on pages per entity. Null/undefined uses the strategy default. */
+  maxPages?: number | null;
   /** Shared call budget across the whole sync run. */
-  maxApiCalls?: number;
+  maxApiCalls?: number | null;
   /** Stop offer discovery after this many pages without a new immutable id. */
   consecutiveNoNewPages?: number;
   strategy?: ImportStrategy;
@@ -36,9 +36,9 @@ export interface SyncOptions {
 
 export interface ResolvedSyncOptions {
   entityTypes: SyncEntityType[];
-  pageSize?: number;
-  maxPages?: number;
-  maxApiCalls?: number;
+  pageSize: number;
+  maxPages: number;
+  maxApiCalls: number;
   consecutiveNoNewPages: number;
   strategy: ImportStrategy;
   existingProviderOfferIds: Set<string>;
@@ -51,13 +51,20 @@ export interface ResolvedSyncOptions {
 
 export function resolveSyncOptions(opts?: SyncOptions): ResolvedSyncOptions {
   const entityTypes = opts?.entityTypes?.length ? [...opts.entityTypes] : [...ALL_SYNC_ENTITIES];
-  return {
-    entityTypes,
+  const orchestration = resolveOrchestrationSettings({
+    strategy: opts?.strategy,
     pageSize: opts?.pageSize,
     maxPages: opts?.maxPages,
     maxApiCalls: opts?.maxApiCalls,
-    consecutiveNoNewPages: opts?.consecutiveNoNewPages ?? 2,
-    strategy: opts?.strategy ?? "incremental",
+    consecutiveNoNewPages: opts?.consecutiveNoNewPages,
+  });
+  return {
+    entityTypes,
+    pageSize: orchestration.pageSize,
+    maxPages: orchestration.maxPages,
+    maxApiCalls: orchestration.maxApiCalls,
+    consecutiveNoNewPages: orchestration.consecutiveNoNewPages,
+    strategy: orchestration.strategy,
     existingProviderOfferIds: new Set(opts?.existingProviderOfferIds ?? []),
     startPage: opts?.startPage ?? 1,
     continueOnError: opts?.continueOnError ?? true,
