@@ -2,6 +2,7 @@
 // Consumes a SyncResult, produces an ImportPlan and an ImportResult.
 
 export { ImportPipeline, runImport, type ImportOptions } from "./ImportPipeline";
+export { qualifyStores, type StoreQualification, type QualificationReason } from "./StoreQualification";
 export { ImportPlanner, planImport, type ExistingData, type PlannerCounters } from "./ImportPlanner";
 export { ImportExecutor, buildPayload, executePlan, type ExecutionOutcome } from "./ImportExecutor";
 export { ImportValidator, type ValidationOutcome } from "./ImportValidator";
