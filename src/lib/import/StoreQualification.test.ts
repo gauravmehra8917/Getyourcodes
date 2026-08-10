@@ -31,15 +31,15 @@ test("ineligible offers are excluded before qualification and caps do not alter 
   const disabled = coupon("disabled");
   disabled.existingId = "existing-disabled";
   const outcome = applyPublishingPolicy(plan([
-    coupon("active-1"), coupon("active-2"), coupon("expired", "merchant", { endDate: "2000-01-01" }), coupon("inactive", "merchant", { status: "paused" }), disabled,
+    coupon("active-1"), coupon("active-2"), coupon("expired", "merchant", { endDate: "2000-01-01" }), coupon("inactive", "merchant", { status: "inactive" }), disabled,
   ]), policy({ minCouponsPerStore: 1, maxCouponsPerStore: 1 }), { now: new Date("2026-01-01"), manuallyDisabledIds: ["existing-disabled"] });
   assert.equal(outcome.eligibleCoupons.length, 2);
   assert.equal(outcome.selectedCoupons.length, 1);
 });
 
-test("qualification helper counts each supplied identity once", () => {
+test("qualification helper deduplicates immutable provider identities", () => {
   const q = qualifyStores([coupon("duplicate"), coupon("duplicate")], [], [], [], policy({ minCouponsPerStore: 2 }));
-  // Production dedupe runs before policy; this asserts the helper's input is the
-  // deduplicated collection rather than attempting to reimplement identity logic.
-  assert.equal(q[0].eligibleCoupons, 2);
+  // The planner normally deduplicates first; this guard prevents an accidental
+  // duplicate from inflating a lifecycle qualification count.
+  assert.equal(q[0].eligibleCoupons, 1);
 });
