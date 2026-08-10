@@ -10,6 +10,7 @@ import type {
 export type ImportEntityKind = "store" | "coupon" | "deal" | "category";
 export type ImportAction = "create" | "update" | "skip";
 export type StoreLifecycleAction = "create_store" | "update_store" | "lifecycle_hide_store" | "lifecycle_republish_store" | "hold_store";
+export type WritableStoreLifecycleAction = Exclude<StoreLifecycleAction, "hold_store">;
 export interface StoreCandidate extends PlannedRecord<CanonicalStore> {
   existingLifecycleManaged: boolean;
   existingLifecycleHidden: boolean;
@@ -107,15 +108,28 @@ export function emptyPlan(provider: string, integrationId: string): ImportPlan {
 }
 
 export function planTotals(plan: ImportPlan) {
+  const storeCreates = plan.storeLifecycle.filter((decision) => decision.action === "create_store").length;
+  const storeUpdates = plan.storeLifecycle.filter(
+    (decision) =>
+      decision.action === "update_store" ||
+      decision.action === "lifecycle_hide_store" ||
+      decision.action === "lifecycle_republish_store",
+  ).length;
   const creates =
-    plan.storesToCreate.length +
+    storeCreates +
     plan.couponsToCreate.length +
     plan.dealsToCreate.length +
     plan.categoriesToCreate.length;
   const updates =
-    plan.storesToUpdate.length +
+    storeUpdates +
     plan.couponsToUpdate.length +
     plan.dealsToUpdate.length +
     plan.categoriesToUpdate.length;
   return { creates, updates };
+}
+
+/** Whether this plan contains at least one payload that can be committed. */
+export function hasPlanWork(plan: ImportPlan): boolean {
+  const { creates, updates } = planTotals(plan);
+  return creates + updates > 0;
 }
