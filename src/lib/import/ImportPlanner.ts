@@ -143,7 +143,7 @@ export function planImport(
         ? existing.stores.find((r) => r.id === existingId)?.slug ?? null
         : null;
       const slug = existingId ? existingSlug ?? candidate : storeSlugs.reserve(s.name);
-      const existing = existingId ? existing.stores.find((r) => r.id === existingId) : undefined;
+      const existingStore = existingId ? existing.stores.find((r) => r.id === existingId) : undefined;
       const record: PlannedRecord<typeof s> = {
         entity: "store",
         action: existingId ? "update" : "create",
@@ -154,7 +154,7 @@ export function planImport(
       };
       if (existingId) plan.storesToUpdate.push(record);
       else plan.storesToCreate.push(record);
-      plan.storeCandidates.push({ ...record, existingLifecycleManaged: !!(existing as ExistingRow & { lifecycleManaged?: boolean })?.lifecycleManaged, existingLifecycleHidden: !!(existing as ExistingRow & { lifecycleHidden?: boolean })?.lifecycleHidden });
+      plan.storeCandidates.push({ ...record, existingLifecycleManaged: !!existingStore?.lifecycleManaged, existingLifecycleHidden: !!existingStore?.lifecycleHidden });
     }
 
     logImportEntity({
