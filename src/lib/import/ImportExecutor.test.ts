@@ -174,6 +174,7 @@ test("preview never invokes the executor", async () => {
       preview: true,
       existing: { stores: [], categories: [], coupons: [] },
     });
+    assert.ok(result.body);
     assert.equal(result.body.committed, false);
     assert.equal(calls, 0);
   } finally {
