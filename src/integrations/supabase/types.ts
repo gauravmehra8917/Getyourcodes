@@ -293,8 +293,8 @@ export type Database = {
           environment: string
           id: string
           integration_name: string
-          orchestration_max_api_calls: number
-          orchestration_max_pages: number
+          orchestration_max_api_calls: number | null
+          orchestration_max_pages: number | null
           orchestration_no_new_pages: number
           orchestration_page_size: number
           orchestration_strategy: string
@@ -322,8 +322,8 @@ export type Database = {
           environment?: string
           id?: string
           integration_name: string
-          orchestration_max_api_calls?: number
-          orchestration_max_pages?: number
+          orchestration_max_api_calls?: number | null
+          orchestration_max_pages?: number | null
           orchestration_no_new_pages?: number
           orchestration_page_size?: number
           orchestration_strategy?: string
@@ -351,8 +351,8 @@ export type Database = {
           environment?: string
           id?: string
           integration_name?: string
-          orchestration_max_api_calls?: number
-          orchestration_max_pages?: number
+          orchestration_max_api_calls?: number | null
+          orchestration_max_pages?: number | null
           orchestration_no_new_pages?: number
           orchestration_page_size?: number
           orchestration_strategy?: string
