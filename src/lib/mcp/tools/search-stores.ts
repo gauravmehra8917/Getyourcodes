@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
 
 export default defineTool({
   name: "search_stores",
@@ -19,9 +20,9 @@ export default defineTool({
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
     const like = `%${name.replace(/[%_]/g, "")}%`;
-    const { data, error } = await supabase
+    const { data, error } = await excludeLifecycleHiddenStores(supabase
       .from("stores")
-      .select("id,name,slug,description,logo_url,featured")
+      .select("id,name,slug,description,logo_url,featured"))
       .ilike("name", like)
       .limit(limit ?? 10);
     if (error) {

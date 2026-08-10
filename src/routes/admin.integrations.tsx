@@ -1040,6 +1040,13 @@ function DetailsDrawer({
                     <div><span className="text-slate-400">Published</span> {Math.max(0, r.records_created + r.records_updated)}</div>
                     <div><span className="text-slate-400">Held</span> <span className="text-amber-700">{r.records_held ?? 0}</span></div>
                     <div><span className="text-slate-400">Policy</span> {r.policy_name ?? "—"}</div>
+                    {r.statistics?.lifecycle && (
+                      <>
+                        <div><span className="text-slate-400">Stores held</span> {r.statistics.lifecycle.storesHeld}</div>
+                        <div><span className="text-slate-400">Lifecycle hidden</span> {r.statistics.lifecycle.storesToLifecycleHide}</div>
+                        <div><span className="text-slate-400">Republished</span> {r.statistics.lifecycle.storesToLifecycleRepublish}</div>
+                      </>
+                    )}
                   </div>
                   {r.error_message && <div className="mt-1 text-xs text-rose-600">{r.error_message}</div>}
                 </div>

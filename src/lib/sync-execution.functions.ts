@@ -56,6 +56,29 @@ export interface IdentitySummaryRow {
   toUpdate: number;
 }
 
+export interface LifecycleSummary {
+  storesFetched: number;
+  storesEvaluated: number;
+  storesQualified: number;
+  storesHeld: number;
+  storesToCreate: number;
+  storesToUpdate: number;
+  storesToLifecycleHide: number;
+  storesToLifecycleRepublish: number;
+}
+
+export interface LifecycleDiagnostic {
+  store: string;
+  providerEntityId: string;
+  eligibleCoupons: number;
+  eligibleDeals: number;
+  selectedCoupons: number;
+  selectedDeals: number;
+  qualified: boolean;
+  action: string;
+  reason: string;
+}
+
 export interface ImportRunRow {
   id: string;
   provider: string;
@@ -80,6 +103,7 @@ export interface ImportRunRow {
   new_provider_identities: number;
   existing_provider_identities: number;
   stop_reason: string | null;
+  statistics: { lifecycle?: LifecycleSummary | null } | null;
 }
 
 export interface SyncRunReport {
@@ -117,6 +141,9 @@ export interface SyncRunReport {
     categoriesToUpdate: number;
     skipped: number;
   } | null;
+  /** Lifecycle plan output, generated once after policy eligibility. */
+  lifecycle: LifecycleSummary | null;
+  lifecycleDiagnostics: LifecycleDiagnostic[];
   statistics: {
     validated: number;
     created: number;
@@ -240,6 +267,24 @@ function buildPresentation(
   return rows.slice(0, limit);
 }
 
+/** Projects the already-computed lifecycle plan for admin reporting only. */
+function buildLifecycleDiagnostics(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  plan: any,
+): LifecycleDiagnostic[] {
+  return (plan.storeLifecycle ?? []).map((decision: any) => ({
+    store: decision.candidate?.source?.name ?? decision.providerEntityId,
+    providerEntityId: decision.providerEntityId,
+    eligibleCoupons: decision.qualification?.eligibleCoupons ?? 0,
+    eligibleDeals: decision.qualification?.eligibleDeals ?? 0,
+    selectedCoupons: decision.qualification?.selectedCoupons ?? 0,
+    selectedDeals: decision.qualification?.selectedDeals ?? 0,
+    qualified: decision.qualification?.qualified === true,
+    action: decision.action,
+    reason: decision.qualification?.reason ?? "insufficient_publishable_offers",
+  }));
+}
+
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function requireAdmin(supabase: any, userId: string) {
@@ -309,6 +354,8 @@ export const runProviderSync = createServerFn({ method: "POST" })
       syncWarnings: [],
       progress: null,
       planCounts: null,
+      lifecycle: null,
+      lifecycleDiagnostics: [],
       statistics: null,
       validationErrors: [],
       skipped: [],
@@ -393,6 +440,11 @@ export const runProviderSync = createServerFn({ method: "POST" })
           categoriesToUpdate: p.categoriesToUpdate.length,
           skipped: p.skipped.length,
         };
+        report.lifecycle = {
+          storesFetched: sync.statistics?.storesFetched ?? sync.stores.length,
+          ...p.storeLifecycleStatistics,
+        };
+        report.lifecycleDiagnostics = buildLifecycleDiagnostics(p);
         report.statistics = {
           validated: body.statistics.validated,
           created: body.statistics.created,
@@ -482,7 +534,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
         validation_errors: stats?.validationFailures ?? 0,
         warnings: report.messages.length,
         error_message: report.error,
-        statistics: stats ?? {},
+        statistics: { ...(stats ?? {}), lifecycle: report.lifecycle },
         policy_id: report.publishing?.policyId ?? null,
         policy_name: report.publishing?.policyName ?? null,
         records_held: (report.publishing?.couponsHeld ?? 0) + (report.publishing?.dealsHeld ?? 0),
@@ -513,7 +565,7 @@ export const getImportHistory = createServerFn({ method: "GET" })
     const { data: rows, error } = await ctx.supabase
       .from("affiliate_import_runs")
       .select(
-        "id, provider, preview, started_at, finished_at, duration_ms, success, records_processed, records_created, records_updated, records_skipped, validation_errors, warnings, error_message, policy_name, records_held, import_strategy, pages_crawled, api_calls_used, records_fetched, new_provider_identities, existing_provider_identities, stop_reason",
+        "id, provider, preview, started_at, finished_at, duration_ms, success, records_processed, records_created, records_updated, records_skipped, validation_errors, warnings, error_message, policy_name, records_held, import_strategy, pages_crawled, api_calls_used, records_fetched, new_provider_identities, existing_provider_identities, stop_reason, statistics",
       )
       .eq("integration_id", data.integrationId)
       .order("started_at", { ascending: false })

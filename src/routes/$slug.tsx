@@ -5,6 +5,7 @@ import { sb, type Store, type Coupon, type Category } from "@/lib/db";
 import { CouponCard } from "@/components/coupon-card";
 import { StoreCard } from "@/components/store-card";
 import { abs, clip, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { excludeLifecycleHiddenStoreRelation, excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
 
 type LoaderData =
   | { kind: "store"; store: Store; coupons: Coupon[] }
@@ -15,7 +16,9 @@ export const Route = createFileRoute("/$slug")({
     const slug = params.slug;
     if (slug.endsWith("-coupons")) {
       const storeSlug = slug.slice(0, -"-coupons".length);
-      const { data: store } = await sb.from("stores").select("*, categories(name, slug)").eq("slug", storeSlug).maybeSingle();
+      const { data: store } = await excludeLifecycleHiddenStores(
+        sb.from("stores").select("*, categories(name, slug)"),
+      ).eq("slug", storeSlug).maybeSingle();
       if (!store) throw notFound();
       const { data: coupons } = await sb
         .from("coupons").select("*").eq("store_id", store.id).eq("status", "active").order("created_at", { ascending: false });
@@ -218,16 +221,17 @@ function CategoryPage({ category }: { category: Category }) {
   const stores = useQuery({
     queryKey: ["category-stores", category.id],
     queryFn: async () => {
-      const { data } = await sb.from("stores").select("*").eq("category_id", category.id);
+      const { data } = await excludeLifecycleHiddenStores(sb.from("stores").select("*"))
+        .eq("category_id", category.id);
       return (data ?? []) as Store[];
     },
   });
   const coupons = useQuery({
     queryKey: ["category-coupons", category.id],
     queryFn: async () => {
-      const { data } = await sb
+      const { data } = await excludeLifecycleHiddenStoreRelation(sb
         .from("coupons")
-        .select("*, stores!inner(id, name, slug, logo_url, category_id)")
+        .select("*, stores!inner(id, name, slug, logo_url, category_id)"))
         .eq("status", "active")
         .eq("stores.category_id", category.id)
         .order("created_at", { ascending: false })
