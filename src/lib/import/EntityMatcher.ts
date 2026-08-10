@@ -5,6 +5,8 @@ export interface ExistingRow {
   id: string;
   slug?: string | null;
   providerEntityId: string | null;
+  lifecycleManaged?: boolean;
+  lifecycleHidden?: boolean;
 }
 
 export interface ExistingSnapshot {
