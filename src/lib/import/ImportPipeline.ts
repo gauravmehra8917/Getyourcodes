@@ -6,7 +6,7 @@ import type { SyncResult } from "@/lib/sync";
 import type { ExistingRow } from "./EntityMatcher";
 import { ImportExecutor } from "./ImportExecutor";
 import { logImportSummary } from "./ImportLogger";
-import { planTotals, type ImportPlan } from "./ImportPlan";
+import { hasPlanWork, planTotals, type ImportPlan } from "./ImportPlan";
 import { ImportPlanner, type ExistingData } from "./ImportPlanner";
 import type { ImportResult } from "./ImportResult";
 import type { PolicyContext, PublishingPolicy, PublishingSummary } from "@/lib/publishing-policy";
@@ -117,7 +117,7 @@ export async function runImport(
   if (preview) {
     statistics.created = 0;
     statistics.updated = 0;
-  } else if (totals.creates + totals.updates === 0) {
+  } else if (!hasPlanWork(plan)) {
     committed = true;
   } else {
     const txStarted = Date.now();
