@@ -9,6 +9,18 @@ import type {
 
 export type ImportEntityKind = "store" | "coupon" | "deal" | "category";
 export type ImportAction = "create" | "update" | "skip";
+export type StoreLifecycleAction = "create_store" | "update_store" | "lifecycle_hide_store" | "lifecycle_republish_store" | "hold_store";
+export interface StoreCandidate extends PlannedRecord<CanonicalStore> {
+  existingLifecycleManaged: boolean;
+  existingLifecycleHidden: boolean;
+}
+export interface StoreLifecycleDecision {
+  action: StoreLifecycleAction;
+  providerEntityId: string;
+  candidate: StoreCandidate;
+  qualification: { qualified: boolean; reason: string; eligibleCoupons: number; eligibleDeals: number; selectedCoupons: number; selectedDeals: number };
+}
+export interface StoreLifecycleStatistics { storesEvaluated: number; storesQualified: number; storesHeld: number; storesToCreate: number; storesToUpdate: number; storesToLifecycleHide: number; storesToLifecycleRepublish: number; }
 
 export interface ImportIssue {
   entity: ImportEntityKind;
@@ -54,6 +66,9 @@ export interface ImportPlan {
   createdAt: string;
   storesToCreate: PlannedRecord<CanonicalStore>[];
   storesToUpdate: PlannedRecord<CanonicalStore>[];
+  storeCandidates: StoreCandidate[];
+  storeLifecycle: StoreLifecycleDecision[];
+  storeLifecycleStatistics: StoreLifecycleStatistics;
   couponsToCreate: PlannedRecord<CanonicalCoupon>[];
   couponsToUpdate: PlannedRecord<CanonicalCoupon>[];
   dealsToCreate: PlannedRecord<CanonicalDeal>[];
@@ -75,6 +90,8 @@ export function emptyPlan(provider: string, integrationId: string): ImportPlan {
     createdAt: new Date().toISOString(),
     storesToCreate: [],
     storesToUpdate: [],
+    storeCandidates: [], storeLifecycle: [],
+    storeLifecycleStatistics: { storesEvaluated: 0, storesQualified: 0, storesHeld: 0, storesToCreate: 0, storesToUpdate: 0, storesToLifecycleHide: 0, storesToLifecycleRepublish: 0 },
     couponsToCreate: [],
     couponsToUpdate: [],
     dealsToCreate: [],
