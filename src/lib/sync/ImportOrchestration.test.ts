@@ -33,6 +33,7 @@ function batch<T>(items: T[]): StandardResponse<NormalizationBatch<T>> {
 function makeAdapter(pages: Array<ProviderResult<RawOffer[]>>) {
   const couponPages: number[] = [];
   const storePages: number[] = [];
+  const categoryPages: number[] = [];
   const adapter = {
     providerKey: "test-provider",
     getConfig: () => ({ id: "test-integration", providerName: "test", providerType: "test", baseUrl: "https://example.test" }),
@@ -47,9 +48,13 @@ function makeAdapter(pages: Array<ProviderResult<RawOffer[]>>) {
       storePages.push(page);
       return pages[page - 1] ?? response([]);
     },
-    fetchCategories: async () => response([]),
+    fetchCategories: async (options?: { page?: number }) => {
+      const page = options?.page ?? 1;
+      categoryPages.push(page);
+      return pages[page - 1] ?? response([]);
+    },
   } as unknown as ProviderAdapter;
-  return { adapter, couponPages, storePages };
+  return { adapter, couponPages, storePages, categoryPages };
 }
 
 function couponNormalizer(withPromotionSplit = false) {
@@ -62,6 +67,7 @@ function couponNormalizer(withPromotionSplit = false) {
       (raw as RawOffer[]).map((offer) => ({ providerDealId: offer.external_id })),
     ),
     normalizeStores: () => batch([]),
+    normalizeCategories: () => batch([]),
   } as Record<string, unknown>;
 
   if (withPromotionSplit) {
@@ -167,15 +173,15 @@ test("stops the run when the shared API-call budget is exhausted", async () => {
   assert.equal(result.orchestration.stopReason, "max_api_calls");
 });
 
-test("offer discovery runs before stores and cannot be starved by their API calls", async () => {
-  const { adapter, couponPages, storePages } = makeAdapter([
+test("offer discovery runs before stores/categories and cannot be starved by their API calls", async () => {
+  const { adapter, couponPages, storePages, categoryPages } = makeAdapter([
     response([{ external_id: "store-page-one" }]),
     response([{ external_id: "store-page-two" }]),
   ]);
   const engine = new SyncEngine(new SyncContext({
     adapter,
     normalizer: couponNormalizer(),
-    options: { entityTypes: ["store", "coupon"], strategy: "full_sync", pageSize: 1, maxPages: 10, maxApiCalls: 2 },
+    options: { entityTypes: ["store", "category", "coupon"], strategy: "full_sync", pageSize: 1, maxPages: 10, maxApiCalls: 2 },
   }));
   const result = await engine.run();
 
@@ -183,6 +189,7 @@ test("offer discovery runs before stores and cannot be starved by their API call
   assert.ok(result.body);
   assert.deepEqual(couponPages, [1, 2]);
   assert.deepEqual(storePages, []);
+  assert.deepEqual(categoryPages, []);
   assert.equal(result.body!.orchestration.stopReason, "max_api_calls");
 });
 
