@@ -17,6 +17,7 @@ import type {
   FetchOptions,
   ProviderCoupon,
   ProviderDeal,
+  ProviderPagination,
   ProviderResult,
   ProviderStore,
 } from "../ProviderAdapter";
@@ -42,6 +43,43 @@ function extractRecords(body: unknown, keys: string[]): unknown[] {
   // Fall back to the first array-valued property in the envelope.
   for (const v of Object.values(env)) if (Array.isArray(v)) return v;
   return [];
+}
+
+function asPositiveInteger(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) return Number(value);
+  return undefined;
+}
+
+function pageFromUri(value: unknown): number | undefined {
+  if (typeof value !== "string" || !value) return undefined;
+  try {
+    const uri = new URL(value, "https://impact.invalid");
+    for (const [key, page] of uri.searchParams) {
+      if (key.toLowerCase() === "page") return asPositiveInteger(page);
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+/** Map Impact's documented envelope metadata into the provider-neutral contract. */
+export function extractImpactPagination(body: unknown): ProviderPagination | undefined {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return undefined;
+  const env = body as ImpactEnvelope;
+  const page = asPositiveInteger(env["@page"] ?? env.Page);
+  const pageCount = asPositiveInteger(env["@numpages"] ?? env.NumPages);
+  const nextPage = pageFromUri(env["@nextpageuri"] ?? env.NextPageUri) ??
+    asPositiveInteger(env["@nextpage"] ?? env.NextPage);
+
+  if (!page && !pageCount && !nextPage) return undefined;
+  if (page && pageCount) {
+    const hasNextPage = page < pageCount;
+    return { hasNextPage, nextPage: hasNextPage ? (nextPage ?? page + 1) : null };
+  }
+  if (nextPage) return { hasNextPage: true, nextPage };
+  return { hasNextPage: false, nextPage: null };
 }
 
 function friendlyError(cls: ErrorClass | undefined, status: number, fallback: string): string {
@@ -161,10 +199,11 @@ export class ImpactAdapter extends BaseProviderAdapter {
     label: keyof typeof ENVELOPE_KEYS,
     path: string,
     opts?: FetchOptions,
-  ): Promise<StandardResponse<T[]>> {
+  ): Promise<ProviderResult<T[]>> {
     const res = await this.call<unknown>(label, path, opts);
     const records = res.success ? extractRecords(res.body, ENVELOPE_KEYS[label]) : null;
-    return { ...res, body: records as T[] | null };
+    const pagination = res.success ? extractImpactPagination(res.body) : undefined;
+    return { ...res, body: records as T[] | null, ...(pagination ? { pagination } : {}) };
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -257,20 +296,20 @@ export class ImpactAdapter extends BaseProviderAdapter {
 
   // ── Data ─────────────────────────────────────────────────────────────────
 
-  fetchCampaigns(opts?: FetchOptions): Promise<StandardResponse<unknown[]>> {
+  fetchCampaigns(opts?: FetchOptions): Promise<ProviderResult<unknown[]>> {
     return this.collection<unknown>("campaigns", this.endpointFor("campaigns"), opts);
   }
 
-  fetchPromotions(opts?: FetchOptions): Promise<StandardResponse<unknown[]>> {
+  fetchPromotions(opts?: FetchOptions): Promise<ProviderResult<unknown[]>> {
     return this.collection<unknown>("promotions", this.endpointFor("promotions"), opts);
   }
 
-  fetchCatalogs(opts?: FetchOptions): Promise<StandardResponse<unknown[]>> {
+  fetchCatalogs(opts?: FetchOptions): Promise<ProviderResult<unknown[]>> {
     return this.collection<unknown>("catalogs", this.endpointFor("catalogs"), opts);
   }
 
   /** Coupon ads — the enrichment source for the Promotions stream. */
-  fetchCouponAds(opts?: FetchOptions): Promise<StandardResponse<unknown[]>> {
+  fetchCouponAds(opts?: FetchOptions): Promise<ProviderResult<unknown[]>> {
     return this.collection<unknown>("ads", this.endpointFor("ads"), { ...opts, Type: "COUPON" });
   }
 
