@@ -7,8 +7,10 @@ export type ImportStopReason = "provider_end" | "max_pages" | "max_api_calls" | 
 export interface OrchestrationSettings {
   strategy?: ImportStrategy;
   pageSize?: number;
-  maxPages?: number;
-  maxApiCalls?: number;
+  /** Null means use the selected strategy's bounded default. */
+  maxPages?: number | null;
+  /** Null means use the selected strategy's total-call safety default. */
+  maxApiCalls?: number | null;
   consecutiveNoNewPages?: number;
 }
 
@@ -25,14 +27,22 @@ export interface DiscoveryCounters {
   existingProviderIdentities: number;
 }
 
+/** The single source of truth for strategy-aware import limits. */
+export const IMPORT_STRATEGY_DEFAULTS: Record<ImportStrategy, Pick<ResolvedOrchestrationSettings, "maxPages" | "maxApiCalls">> = {
+  incremental: { maxPages: 2, maxApiCalls: 8 },
+  discover_new_offers: { maxPages: 10, maxApiCalls: 20 },
+  refresh_existing_only: { maxPages: 10, maxApiCalls: 20 },
+  full_sync: { maxPages: 50, maxApiCalls: 200 },
+};
+
 export function resolveOrchestrationSettings(settings: OrchestrationSettings = {}): ResolvedOrchestrationSettings {
   const strategy = settings.strategy ?? "incremental";
+  const defaults = IMPORT_STRATEGY_DEFAULTS[strategy];
   return {
     strategy,
     pageSize: settings.pageSize ?? 100,
-    // Preserve the prior admin-run behaviour unless a Full Sync is requested.
-    maxPages: settings.maxPages ?? (strategy === "full_sync" ? 50 : 2),
-    maxApiCalls: settings.maxApiCalls ?? (strategy === "full_sync" ? 200 : 8),
+    maxPages: settings.maxPages ?? defaults.maxPages,
+    maxApiCalls: settings.maxApiCalls ?? defaults.maxApiCalls,
     consecutiveNoNewPages: settings.consecutiveNoNewPages ?? 2,
   };
 }
