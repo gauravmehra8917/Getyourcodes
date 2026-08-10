@@ -5,7 +5,12 @@
 // the payload and deterministic SEO defaults are attached. The database applies
 // SEO values ONLY to empty columns, so administrator edits are never lost.
 
-import type { ImportPlan, PlannedRecord } from "./ImportPlan";
+import type {
+  ImportPlan,
+  PlannedRecord,
+  StoreLifecycleDecision,
+  WritableStoreLifecycleAction,
+} from "./ImportPlan";
 import type { CanonicalCoupon, CanonicalDeal, CanonicalStore } from "@/lib/normalizers";
 import {
   couponCanonical,
@@ -19,6 +24,30 @@ import { resolveOfferStatus } from "@/lib/presentation/publishing";
 import { generateTermsText } from "@/lib/presentation/terms";
 
 type Row = Record<string, unknown>;
+
+/**
+ * Provider-neutral store contract for Phase 3C. SQL deliberately does not
+ * interpret this in Phase 3B; the executor only serializes the planner's
+ * already-decided lifecycle actions.
+ */
+export interface StoreLifecyclePayload {
+  action: WritableStoreLifecycleAction;
+  providerEntityId: string;
+  existingId: string | null;
+  slug: string | null;
+  source: CanonicalStore;
+  qualification: StoreLifecycleDecision["qualification"];
+}
+
+export interface ImportApplyPayload {
+  provider: string;
+  categories: Row[];
+  /** Legacy SQL-compatible rows for create/update actions only. */
+  stores: Row[];
+  /** Authoritative lifecycle contract for the Phase 3C SQL boundary. */
+  store_lifecycle: StoreLifecyclePayload[];
+  coupons: Row[];
+}
 
 function isoToDate(value: string | null): string | null {
   if (!value) return null;
@@ -56,7 +85,7 @@ function storeIndex(plan: ImportPlan): Map<string, StoreRef> {
   return index;
 }
 
-function storeRow(record: PlannedRecord<CanonicalStore>): Row {
+function storeRow(record: Pick<PlannedRecord<CanonicalStore>, "providerEntityId" | "slug" | "source">): Row {
   const s = record.source;
   const meta = (s.metadata ?? {}) as Row;
   const shipping = strArray(meta.shippingRegions ?? meta.ShippingRegions);
@@ -131,14 +160,36 @@ function promotionRow(
   };
 }
 
-export function buildPayload(plan: ImportPlan): Row {
+const isWritableStoreAction = (
+  decision: StoreLifecycleDecision,
+): decision is StoreLifecycleDecision & { action: WritableStoreLifecycleAction } =>
+  decision.action !== "hold_store";
+
+export function buildStoreLifecyclePayload(plan: ImportPlan): StoreLifecyclePayload[] {
+  return plan.storeLifecycle.filter(isWritableStoreAction).map((decision) => ({
+    action: decision.action,
+    providerEntityId: decision.providerEntityId,
+    existingId: decision.candidate.existingId,
+    slug: decision.candidate.slug,
+    source: decision.candidate.source,
+    qualification: decision.qualification,
+  }));
+}
+
+export function buildPayload(plan: ImportPlan): ImportApplyPayload {
   const categories = [...plan.categoriesToCreate, ...plan.categoriesToUpdate].map((r) => ({
     provider_entity_id: r.providerEntityId,
     name: r.source.name,
     slug: r.slug,
   }));
 
-  const stores = [...plan.storesToCreate, ...plan.storesToUpdate].map(storeRow);
+  const storeLifecycle = buildStoreLifecyclePayload(plan);
+  // Existing import_apply can continue to process normal creates/updates.
+  // Hide/republish remain explicit lifecycle payloads for Phase 3C instead of
+  // being incorrectly translated into ordinary store updates.
+  const stores = storeLifecycle
+    .filter(({ action }) => action === "create_store" || action === "update_store")
+    .map(storeRow);
   const index = storeIndex(plan);
 
   const coupons = [
@@ -148,7 +199,7 @@ export function buildPayload(plan: ImportPlan): Row {
     ...plan.dealsToUpdate,
   ].map((r) => promotionRow(r, index));
 
-  return { provider: plan.provider, categories, stores, coupons };
+  return { provider: plan.provider, categories, stores, store_lifecycle: storeLifecycle, coupons };
 }
 
 export interface ExecutionOutcome {
@@ -179,4 +230,4 @@ export async function executePlan(plan: ImportPlan): Promise<ExecutionOutcome> {
   };
 }
 
-export const ImportExecutor = { buildPayload, executePlan };
+export const ImportExecutor = { buildPayload, buildStoreLifecyclePayload, executePlan };
