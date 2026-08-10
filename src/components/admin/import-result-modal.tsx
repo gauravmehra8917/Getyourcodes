@@ -300,6 +300,64 @@ function PublishingSummaryPanel({ summary }: { summary: NonNullable<SyncRunRepor
   );
 }
 
+function LifecyclePanel({ summary, rows }: {
+  summary: NonNullable<SyncRunReport["lifecycle"]>;
+  rows: SyncRunReport["lifecycleDiagnostics"];
+}) {
+  return (
+    <>
+      <Section title="Store lifecycle">
+        <Row label="Stores fetched" value={summary.storesFetched} />
+        <Row label="Stores evaluated" value={summary.storesEvaluated} />
+        <Row label="Stores qualified" value={summary.storesQualified} />
+        <Row label="Stores held" value={summary.storesHeld} />
+        <Row label="Stores to create" value={summary.storesToCreate} />
+        <Row label="Stores to update" value={summary.storesToUpdate} />
+        <Row label="Stores to lifecycle-hide" value={summary.storesToLifecycleHide} />
+        <Row label="Stores to lifecycle-republish" value={summary.storesToLifecycleRepublish} />
+      </Section>
+
+      {rows.length > 0 && (
+        <div className="mb-5">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Store lifecycle diagnostics</div>
+          <div className="max-h-80 overflow-auto rounded border border-slate-200 bg-white">
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Store</th>
+                  <th className="px-3 py-2 font-semibold">Provider identity</th>
+                  <th className="px-3 py-2 font-semibold">Eligible coupons</th>
+                  <th className="px-3 py-2 font-semibold">Eligible deals</th>
+                  <th className="px-3 py-2 font-semibold">Selected coupons</th>
+                  <th className="px-3 py-2 font-semibold">Selected deals</th>
+                  <th className="px-3 py-2 font-semibold">Qualified</th>
+                  <th className="px-3 py-2 font-semibold">Lifecycle action</th>
+                  <th className="px-3 py-2 font-semibold">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.providerEntityId} className="border-t border-slate-100">
+                    <td className="px-3 py-2 text-slate-800">{row.store}</td>
+                    <td className="px-3 py-2 font-mono text-slate-600">{row.providerEntityId}</td>
+                    <td className="px-3 py-2">{row.eligibleCoupons}</td>
+                    <td className="px-3 py-2">{row.eligibleDeals}</td>
+                    <td className="px-3 py-2">{row.selectedCoupons}</td>
+                    <td className="px-3 py-2">{row.selectedDeals}</td>
+                    <td className={`px-3 py-2 ${row.qualified ? "text-emerald-700" : "text-amber-700"}`}>{row.qualified ? "Yes" : "No"}</td>
+                    <td className="px-3 py-2 text-slate-700">{row.action}</td>
+                    <td className="px-3 py-2 text-slate-600">{row.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 
 export function ImportResultModal({
   title,
@@ -380,6 +438,8 @@ export function ImportResultModal({
               <IdentitySummaryTable rows={report.identity} />
 
               {report.publishing && <PublishingSummaryPanel summary={report.publishing} />}
+
+              {report.lifecycle && <LifecyclePanel summary={report.lifecycle} rows={report.lifecycleDiagnostics} />}
 
               {report.logos && (
                 <Section title="Merchant logos">

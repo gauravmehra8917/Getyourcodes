@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { sb, type Category, type Coupon, type Store } from "@/lib/db";
+import { excludeLifecycleHiddenStoreRelation, excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
 
 export type StoreLite = Pick<Store, "id" | "name" | "slug" | "logo_url" | "category_id">;
 
@@ -26,9 +27,9 @@ export const storesLiteQuery = queryOptions({
   queryKey: ["stores-lite"],
   staleTime: 5 * 60 * 1000,
   queryFn: async () => {
-    const { data } = await sb
+    const { data } = await excludeLifecycleHiddenStores(sb
       .from("stores")
-      .select("id,name,slug,logo_url,category_id")
+      .select("id,name,slug,logo_url,category_id"))
       .order("name")
       .limit(2000);
     return (data ?? []) as StoreLite[];
@@ -73,9 +74,9 @@ export function couponPageQuery(type: "code" | "deal", page: number, perPage = 2
     staleTime: 60 * 1000,
     queryFn: async () => {
       const from = (page - 1) * perPage;
-      const { data, count } = await sb
+      const { data, count } = await excludeLifecycleHiddenStoreRelation(sb
         .from("coupons")
-        .select("*, stores(name, slug, logo_url)", { count: "exact" })
+        .select("*, stores!inner(name, slug, logo_url)", { count: "exact" }))
         .eq("status", "active")
         .eq("coupon_type", type)
         .order("created_at", { ascending: false })

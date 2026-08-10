@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
 
 const BASE_URL = "https://getyourcodes.com";
 const BUILD_DATE = new Date().toISOString().slice(0, 10);
@@ -51,7 +52,7 @@ export const Route = createFileRoute("/sitemap.xml")({
             { data: posts },
             { data: pages },
           ] = await Promise.all([
-            supabaseAdmin.from("stores").select("slug, created_at"),
+            excludeLifecycleHiddenStores(supabaseAdmin.from("stores").select("slug, created_at")),
             supabaseAdmin.from("categories").select("slug, created_at"),
             supabaseAdmin
               .from("posts")

@@ -123,6 +123,7 @@ export function applyPublishingPolicy(
 
   const fetched = { coupon: 0, deal: 0 };
   const publishedByKind = { coupon: [] as Offer[], deal: [] as Offer[] };
+  const eligibleByKind = { coupon: [] as Offer[], deal: [] as Offer[] };
   const held: ImportIssue[] = [];
   const distribution = new Map<string, DistributionRow>();
   const rotationCursors: Record<string, number> = { ...rotationIn };
@@ -179,6 +180,7 @@ export function applyPublishingPolicy(
     }
 
     // ── Ranking + per-store limits ─────────────────────────────────────────
+    eligibleByKind[kind] = eligible;
     const byStore = new Map<string, Offer[]>();
     for (const o of eligible) {
       const list = byStore.get(o.storeKey) ?? [];
@@ -304,7 +306,13 @@ export function applyPublishingPolicy(
     },
   };
 
-  return { plan: nextPlan, summary, rotationCursors };
+  return {
+    plan: nextPlan, summary, rotationCursors,
+    eligibleCoupons: eligibleByKind.coupon.map((o) => o.record),
+    eligibleDeals: eligibleByKind.deal.map((o) => o.record),
+    selectedCoupons: publishedByKind.coupon.map((o) => o.record),
+    selectedDeals: publishedByKind.deal.map((o) => o.record),
+  };
 }
 
 export class PublishingPolicyEngine {
