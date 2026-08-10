@@ -102,8 +102,8 @@ const INITIAL: WizardData = {
   retries: "3",
   orchestrationStrategy: "incremental",
   orchestrationPageSize: "100",
-  orchestrationMaxPages: "2",
-  orchestrationMaxApiCalls: "8",
+  orchestrationMaxPages: "",
+  orchestrationMaxApiCalls: "",
   orchestrationNoNewPages: "2",
   healthEndpoint: "",
   storesEndpoint: "",
@@ -173,8 +173,8 @@ function fromRecord(rec: IntegrationRecord): WizardData {
     retries: String(rec.retry_attempts ?? 3),
     orchestrationStrategy: rec.orchestration_strategy ?? "incremental",
     orchestrationPageSize: String(rec.orchestration_page_size ?? 100),
-    orchestrationMaxPages: String(rec.orchestration_max_pages ?? 2),
-    orchestrationMaxApiCalls: String(rec.orchestration_max_api_calls ?? 8),
+    orchestrationMaxPages: rec.orchestration_max_pages == null ? "" : String(rec.orchestration_max_pages),
+    orchestrationMaxApiCalls: rec.orchestration_max_api_calls == null ? "" : String(rec.orchestration_max_api_calls),
     orchestrationNoNewPages: String(rec.orchestration_no_new_pages ?? 2),
     healthEndpoint: ep.health ?? "",
     storesEndpoint: ep.stores ?? "",
@@ -326,8 +326,8 @@ export function IntegrationWizard({
       },
       orchestration_strategy: data.orchestrationStrategy,
       orchestration_page_size: Number(data.orchestrationPageSize) || 100,
-      orchestration_max_pages: Number(data.orchestrationMaxPages) || 2,
-      orchestration_max_api_calls: Number(data.orchestrationMaxApiCalls) || 8,
+      orchestration_max_pages: data.orchestrationMaxPages.trim() ? Number(data.orchestrationMaxPages) : null,
+      orchestration_max_api_calls: data.orchestrationMaxApiCalls.trim() ? Number(data.orchestrationMaxApiCalls) : null,
       orchestration_no_new_pages: Number(data.orchestrationNoNewPages) || 2,
       is_enabled: isEdit ? editing!.is_enabled : false,
     };
@@ -772,11 +772,11 @@ function Step3({
               </SelectInput>
             </Field>
             <Field label="Page size"><TextInput type="number" min={1} max={500} value={data.orchestrationPageSize} onChange={(e) => update("orchestrationPageSize", e.target.value)} /></Field>
-            <Field label="Maximum pages"><TextInput type="number" min={1} value={data.orchestrationMaxPages} onChange={(e) => update("orchestrationMaxPages", e.target.value)} /></Field>
-            <Field label="Maximum API calls"><TextInput type="number" min={1} value={data.orchestrationMaxApiCalls} onChange={(e) => update("orchestrationMaxApiCalls", e.target.value)} /></Field>
+            <Field label="Maximum pages"><TextInput type="number" min={1} placeholder="Strategy default" value={data.orchestrationMaxPages} onChange={(e) => update("orchestrationMaxPages", e.target.value)} /></Field>
+            <Field label="Maximum API calls"><TextInput type="number" min={1} placeholder="Strategy default" value={data.orchestrationMaxApiCalls} onChange={(e) => update("orchestrationMaxApiCalls", e.target.value)} /></Field>
             <Field label="No-new pages before stop"><TextInput type="number" min={1} value={data.orchestrationNoNewPages} onChange={(e) => update("orchestrationNoNewPages", e.target.value)} /></Field>
           </div>
-          <Helper>Uses immutable provider identities only. Preview and Run Import use these same limits.</Helper>
+          <Helper>Leave Maximum Pages unset to use the selected strategy default. Preview and Run Import use these same limits and the total API-call safety cap.</Helper>
         </div>
       )}
     </div>
