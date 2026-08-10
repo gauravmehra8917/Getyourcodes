@@ -334,11 +334,11 @@ export const runProviderSync = createServerFn({ method: "POST" })
       const existingProviderOfferIds = await loadExistingProviderOfferIds(resolveProviderKey(integration));
       const engine = await SyncEngine.forIntegration(data.integrationId, {
         entityTypes: data.entityTypes,
-        pageSize: data.pageSize ?? integration.orchestration_page_size ?? 100,
-        maxPages: data.maxPages ?? integration.orchestration_max_pages ?? 2,
-        maxApiCalls: data.maxApiCalls ?? integration.orchestration_max_api_calls ?? 8,
-        consecutiveNoNewPages: data.consecutiveNoNewPages ?? integration.orchestration_no_new_pages ?? 2,
-        strategy: data.strategy ?? integration.orchestration_strategy ?? "incremental",
+        pageSize: data.pageSize ?? integration.orchestration_page_size,
+        maxPages: data.maxPages ?? integration.orchestration_max_pages,
+        maxApiCalls: data.maxApiCalls ?? integration.orchestration_max_api_calls,
+        consecutiveNoNewPages: data.consecutiveNoNewPages ?? integration.orchestration_no_new_pages,
+        strategy: data.strategy ?? integration.orchestration_strategy,
         existingProviderOfferIds,
       });
       const synced = await engine.run();
