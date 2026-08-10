@@ -44,6 +44,8 @@ export class SyncEngine {
   private newProviderIdentities = 0;
   private existingProviderIdentities = 0;
   private halted = false;
+  private remainingOfferEntities = 0;
+  private offerApiCallReserve = 0;
 
   constructor(ctx: SyncContext) {
     this.ctx = ctx;
@@ -87,7 +89,17 @@ export class SyncEngine {
       ? (records: unknown[]) => enricher!.enrichOffers(records)
       : undefined;
 
-    const plan: SyncEntityType[] = entityTypes.filter((e) => !(splitPromotions && e === "deal"));
+    const requestedPlan = entityTypes.filter((e) => !(splitPromotions && e === "deal"));
+    // Offers are the primary import output. Fetch them before supporting store/category
+    // entities so those entities cannot consume the run budget first.
+    const plan: SyncEntityType[] = [
+      ...requestedPlan.filter(isOfferEntity),
+      ...requestedPlan.filter((entity) => !isOfferEntity(entity)),
+    ];
+    this.remainingOfferEntities = plan.filter(isOfferEntity).length;
+    this.offerApiCallReserve = ctx.options.maxApiCalls == null || this.remainingOfferEntities === 0
+      ? 0
+      : Math.max(1, Math.ceil(ctx.options.maxApiCalls / 2));
 
     // Tracking urls already known from synced stores, keyed by every provider
     // identifier the store exposes. Used as a fallback for promotions.
@@ -153,6 +165,7 @@ export class SyncEngine {
       }
 
 
+      if (isOfferEntity(entity)) this.remainingOfferEntities -= 1;
       if (this.halted || (!ok && !continueOnError)) break;
     }
 
@@ -239,8 +252,16 @@ export class SyncEngine {
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      if (maxPages != null && pagesDone >= maxPages) { stopReason = "max_pages"; break; }
+      if (pagesDone >= maxPages) { stopReason = "max_pages"; break; }
       if (maxApiCalls != null && this.apiCallsUsed >= maxApiCalls) { stopReason = "max_api_calls"; this.halted = true; break; }
+      // Keep a provider-neutral portion of the total cap available while offer
+      // discovery remains. The offer-first plan makes this a safeguard rather
+      // than the normal path, and protects future plans that require stores first.
+      if (!isOfferEntity(entity) && this.remainingOfferEntities > 0 && maxApiCalls != null &&
+          this.apiCallsUsed >= maxApiCalls - this.offerApiCallReserve) {
+        stopReason = "max_api_calls";
+        break;
+      }
 
       const pageStarted = Date.now();
       ctx.progress.update({ currentEntity: entity, currentPage: page });
@@ -365,8 +386,7 @@ export class SyncEngine {
       const pagination = res.pagination;
       if (pagination?.hasNextPage === false) { stopReason = "provider_end"; break; }
       if (records.length === 0) { stopReason = "provider_end"; break; }
-      if (pageSize != null && records.length < pageSize) { stopReason = "provider_end"; break; }
-      if (pageSize == null) { stopReason = "provider_end"; break; }
+      if (records.length < pageSize) { stopReason = "provider_end"; break; }
       if ((ctx.options.strategy === "incremental" || ctx.options.strategy === "discover_new_offers") && (entity === "coupon" || entity === "deal")) {
         if (consecutiveNoNew >= ctx.options.consecutiveNoNewPages) { stopReason = "consecutive_no_new"; break; }
       }
@@ -444,6 +464,10 @@ export class SyncEngine {
       },
     };
   }
+}
+
+function isOfferEntity(entity: SyncEntityType): boolean {
+  return entity === "coupon" || entity === "deal";
 }
 
 function toArray(body: unknown): unknown[] {
