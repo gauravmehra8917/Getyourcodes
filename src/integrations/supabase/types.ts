@@ -82,12 +82,17 @@ export type Database = {
       }
       affiliate_import_runs: {
         Row: {
+          api_calls_used: number
           created_at: string
           duration_ms: number
           error_message: string | null
+          existing_provider_identities: number
           finished_at: string | null
           id: string
+          import_strategy: string
           integration_id: string
+          new_provider_identities: number
+          pages_crawled: number
           policy_id: string | null
           policy_name: string | null
           preview: boolean
@@ -96,6 +101,7 @@ export type Database = {
           publishing_policy_name: string | null
           publishing_summary: Json
           records_created: number
+          records_fetched: number
           records_held: number
           records_processed: number
           records_published: number
@@ -103,18 +109,24 @@ export type Database = {
           records_updated: number
           started_at: string
           statistics: Json
+          stop_reason: string | null
           success: boolean
           triggered_by: string | null
           validation_errors: number
           warnings: number
         }
         Insert: {
+          api_calls_used?: number
           created_at?: string
           duration_ms?: number
           error_message?: string | null
+          existing_provider_identities?: number
           finished_at?: string | null
           id?: string
+          import_strategy?: string
           integration_id: string
+          new_provider_identities?: number
+          pages_crawled?: number
           policy_id?: string | null
           policy_name?: string | null
           preview?: boolean
@@ -123,6 +135,7 @@ export type Database = {
           publishing_policy_name?: string | null
           publishing_summary?: Json
           records_created?: number
+          records_fetched?: number
           records_held?: number
           records_processed?: number
           records_published?: number
@@ -130,18 +143,24 @@ export type Database = {
           records_updated?: number
           started_at?: string
           statistics?: Json
+          stop_reason?: string | null
           success?: boolean
           triggered_by?: string | null
           validation_errors?: number
           warnings?: number
         }
         Update: {
+          api_calls_used?: number
           created_at?: string
           duration_ms?: number
           error_message?: string | null
+          existing_provider_identities?: number
           finished_at?: string | null
           id?: string
+          import_strategy?: string
           integration_id?: string
+          new_provider_identities?: number
+          pages_crawled?: number
           policy_id?: string | null
           policy_name?: string | null
           preview?: boolean
@@ -150,6 +169,7 @@ export type Database = {
           publishing_policy_name?: string | null
           publishing_summary?: Json
           records_created?: number
+          records_fetched?: number
           records_held?: number
           records_processed?: number
           records_published?: number
@@ -157,6 +177,7 @@ export type Database = {
           records_updated?: number
           started_at?: string
           statistics?: Json
+          stop_reason?: string | null
           success?: boolean
           triggered_by?: string | null
           validation_errors?: number
@@ -275,6 +296,11 @@ export type Database = {
           is_enabled: boolean
           last_test_result: Json | null
           last_tested_at: string | null
+          orchestration_max_api_calls: number | null
+          orchestration_max_pages: number | null
+          orchestration_no_new_pages: number
+          orchestration_page_size: number
+          orchestration_strategy: string
           provider_name: string
           provider_type: string
           publishing_policy_id: string | null
@@ -299,6 +325,11 @@ export type Database = {
           is_enabled?: boolean
           last_test_result?: Json | null
           last_tested_at?: string | null
+          orchestration_max_api_calls?: number | null
+          orchestration_max_pages?: number | null
+          orchestration_no_new_pages?: number
+          orchestration_page_size?: number
+          orchestration_strategy?: string
           provider_name: string
           provider_type: string
           publishing_policy_id?: string | null
@@ -323,6 +354,11 @@ export type Database = {
           is_enabled?: boolean
           last_test_result?: Json | null
           last_tested_at?: string | null
+          orchestration_max_api_calls?: number | null
+          orchestration_max_pages?: number | null
+          orchestration_no_new_pages?: number
+          orchestration_page_size?: number
+          orchestration_strategy?: string
           provider_name?: string
           provider_type?: string
           publishing_policy_id?: string | null
