@@ -3,8 +3,9 @@ ALTER TABLE public.affiliate_integrations
   ADD COLUMN IF NOT EXISTS orchestration_strategy text NOT NULL DEFAULT 'incremental'
     CHECK (orchestration_strategy IN ('incremental', 'discover_new_offers', 'refresh_existing_only', 'full_sync')),
   ADD COLUMN IF NOT EXISTS orchestration_page_size integer NOT NULL DEFAULT 100 CHECK (orchestration_page_size BETWEEN 1 AND 500),
-  ADD COLUMN IF NOT EXISTS orchestration_max_pages integer NOT NULL DEFAULT 2 CHECK (orchestration_max_pages BETWEEN 1 AND 500),
-  ADD COLUMN IF NOT EXISTS orchestration_max_api_calls integer NOT NULL DEFAULT 8 CHECK (orchestration_max_api_calls BETWEEN 1 AND 2000),
+  -- NULL delegates to the strategy-aware defaults in ImportOrchestration.ts.
+  ADD COLUMN IF NOT EXISTS orchestration_max_pages integer CHECK (orchestration_max_pages BETWEEN 1 AND 500),
+  ADD COLUMN IF NOT EXISTS orchestration_max_api_calls integer CHECK (orchestration_max_api_calls BETWEEN 1 AND 2000),
   ADD COLUMN IF NOT EXISTS orchestration_no_new_pages integer NOT NULL DEFAULT 2 CHECK (orchestration_no_new_pages BETWEEN 1 AND 100);
 
 ALTER TABLE public.affiliate_import_runs
