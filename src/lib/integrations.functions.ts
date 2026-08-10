@@ -40,8 +40,8 @@ const metaSchema = z.object({
   endpoint_configuration: z.record(z.string(), z.string()).default({}),
   orchestration_strategy: importStrategy.optional().default("incremental"),
   orchestration_page_size: z.number().int().positive().max(500).optional().default(100),
-  orchestration_max_pages: z.number().int().positive().max(500).optional().default(2),
-  orchestration_max_api_calls: z.number().int().positive().max(2000).optional().default(8),
+  orchestration_max_pages: z.number().int().positive().max(500).nullable().optional().default(null),
+  orchestration_max_api_calls: z.number().int().positive().max(2000).nullable().optional().default(null),
   orchestration_no_new_pages: z.number().int().positive().max(100).optional().default(2),
   is_enabled: z.boolean().default(false),
 });
