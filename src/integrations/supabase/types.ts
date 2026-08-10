@@ -86,11 +86,11 @@ export type Database = {
           created_at: string
           duration_ms: number
           error_message: string | null
-          existing_provider_identities: number
           finished_at: string | null
           id: string
-          import_strategy: string
           integration_id: string
+          import_strategy: string
+          existing_provider_identities: number
           new_provider_identities: number
           pages_crawled: number
           policy_id: string | null
@@ -109,22 +109,22 @@ export type Database = {
           records_updated: number
           started_at: string
           statistics: Json
-          stop_reason: string | null
           success: boolean
+          stop_reason: string | null
           triggered_by: string | null
           validation_errors: number
           warnings: number
         }
         Insert: {
-          api_calls_used?: number
           created_at?: string
+          api_calls_used?: number
           duration_ms?: number
           error_message?: string | null
-          existing_provider_identities?: number
           finished_at?: string | null
           id?: string
-          import_strategy?: string
           integration_id: string
+          import_strategy?: string
+          existing_provider_identities?: number
           new_provider_identities?: number
           pages_crawled?: number
           policy_id?: string | null
@@ -143,22 +143,22 @@ export type Database = {
           records_updated?: number
           started_at?: string
           statistics?: Json
-          stop_reason?: string | null
           success?: boolean
+          stop_reason?: string | null
           triggered_by?: string | null
           validation_errors?: number
           warnings?: number
         }
         Update: {
-          api_calls_used?: number
           created_at?: string
+          api_calls_used?: number
           duration_ms?: number
           error_message?: string | null
-          existing_provider_identities?: number
           finished_at?: string | null
           id?: string
-          import_strategy?: string
           integration_id?: string
+          import_strategy?: string
+          existing_provider_identities?: number
           new_provider_identities?: number
           pages_crawled?: number
           policy_id?: string | null
@@ -177,8 +177,8 @@ export type Database = {
           records_updated?: number
           started_at?: string
           statistics?: Json
-          stop_reason?: string | null
           success?: boolean
+          stop_reason?: string | null
           triggered_by?: string | null
           validation_errors?: number
           warnings?: number
@@ -293,14 +293,14 @@ export type Database = {
           environment: string
           id: string
           integration_name: string
-          is_enabled: boolean
-          last_test_result: Json | null
-          last_tested_at: string | null
           orchestration_max_api_calls: number | null
           orchestration_max_pages: number | null
           orchestration_no_new_pages: number
           orchestration_page_size: number
           orchestration_strategy: string
+          is_enabled: boolean
+          last_test_result: Json | null
+          last_tested_at: string | null
           provider_name: string
           provider_type: string
           publishing_policy_id: string | null
@@ -322,14 +322,14 @@ export type Database = {
           environment?: string
           id?: string
           integration_name: string
-          is_enabled?: boolean
-          last_test_result?: Json | null
-          last_tested_at?: string | null
           orchestration_max_api_calls?: number | null
           orchestration_max_pages?: number | null
           orchestration_no_new_pages?: number
           orchestration_page_size?: number
           orchestration_strategy?: string
+          is_enabled?: boolean
+          last_test_result?: Json | null
+          last_tested_at?: string | null
           provider_name: string
           provider_type: string
           publishing_policy_id?: string | null
@@ -351,14 +351,14 @@ export type Database = {
           environment?: string
           id?: string
           integration_name?: string
-          is_enabled?: boolean
-          last_test_result?: Json | null
-          last_tested_at?: string | null
           orchestration_max_api_calls?: number | null
           orchestration_max_pages?: number | null
           orchestration_no_new_pages?: number
           orchestration_page_size?: number
           orchestration_strategy?: string
+          is_enabled?: boolean
+          last_test_result?: Json | null
+          last_tested_at?: string | null
           provider_name?: string
           provider_type?: string
           publishing_policy_id?: string | null
@@ -409,6 +409,11 @@ export type Database = {
           created_at: string
           id: string
           imported_at: string | null
+          import_origin: string | null
+          last_qualification_result: string | null
+          last_qualified_at: string | null
+          lifecycle_hidden: boolean
+          lifecycle_managed: boolean
           name: string
           provider: string | null
           provider_entity_id: string | null
@@ -423,6 +428,11 @@ export type Database = {
           created_at?: string
           id?: string
           imported_at?: string | null
+          import_origin?: string | null
+          last_qualification_result?: string | null
+          last_qualified_at?: string | null
+          lifecycle_hidden?: boolean
+          lifecycle_managed?: boolean
           name: string
           provider?: string | null
           provider_entity_id?: string | null
@@ -437,6 +447,11 @@ export type Database = {
           created_at?: string
           id?: string
           imported_at?: string | null
+          import_origin?: string | null
+          last_qualification_result?: string | null
+          last_qualified_at?: string | null
+          lifecycle_hidden?: boolean
+          lifecycle_managed?: boolean
           name?: string
           provider?: string | null
           provider_entity_id?: string | null
