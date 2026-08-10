@@ -3,6 +3,7 @@ import test from "node:test";
 import type { StandardResponse } from "@/lib/integration-engine/types";
 import type { NormalizationBatch, PromotionSplit } from "@/lib/normalizers";
 import type { ProviderAdapter, ProviderResult } from "@/lib/providers/index.server";
+import { extractImpactPagination } from "@/lib/providers/adapters/ImpactAdapter";
 import { classifyOfferIdentities, resolveOrchestrationSettings, shouldPersistOffer } from "./ImportOrchestration";
 import { SyncContext } from "./SyncContext";
 import { SyncEngine } from "./SyncEngine";
@@ -103,9 +104,11 @@ test("strategies retain the correct offer identities", () => {
   assert.equal(shouldPersistOffer("full_sync", true), true);
 });
 
-test("safe defaults preserve incremental two-page imports while full sync has a larger bounded window", () => {
-  assert.equal(resolveOrchestrationSettings().maxPages, 2);
-  assert.equal(resolveOrchestrationSettings({ strategy: "full_sync" }).maxPages, 50);
+test("nullable page limits resolve from the selected strategy", () => {
+  assert.equal(resolveOrchestrationSettings({ strategy: "incremental", maxPages: null }).maxPages, 2);
+  assert.equal(resolveOrchestrationSettings({ strategy: "discover_new_offers", maxPages: null }).maxPages, 10);
+  assert.equal(resolveOrchestrationSettings({ strategy: "refresh_existing_only", maxPages: null }).maxPages, 10);
+  assert.equal(resolveOrchestrationSettings({ strategy: "full_sync", maxPages: null }).maxPages, 50);
   assert.equal(resolveOrchestrationSettings({ maxApiCalls: 3 }).maxApiCalls, 3);
 });
 
@@ -122,6 +125,36 @@ test("traverses page 3 and beyond while full pages remain", async () => {
   assert.equal(result.orchestration.stopReason, "provider_end");
 });
 
+test("follows Impact's explicit next-page metadata", async () => {
+  const pageOne = extractImpactPagination({
+    "@page": "1",
+    "@numpages": "3",
+    "@nextpageuri": "/Mediapartners/test/Promotions?Page=3&PageSize=1",
+    Promotions: [{ external_id: "one" }],
+  });
+  const finalPage = extractImpactPagination({ "@page": "3", "@numpages": "3", Promotions: [{ external_id: "three" }] });
+  assert.deepEqual(pageOne, { hasNextPage: true, nextPage: 3 });
+  assert.deepEqual(finalPage, { hasNextPage: false, nextPage: null });
+
+  const { result, couponPages } = await runCoupons([
+    response([{ external_id: "one" }], pageOne),
+    response([]),
+    response([{ external_id: "three" }], finalPage),
+  ], { entityTypes: ["coupon"], strategy: "full_sync", pageSize: 1, maxPages: 10, maxApiCalls: 10 });
+
+  assert.deepEqual(couponPages, [1, 3]);
+  assert.deepEqual(result.coupons.map((coupon) => coupon.providerCouponId), ["one", "three"]);
+});
+
+test("uses a short page as the pagination fallback", async () => {
+  const { result, couponPages } = await runCoupons([
+    response([{ external_id: "one" }]),
+  ], { entityTypes: ["coupon"], strategy: "full_sync", pageSize: 2, maxPages: 10, maxApiCalls: 10 });
+
+  assert.deepEqual(couponPages, [1]);
+  assert.equal(result.orchestration.stopReason, "provider_end");
+});
+
 test("stops the run when the shared API-call budget is exhausted", async () => {
   const { result, couponPages } = await runCoupons([
     response([{ external_id: "one" }]),
@@ -134,7 +167,7 @@ test("stops the run when the shared API-call budget is exhausted", async () => {
   assert.equal(result.orchestration.stopReason, "max_api_calls");
 });
 
-test("a shared API-call cap can be consumed by stores before coupon discovery", async () => {
+test("offer discovery runs before stores and cannot be starved by their API calls", async () => {
   const { adapter, couponPages, storePages } = makeAdapter([
     response([{ external_id: "store-page-one" }]),
     response([{ external_id: "store-page-two" }]),
@@ -148,8 +181,8 @@ test("a shared API-call cap can be consumed by stores before coupon discovery", 
 
   assert.equal(result.success, true);
   assert.ok(result.body);
-  assert.deepEqual(storePages, [1, 2]);
-  assert.deepEqual(couponPages, []);
+  assert.deepEqual(couponPages, [1, 2]);
+  assert.deepEqual(storePages, []);
   assert.equal(result.body!.orchestration.stopReason, "max_api_calls");
 });
 
