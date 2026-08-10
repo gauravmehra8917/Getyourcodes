@@ -409,11 +409,6 @@ export type Database = {
           created_at: string
           id: string
           imported_at: string | null
-          import_origin: string | null
-          last_qualification_result: string | null
-          last_qualified_at: string | null
-          lifecycle_hidden: boolean
-          lifecycle_managed: boolean
           name: string
           provider: string | null
           provider_entity_id: string | null
@@ -428,11 +423,6 @@ export type Database = {
           created_at?: string
           id?: string
           imported_at?: string | null
-          import_origin?: string | null
-          last_qualification_result?: string | null
-          last_qualified_at?: string | null
-          lifecycle_hidden?: boolean
-          lifecycle_managed?: boolean
           name: string
           provider?: string | null
           provider_entity_id?: string | null
@@ -447,11 +437,6 @@ export type Database = {
           created_at?: string
           id?: string
           imported_at?: string | null
-          import_origin?: string | null
-          last_qualification_result?: string | null
-          last_qualified_at?: string | null
-          lifecycle_hidden?: boolean
-          lifecycle_managed?: boolean
           name?: string
           provider?: string | null
           provider_entity_id?: string | null
@@ -1231,6 +1216,11 @@ export type Database = {
           featured: boolean
           id: string
           imported_at: string | null
+          import_origin: string | null
+          last_qualification_result: string | null
+          last_qualified_at: string | null
+          lifecycle_hidden: boolean
+          lifecycle_managed: boolean
           logo_source_url: string | null
           logo_url: string | null
           metadata: Json
@@ -1255,6 +1245,11 @@ export type Database = {
           featured?: boolean
           id?: string
           imported_at?: string | null
+          import_origin?: string | null
+          last_qualification_result?: string | null
+          last_qualified_at?: string | null
+          lifecycle_hidden?: boolean
+          lifecycle_managed?: boolean
           logo_source_url?: string | null
           logo_url?: string | null
           metadata?: Json
@@ -1279,6 +1274,11 @@ export type Database = {
           featured?: boolean
           id?: string
           imported_at?: string | null
+          import_origin?: string | null
+          last_qualification_result?: string | null
+          last_qualified_at?: string | null
+          lifecycle_hidden?: boolean
+          lifecycle_managed?: boolean
           logo_source_url?: string | null
           logo_url?: string | null
           metadata?: Json
