@@ -2,6 +2,7 @@
 // Orchestration only: fetch → normalize → SyncResult. No persistence.
 
 export { SyncEngine } from "./SyncEngine";
+export { resolveOrchestrationSettings, classifyOfferIdentities, shouldPersistOffer, type ImportStrategy, type ImportStopReason, type OrchestrationSettings } from "./ImportOrchestration";
 export { SyncContext, type SyncContextInit } from "./SyncContext";
 export {
   ALL_SYNC_ENTITIES,

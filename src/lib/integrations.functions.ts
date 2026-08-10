@@ -11,6 +11,7 @@ const providerType = z.enum([
   "custom_rest_api",
 ]);
 const authType = z.enum(["api_key", "bearer", "oauth2", "basic", "custom_headers"]);
+const importStrategy = z.enum(["incremental", "discover_new_offers", "refresh_existing_only", "full_sync"]);
 
 const credentialsSchema = z.object({
   apiKey: z.string().optional().default(""),
@@ -37,6 +38,11 @@ const metaSchema = z.object({
   retry_attempts: z.number().int().min(0).max(20),
   custom_headers: z.array(z.object({ key: z.string(), value: z.string() })).default([]),
   endpoint_configuration: z.record(z.string(), z.string()).default({}),
+  orchestration_strategy: importStrategy.optional().default("incremental"),
+  orchestration_page_size: z.number().int().positive().max(500).optional().default(100),
+  orchestration_max_pages: z.number().int().positive().max(500).optional().default(2),
+  orchestration_max_api_calls: z.number().int().positive().max(2000).optional().default(8),
+  orchestration_no_new_pages: z.number().int().positive().max(100).optional().default(2),
   is_enabled: z.boolean().default(false),
 });
 
@@ -94,7 +100,7 @@ export const listIntegrations = createServerFn({ method: "GET" })
     const { data, error } = await ctx.supabase
       .from("affiliate_integrations")
       .select(
-        "id, integration_name, provider_name, provider_type, description, authentication_type, base_url, api_version, timeout_seconds, retry_attempts, custom_headers, endpoint_configuration, is_enabled, status, environment, last_test_result, last_tested_at, created_at, updated_at"
+        "id, integration_name, provider_name, provider_type, description, authentication_type, base_url, api_version, timeout_seconds, retry_attempts, custom_headers, endpoint_configuration, orchestration_strategy, orchestration_page_size, orchestration_max_pages, orchestration_max_api_calls, orchestration_no_new_pages, is_enabled, status, environment, last_test_result, last_tested_at, created_at, updated_at"
       )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);

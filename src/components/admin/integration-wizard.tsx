@@ -42,6 +42,11 @@ type WizardData = {
   apiVersion: string;
   timeout: string;
   retries: string;
+  orchestrationStrategy: "incremental" | "discover_new_offers" | "refresh_existing_only" | "full_sync";
+  orchestrationPageSize: string;
+  orchestrationMaxPages: string;
+  orchestrationMaxApiCalls: string;
+  orchestrationNoNewPages: string;
   healthEndpoint: string;
   storesEndpoint: string;
   couponsEndpoint: string;
@@ -95,6 +100,11 @@ const INITIAL: WizardData = {
   apiVersion: "",
   timeout: "30",
   retries: "3",
+  orchestrationStrategy: "incremental",
+  orchestrationPageSize: "100",
+  orchestrationMaxPages: "2",
+  orchestrationMaxApiCalls: "8",
+  orchestrationNoNewPages: "2",
   healthEndpoint: "",
   storesEndpoint: "",
   couponsEndpoint: "",
@@ -140,6 +150,11 @@ export type IntegrationRecord = {
   retry_attempts: number;
   custom_headers: { key: string; value: string }[] | null;
   endpoint_configuration: Record<string, string> | null;
+  orchestration_strategy?: WizardData["orchestrationStrategy"] | null;
+  orchestration_page_size?: number | null;
+  orchestration_max_pages?: number | null;
+  orchestration_max_api_calls?: number | null;
+  orchestration_no_new_pages?: number | null;
   is_enabled: boolean;
 };
 
@@ -156,6 +171,11 @@ function fromRecord(rec: IntegrationRecord): WizardData {
     apiVersion: rec.api_version ?? "",
     timeout: String(rec.timeout_seconds ?? 30),
     retries: String(rec.retry_attempts ?? 3),
+    orchestrationStrategy: rec.orchestration_strategy ?? "incremental",
+    orchestrationPageSize: String(rec.orchestration_page_size ?? 100),
+    orchestrationMaxPages: String(rec.orchestration_max_pages ?? 2),
+    orchestrationMaxApiCalls: String(rec.orchestration_max_api_calls ?? 8),
+    orchestrationNoNewPages: String(rec.orchestration_no_new_pages ?? 2),
     healthEndpoint: ep.health ?? "",
     storesEndpoint: ep.stores ?? "",
     couponsEndpoint: ep.coupons ?? "",
@@ -304,6 +324,11 @@ export function IntegrationWizard({
         coupons: data.couponsEndpoint,
         deals: data.dealsEndpoint,
       },
+      orchestration_strategy: data.orchestrationStrategy,
+      orchestration_page_size: Number(data.orchestrationPageSize) || 100,
+      orchestration_max_pages: Number(data.orchestrationMaxPages) || 2,
+      orchestration_max_api_calls: Number(data.orchestrationMaxApiCalls) || 8,
+      orchestration_no_new_pages: Number(data.orchestrationNoNewPages) || 2,
       is_enabled: isEdit ? editing!.is_enabled : false,
     };
     const credentials = {
@@ -734,6 +759,26 @@ function Step3({
         </div>
         <Helper>Endpoint availability is not validated in this phase.</Helper>
       </div>
+      {showAffiliate && (
+        <div className="rounded border border-slate-200 p-4">
+          <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-600">Import orchestration</h4>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <Field label="Strategy">
+              <SelectInput value={data.orchestrationStrategy} onChange={(e) => update("orchestrationStrategy", e.target.value as WizardData["orchestrationStrategy"])}>
+                <option value="incremental">Incremental</option>
+                <option value="discover_new_offers">Discover New Offers</option>
+                <option value="refresh_existing_only">Refresh Existing Only</option>
+                <option value="full_sync">Full Sync</option>
+              </SelectInput>
+            </Field>
+            <Field label="Page size"><TextInput type="number" min={1} max={500} value={data.orchestrationPageSize} onChange={(e) => update("orchestrationPageSize", e.target.value)} /></Field>
+            <Field label="Maximum pages"><TextInput type="number" min={1} value={data.orchestrationMaxPages} onChange={(e) => update("orchestrationMaxPages", e.target.value)} /></Field>
+            <Field label="Maximum API calls"><TextInput type="number" min={1} value={data.orchestrationMaxApiCalls} onChange={(e) => update("orchestrationMaxApiCalls", e.target.value)} /></Field>
+            <Field label="No-new pages before stop"><TextInput type="number" min={1} value={data.orchestrationNoNewPages} onChange={(e) => update("orchestrationNoNewPages", e.target.value)} /></Field>
+          </div>
+          <Helper>Uses immutable provider identities only. Preview and Run Import use these same limits.</Helper>
+        </div>
+      )}
     </div>
   );
 }

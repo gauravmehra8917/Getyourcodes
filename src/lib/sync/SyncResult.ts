@@ -10,6 +10,7 @@ import type {
 import type { SyncEntityType } from "./SyncOptions";
 import type { SyncProgress } from "./SyncProgress";
 import type { SyncStatistics } from "./SyncStatistics";
+import type { ImportStopReason, ImportStrategy } from "./ImportOrchestration";
 
 export interface SyncIssue {
   entity: SyncEntityType | null;
@@ -32,4 +33,13 @@ export interface SyncResult {
   progress: SyncProgress;
   warnings: SyncIssue[];
   errors: SyncIssue[];
+  orchestration: {
+    strategy: ImportStrategy;
+    pagesCrawled: number;
+    apiCallsUsed: number;
+    recordsFetched: number;
+    newProviderIdentitiesDiscovered: number;
+    existingProviderIdentitiesEncountered: number;
+    stopReason: ImportStopReason | "multiple" | null;
+  };
 }

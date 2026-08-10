@@ -26,7 +26,14 @@ export interface FetchOptions {
   [k: string]: unknown;
 }
 
-export type ProviderResult<T> = StandardResponse<T>;
+/** Optional pagination data. Adapters may expose it when their API supplies
+ * explicit cursors/has-next markers; the orchestration engine remains generic. */
+export interface ProviderPagination {
+  hasNextPage?: boolean;
+  nextPage?: number | null;
+}
+
+export type ProviderResult<T> = StandardResponse<T> & { pagination?: ProviderPagination };
 
 export interface ProviderAdapter {
   readonly providerKey: string;

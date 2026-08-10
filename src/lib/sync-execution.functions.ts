@@ -81,6 +81,15 @@ export interface SyncRunReport {
   preview: boolean;
   committed: boolean;
   durationMs: number;
+  orchestration: {
+    strategy: string;
+    pagesCrawled: number;
+    apiCallsUsed: number;
+    recordsFetched: number;
+    newProviderIdentitiesDiscovered: number;
+    existingProviderIdentitiesEncountered: number;
+    stopReason: string | null;
+  } | null;
   syncErrors: string[];
   syncWarnings: string[];
   progress: {
@@ -266,6 +275,9 @@ export const runProviderSync = createServerFn({ method: "POST" })
         entityTypes: z.array(z.enum(["store", "coupon", "deal", "category"])).optional(),
         pageSize: z.number().int().positive().max(500).optional(),
         maxPages: z.number().int().positive().max(50).optional(),
+        maxApiCalls: z.number().int().positive().max(2000).optional(),
+        consecutiveNoNewPages: z.number().int().positive().max(100).optional(),
+        strategy: z.enum(["incremental", "discover_new_offers", "refresh_existing_only", "full_sync"]).optional(),
       })
       .parse(v),
   )
@@ -285,6 +297,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
       preview: data.preview,
       committed: false,
       durationMs: 0,
+      orchestration: null,
       syncErrors: [],
       syncWarnings: [],
       progress: null,
@@ -304,16 +317,29 @@ export const runProviderSync = createServerFn({ method: "POST" })
     };
 
     try {
+      const { data: integration, error: integrationError } = await (supabaseAdmin as any)
+        .from("affiliate_integrations")
+        .select("provider_name, provider_type, orchestration_strategy, orchestration_page_size, orchestration_max_pages, orchestration_max_api_calls, orchestration_no_new_pages")
+        .eq("id", data.integrationId).single();
+      if (integrationError || !integration) throw new Error(integrationError?.message ?? "Integration not found");
+      const { loadExistingProviderOfferIds } = await import("@/lib/sync/ProviderIdentityIndex.server");
+      const { resolveProviderKey } = await import("@/lib/providers/ProviderFactory");
+      const existingProviderOfferIds = await loadExistingProviderOfferIds(resolveProviderKey(integration));
       const engine = await SyncEngine.forIntegration(data.integrationId, {
         entityTypes: data.entityTypes,
-        pageSize: data.pageSize ?? 100,
-        maxPages: data.maxPages ?? 2,
+        pageSize: data.pageSize ?? integration.orchestration_page_size ?? 100,
+        maxPages: data.maxPages ?? integration.orchestration_max_pages ?? 2,
+        maxApiCalls: data.maxApiCalls ?? integration.orchestration_max_api_calls ?? 8,
+        consecutiveNoNewPages: data.consecutiveNoNewPages ?? integration.orchestration_no_new_pages ?? 2,
+        strategy: data.strategy ?? integration.orchestration_strategy ?? "incremental",
+        existingProviderOfferIds,
       });
       const synced = await engine.run();
       const sync = synced.body;
       if (!sync) throw new Error(synced.error?.message ?? "Sync produced no result");
 
       report.provider = sync.provider;
+      report.orchestration = sync.orchestration;
       report.progress = {
         currentEntity: sync.progress.currentEntity,
         currentPage: sync.progress.currentPage,
@@ -454,6 +480,13 @@ export const runProviderSync = createServerFn({ method: "POST" })
         policy_name: report.publishing?.policyName ?? null,
         records_held: (report.publishing?.couponsHeld ?? 0) + (report.publishing?.dealsHeld ?? 0),
         publishing_summary: report.publishing ?? null,
+        import_strategy: report.orchestration?.strategy ?? "incremental",
+        pages_crawled: report.orchestration?.pagesCrawled ?? 0,
+        api_calls_used: report.orchestration?.apiCallsUsed ?? 0,
+        records_fetched: report.orchestration?.recordsFetched ?? 0,
+        new_provider_identities: report.orchestration?.newProviderIdentitiesDiscovered ?? 0,
+        existing_provider_identities: report.orchestration?.existingProviderIdentitiesEncountered ?? 0,
+        stop_reason: report.orchestration?.stopReason,
         triggered_by: ctx.userId,
       });
     } catch {
@@ -473,7 +506,7 @@ export const getImportHistory = createServerFn({ method: "GET" })
     const { data: rows, error } = await ctx.supabase
       .from("affiliate_import_runs")
       .select(
-        "id, provider, preview, started_at, finished_at, duration_ms, success, records_processed, records_created, records_updated, records_skipped, validation_errors, warnings, error_message, policy_name, records_held",
+        "id, provider, preview, started_at, finished_at, duration_ms, success, records_processed, records_created, records_updated, records_skipped, validation_errors, warnings, error_message, policy_name, records_held, import_strategy, pages_crawled, api_calls_used, records_fetched, new_provider_identities, existing_provider_identities, stop_reason",
       )
       .eq("integration_id", data.integrationId)
       .order("started_at", { ascending: false })

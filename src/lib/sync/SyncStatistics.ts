@@ -1,6 +1,7 @@
 // Aggregate counters for a sync run.
 
 import type { SyncEntityType } from "./SyncOptions";
+import type { ImportStopReason, ImportStrategy } from "./ImportOrchestration";
 
 export interface EntityStatistics {
   entity: SyncEntityType;
@@ -11,6 +12,7 @@ export interface EntityStatistics {
   skipped: number;
   durationMs: number;
   failed: boolean;
+  stopReason?: ImportStopReason;
 }
 
 export interface SyncStatistics {
@@ -26,6 +28,10 @@ export interface SyncStatistics {
   totalNormalized: number;
   totalSkipped: number;
   durationMs: number;
+  strategy?: ImportStrategy;
+  newProviderIdentities: number;
+  existingProviderIdentities: number;
+  stopReason: ImportStopReason | "multiple" | null;
   perEntity: EntityStatistics[];
 }
 
@@ -43,6 +49,9 @@ export function emptyStatistics(provider: string, integrationId: string): SyncSt
     totalNormalized: 0,
     totalSkipped: 0,
     durationMs: 0,
+    newProviderIdentities: 0,
+    existingProviderIdentities: 0,
+    stopReason: null,
     perEntity: [],
   };
 }

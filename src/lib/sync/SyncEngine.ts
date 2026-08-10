@@ -23,6 +23,7 @@ import type { SyncEntityType, SyncOptions } from "./SyncOptions";
 import type { SyncProgress } from "./SyncProgress";
 import type { SyncIssue, SyncResult } from "./SyncResult";
 import { applyEntityStats, type EntityStatistics } from "./SyncStatistics";
+import { classifyOfferIdentities, shouldPersistOffer, type ImportStopReason } from "./ImportOrchestration";
 
 /** Optional capability: normalizers that split a single promotions feed. */
 interface PromotionAwareNormalizer {
@@ -34,9 +35,15 @@ function supportsPromotionSplit(n: unknown): n is PromotionAwareNormalizer {
 }
 
 type PageRecords = unknown[];
+type PageOutcome = { normalized: number; skipped: number; error?: string; offerIds?: string[] };
 
 export class SyncEngine {
   private ctx: SyncContext;
+  private apiCallsUsed = 0;
+  private readonly seenOfferIds = new Set<string>();
+  private newProviderIdentities = 0;
+  private existingProviderIdentities = 0;
+  private halted = false;
 
   constructor(ctx: SyncContext) {
     this.ctx = ctx;
@@ -51,6 +58,7 @@ export class SyncEngine {
   async run(): Promise<StandardResponse<SyncResult>> {
     const { ctx } = this;
     const { entityTypes, continueOnError } = ctx.options;
+    ctx.statistics.strategy = ctx.options.strategy;
     ctx.progress.update({ status: "running" });
 
     const stores: CanonicalStore[] = [];
@@ -115,26 +123,37 @@ export class SyncEngine {
           if (!res.success || !res.body) {
             return { normalized: 0, skipped: Array.isArray(records) ? records.length : 0, error: res.error?.message };
           }
-          coupons.push(...res.body.coupons);
-          deals.push(...res.body.deals);
-          const normalized = res.body.coupons.length + res.body.deals.length;
+          const offerIds: string[] = [];
+          let normalized = 0;
+          for (const coupon of res.body.coupons) {
+            offerIds.push(coupon.providerCouponId);
+            if (shouldPersistOffer(ctx.options.strategy, ctx.options.existingProviderOfferIds.has(coupon.providerCouponId))) {
+              coupons.push(coupon); normalized += 1;
+            }
+          }
+          for (const deal of res.body.deals) {
+            offerIds.push(deal.providerDealId);
+            if (shouldPersistOffer(ctx.options.strategy, ctx.options.existingProviderOfferIds.has(deal.providerDealId))) {
+              deals.push(deal); normalized += 1;
+            }
+          }
           const total = Array.isArray(records) ? records.length : normalized;
-          return { normalized, skipped: Math.max(0, total - normalized) };
+          return { normalized, skipped: Math.max(0, total - normalized), offerIds };
         }, enrichOffers);
       } else if (entity === "coupon") {
         ok = await this.syncEntity(entity, (o) => ctx.adapter.fetchCoupons(o), (records) =>
-          this.batch(ctx.normalizer.normalizeCoupons(records, promotionCtx()), coupons),
+          this.batchOffers(ctx.normalizer.normalizeCoupons(records, promotionCtx()), coupons),
           enrichOffers,
         );
       } else if (entity === "deal") {
         ok = await this.syncEntity(entity, (o) => ctx.adapter.fetchDeals(o), (records) =>
-          this.batch(ctx.normalizer.normalizeDeals(records, promotionCtx()), deals),
+          this.batchOffers(ctx.normalizer.normalizeDeals(records, promotionCtx()), deals),
           enrichOffers,
         );
       }
 
 
-      if (!ok && !continueOnError) break;
+      if (this.halted || (!ok && !continueOnError)) break;
     }
 
     ctx.statistics.durationMs = ctx.progress.elapsedMs;
@@ -160,6 +179,15 @@ export class SyncEngine {
       progress,
       warnings: ctx.warnings,
       errors: ctx.errors,
+      orchestration: {
+        strategy: ctx.options.strategy,
+        pagesCrawled: ctx.statistics.totalPages,
+        apiCallsUsed: this.apiCallsUsed,
+        recordsFetched: ctx.statistics.totalRecords,
+        newProviderIdentitiesDiscovered: this.newProviderIdentities,
+        existingProviderIdentitiesEncountered: this.existingProviderIdentities,
+        stopReason: ctx.statistics.stopReason,
+      },
     };
 
     logSyncSummary({
@@ -186,11 +214,11 @@ export class SyncEngine {
   private async syncEntity(
     entity: SyncEntityType,
     fetchPage: (opts: FetchOptions) => Promise<ProviderResult<unknown>>,
-    normalizePage: (records: PageRecords) => { normalized: number; skipped: number; error?: string },
+    normalizePage: (records: PageRecords) => PageOutcome,
     enrich?: (records: PageRecords) => Promise<PageRecords>,
   ): Promise<boolean> {
     const { ctx } = this;
-    const { pageSize, maxPages, startPage, continueOnError, fetchParams } = ctx.options;
+    const { pageSize, maxPages, maxApiCalls, startPage, continueOnError, fetchParams } = ctx.options;
     const entityStarted = Date.now();
 
     const stats: EntityStatistics = {
@@ -206,10 +234,13 @@ export class SyncEngine {
 
     let page = startPage;
     let pagesDone = 0;
+    let consecutiveNoNew = 0;
+    let stopReason: ImportStopReason | undefined;
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      if (maxPages != null && pagesDone >= maxPages) break;
+      if (maxPages != null && pagesDone >= maxPages) { stopReason = "max_pages"; break; }
+      if (maxApiCalls != null && this.apiCallsUsed >= maxApiCalls) { stopReason = "max_api_calls"; this.halted = true; break; }
 
       const pageStarted = Date.now();
       ctx.progress.update({ currentEntity: entity, currentPage: page });
@@ -231,9 +262,11 @@ export class SyncEngine {
       }
 
       stats.requests += 1;
+      this.apiCallsUsed += 1;
 
       if (!res.success) {
         stats.failed = true;
+        stopReason = "fetch_error";
         const issue: SyncIssue = {
           entity,
           page,
@@ -288,6 +321,12 @@ export class SyncEngine {
           if (out.error) {
             ctx.warn({ entity, page, stage: "normalize", message: out.error });
           }
+          if (entity === "coupon" || entity === "deal") {
+            const discovery = classifyOfferIdentities(out.offerIds ?? [], ctx.options.existingProviderOfferIds, this.seenOfferIds);
+            this.newProviderIdentities += discovery.newProviderIdentities;
+            this.existingProviderIdentities += discovery.existingProviderIdentities;
+            consecutiveNoNew = discovery.newProviderIdentities === 0 ? consecutiveNoNew + 1 : 0;
+          }
         } catch (err) {
           skipped = records.length;
           const message = err instanceof Error ? err.message : String(err);
@@ -323,13 +362,23 @@ export class SyncEngine {
       ctx.options.onProgress?.(ctx.progress.snapshot());
 
       // Stop conditions: empty page, or a short page when pageSize is known.
-      if (records.length === 0) break;
-      if (pageSize != null && records.length < pageSize) break;
-      if (pageSize == null) break; // no pagination hint → single request
+      const pagination = res.pagination;
+      if (pagination?.hasNextPage === false) { stopReason = "provider_end"; break; }
+      if (records.length === 0) { stopReason = "provider_end"; break; }
+      if (pageSize != null && records.length < pageSize) { stopReason = "provider_end"; break; }
+      if (pageSize == null) { stopReason = "provider_end"; break; }
+      if ((ctx.options.strategy === "incremental" || ctx.options.strategy === "discover_new_offers") && (entity === "coupon" || entity === "deal")) {
+        if (consecutiveNoNew >= ctx.options.consecutiveNoNewPages) { stopReason = "consecutive_no_new"; break; }
+      }
 
-      page += 1;
+      page = pagination?.nextPage ?? page + 1;
     }
 
+    stats.stopReason = stopReason;
+    if (stopReason) {
+      const previous = ctx.statistics.stopReason;
+      ctx.statistics.stopReason = previous && previous !== stopReason ? "multiple" : stopReason;
+    }
     stats.durationMs = Date.now() - entityStarted;
     applyEntityStats(ctx.statistics, stats);
     ctx.progress.update({ totalPages: ctx.statistics.totalPages });
@@ -342,7 +391,7 @@ export class SyncEngine {
   private batch<T>(
     res: StandardResponse<NormalizationBatch<T>>,
     sink: T[],
-  ): { normalized: number; skipped: number; error?: string } {
+  ): PageOutcome {
     if (!res.success || !res.body) {
       return { normalized: 0, skipped: 0, error: res.error?.message ?? "normalization failed" };
     }
@@ -352,6 +401,28 @@ export class SyncEngine {
       skipped: res.body.skipped,
       error: res.body.issues.length ? `${res.body.issues.length} record(s) skipped` : undefined,
     };
+  }
+
+  /** Apply strategy filtering only to offers; stores/categories retain their
+   * current synchronization semantics and never use mutable fields as identity. */
+  private batchOffers<T extends { providerCouponId?: string; providerDealId?: string }>(
+    res: StandardResponse<NormalizationBatch<T>>,
+    sink: T[],
+  ): PageOutcome {
+    if (!res.success || !res.body) return { normalized: 0, skipped: 0, error: res.error?.message ?? "normalization failed" };
+    const offerIds: string[] = [];
+    let accepted = 0;
+    for (const item of res.body.items) {
+      const id = item.providerCouponId ?? item.providerDealId;
+      if (!id) continue;
+      offerIds.push(id);
+      if (shouldPersistOffer(this.ctx.options.strategy, this.ctx.options.existingProviderOfferIds.has(id))) {
+        sink.push(item);
+        accepted += 1;
+      }
+    }
+    return { normalized: accepted, skipped: res.body.skipped + (res.body.items.length - accepted), offerIds,
+      error: res.body.issues.length ? `${res.body.issues.length} record(s) skipped` : undefined };
   }
 
   private response(body: SyncResult, success: boolean): StandardResponse<SyncResult> {

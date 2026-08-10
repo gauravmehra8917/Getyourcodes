@@ -364,6 +364,19 @@ export function ImportResultModal({
                 </div>
               )}
 
+              {report.orchestration && (
+                <Section title="Import orchestration">
+                  <Row label="Strategy" value={report.orchestration.strategy.replaceAll("_", " ")} />
+                  <Row label="Pages crawled" value={report.orchestration.pagesCrawled} />
+                  <Row label="API calls used" value={report.orchestration.apiCallsUsed} />
+                  <Row label="Records fetched" value={report.orchestration.recordsFetched} />
+                  <Row label="New provider identities" value={report.orchestration.newProviderIdentitiesDiscovered} />
+                  <Row label="Existing provider identities" value={report.orchestration.existingProviderIdentitiesEncountered} />
+                  <Row label="Stop reason" value={report.orchestration.stopReason ?? "—"} />
+                  <Row label="Execution duration" value={`${report.durationMs}ms`} />
+                </Section>
+              )}
+
               <IdentitySummaryTable rows={report.identity} />
 
               {report.publishing && <PublishingSummaryPanel summary={report.publishing} />}
