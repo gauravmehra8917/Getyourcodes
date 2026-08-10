@@ -11,8 +11,9 @@ export function qualifyStores(
 ): StoreQualification[] {
   const rows = new Map<string, StoreQualification>();
   const row = (storeKey: string) => rows.get(storeKey) ?? (rows.set(storeKey, { storeKey, eligibleCoupons: 0, eligibleDeals: 0, selectedCoupons: 0, selectedDeals: 0, qualified: false, reason: "insufficient_publishable_offers" }), rows.get(storeKey)!);
-  for (const r of eligibleCoupons) row(key(r.source)).eligibleCoupons++;
-  for (const r of eligibleDeals) row(key(r.source)).eligibleDeals++;
+  const seen = new Set<string>();
+  for (const r of eligibleCoupons) if (!seen.has(`coupon:${r.providerEntityId}`)) { seen.add(`coupon:${r.providerEntityId}`); row(key(r.source)).eligibleCoupons++; }
+  for (const r of eligibleDeals) if (!seen.has(`deal:${r.providerEntityId}`)) { seen.add(`deal:${r.providerEntityId}`); row(key(r.source)).eligibleDeals++; }
   for (const r of selectedCoupons) row(key(r.source)).selectedCoupons++;
   for (const r of selectedDeals) row(key(r.source)).selectedDeals++;
   for (const r of rows.values()) { r.qualified = r.eligibleCoupons >= policy.minCouponsPerStore || r.eligibleDeals >= policy.minDealsPerStore; r.reason = r.eligibleCoupons >= policy.minCouponsPerStore ? "qualified_coupon_threshold" : r.eligibleDeals >= policy.minDealsPerStore ? "qualified_deal_threshold" : "insufficient_publishable_offers"; }
