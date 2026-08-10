@@ -73,6 +73,13 @@ export interface ImportRunRow {
   error_message: string | null;
   policy_name: string | null;
   records_held: number;
+  import_strategy: string;
+  pages_crawled: number;
+  api_calls_used: number;
+  records_fetched: number;
+  new_provider_identities: number;
+  existing_provider_identities: number;
+  stop_reason: string | null;
 }
 
 export interface SyncRunReport {
