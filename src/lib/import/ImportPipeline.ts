@@ -29,7 +29,7 @@ async function loadExisting(provider: string): Promise<ExistingData> {
   const db = supabaseAdmin as any;
 
   const [stores, categories, coupons] = await Promise.all([
-    db.from("stores").select("id,slug,provider,provider_entity_id"),
+    db.from("stores").select("id,slug,provider,provider_entity_id,lifecycle_managed,lifecycle_hidden"),
     db.from("categories").select("id,slug,provider,provider_entity_id"),
     db.from("coupons").select("id,provider,provider_entity_id").eq("provider", provider),
   ]);
@@ -39,6 +39,8 @@ async function loadExisting(provider: string): Promise<ExistingData> {
       id: String(r.id),
       slug: (r.slug as string | null) ?? null,
       providerEntityId: r.provider === provider ? ((r.provider_entity_id as string | null) ?? null) : null,
+      lifecycleManaged: r.lifecycle_managed === true,
+      lifecycleHidden: r.lifecycle_hidden === true,
     }));
 
   type Row = Record<string, unknown>;
@@ -98,6 +100,10 @@ export async function runImport(
     plan = outcome.plan;
     publishing = outcome.summary;
     rotationCursors = outcome.rotationCursors;
+    const { qualifyStores, planStoreLifecycle } = await import("@/lib/import");
+    const qualifications = qualifyStores(outcome.eligibleCoupons as any, outcome.eligibleDeals as any, outcome.selectedCoupons as any, outcome.selectedDeals as any, options.policy);
+    const lifecycle = planStoreLifecycle(plan.storeCandidates, qualifications);
+    plan = { ...plan, storeLifecycle: lifecycle.decisions, storeLifecycleStatistics: lifecycle.statistics };
     const heldTotal = publishing.couponsHeld + publishing.dealsHeld;
     if (heldTotal > 0) {
       warnings.push(`${heldTotal} offer(s) held back by publishing policy "${publishing.policyName}"`);
