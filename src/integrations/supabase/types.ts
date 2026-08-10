@@ -1215,7 +1215,12 @@ export type Database = {
           description: string | null
           featured: boolean
           id: string
+          import_origin: string | null
           imported_at: string | null
+          last_qualification_result: string | null
+          last_qualified_at: string | null
+          lifecycle_hidden: boolean
+          lifecycle_managed: boolean
           logo_source_url: string | null
           logo_url: string | null
           metadata: Json
@@ -1239,7 +1244,12 @@ export type Database = {
           description?: string | null
           featured?: boolean
           id?: string
+          import_origin?: string | null
           imported_at?: string | null
+          last_qualification_result?: string | null
+          last_qualified_at?: string | null
+          lifecycle_hidden?: boolean
+          lifecycle_managed?: boolean
           logo_source_url?: string | null
           logo_url?: string | null
           metadata?: Json
@@ -1263,7 +1273,12 @@ export type Database = {
           description?: string | null
           featured?: boolean
           id?: string
+          import_origin?: string | null
           imported_at?: string | null
+          last_qualification_result?: string | null
+          last_qualified_at?: string | null
+          lifecycle_hidden?: boolean
+          lifecycle_managed?: boolean
           logo_source_url?: string | null
           logo_url?: string | null
           metadata?: Json
