@@ -11,6 +11,7 @@ import { ImportPlanner, type ExistingData } from "./ImportPlanner";
 import type { ImportResult } from "./ImportResult";
 import type { PolicyContext, PublishingPolicy, PublishingSummary } from "@/lib/publishing-policy";
 import { emptyImportStatistics } from "./ImportStatistics";
+import { buildIdentityDiagnostics, type IdentityDiagnostics } from "./IdentityDiagnostics";
 
 export interface ImportOptions {
   /** Dry run: validate, detect duplicates, build the plan, write nothing. */
@@ -65,6 +66,7 @@ export async function runImport(
   let plan: ImportPlan;
   let committed = false;
   let publishing: PublishingSummary | null = null;
+  let identityDiagnostics: IdentityDiagnostics | null = null;
   let rotationCursors: Record<string, number> = {};
 
   // ── Stage A: identical for preview and run ────────────────────────────────
@@ -94,6 +96,11 @@ export async function runImport(
   }
 
   // ── Publishing Policy Engine (provider-agnostic, pre-database) ────────────
+  // The diagnostic observes the normalized SyncResult only for previews. It is
+  // intentionally calculated before policy, planning writes, or persistence.
+  if (preview) {
+    identityDiagnostics = buildIdentityDiagnostics(sync.coupons, sync.deals);
+  }
   if (options.policy) {
     const { applyPublishingPolicy } = await import("@/lib/publishing-policy");
     const outcome = applyPublishingPolicy(plan, options.policy, options.policyContext ?? {});
@@ -151,6 +158,7 @@ export async function runImport(
     plan,
     statistics,
     publishing,
+    identityDiagnostics,
     rotationCursors,
     warnings,
     errors,

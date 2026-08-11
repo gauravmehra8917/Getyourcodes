@@ -3,6 +3,7 @@
 import type { ImportPlan } from "./ImportPlan";
 import type { ImportStatistics } from "./ImportStatistics";
 import type { PublishingSummary } from "@/lib/publishing-policy";
+import type { IdentityDiagnostics } from "./IdentityDiagnostics";
 
 export interface ImportResult {
   provider: string;
@@ -15,6 +16,8 @@ export interface ImportResult {
   statistics: ImportStatistics;
   /** Publishing policy outcome, null when no policy was supplied. */
   publishing: PublishingSummary | null;
+  /** Preview-only normalized-offer identity accounting, captured before policy. */
+  identityDiagnostics: IdentityDiagnostics | null;
   /** Rotation cursors to persist after a committed run. */
   rotationCursors: Record<string, number>;
   /** Non-fatal problems, e.g. skipped records or validation failures. */

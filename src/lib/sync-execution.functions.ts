@@ -79,6 +79,31 @@ export interface LifecycleDiagnostic {
   reason: string;
 }
 
+export interface IdentityDiagnostics {
+  totalNormalizedCoupons: number;
+  totalNormalizedDeals: number;
+  uniqueProviderAdvertiserIds: number;
+  uniqueProviderStoreIds: number;
+  uniqueProviderCampaignIds: number;
+  uniqueEffectiveStoreKeys: number;
+  offersResolvingToUnassigned: number;
+  topStoreKeys: Array<{
+    effectiveStoreKey: string;
+    coupons: number;
+    deals: number;
+    merchantNames: string[];
+  }>;
+  sampleOffers: Array<{
+    offerTitle: string;
+    merchantName: string | null;
+    providerEntityId: string;
+    providerAdvertiserId: string | null;
+    providerStoreId: string | null;
+    providerCampaignId: string | null;
+    effectiveStoreKey: string;
+  }>;
+}
+
 export interface ImportRunRow {
   id: string;
   provider: string;
@@ -144,6 +169,8 @@ export interface SyncRunReport {
   /** Lifecycle plan output, generated once after policy eligibility. */
   lifecycle: LifecycleSummary | null;
   lifecycleDiagnostics: LifecycleDiagnostic[];
+  /** Preview-only normalized-offer identity accounting. Never persisted. */
+  identityDiagnostics: IdentityDiagnostics | null;
   statistics: {
     validated: number;
     created: number;
@@ -356,6 +383,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
       planCounts: null,
       lifecycle: null,
       lifecycleDiagnostics: [],
+      identityDiagnostics: null,
       statistics: null,
       validationErrors: [],
       skipped: [],
@@ -445,6 +473,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
           ...p.storeLifecycleStatistics,
         };
         report.lifecycleDiagnostics = buildLifecycleDiagnostics(p);
+        report.identityDiagnostics = body.preview ? body.identityDiagnostics : null;
         report.statistics = {
           validated: body.statistics.validated,
           created: body.statistics.created,

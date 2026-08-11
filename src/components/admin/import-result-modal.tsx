@@ -358,6 +358,82 @@ function LifecyclePanel({ summary, rows }: {
   );
 }
 
+function IdentityDiagnosticsPanel({ diagnostics }: {
+  diagnostics: NonNullable<SyncRunReport["identityDiagnostics"]>;
+}) {
+  return (
+    <>
+      <Section title="Identity diagnostics (temporary preview)">
+        <Row label="Normalized coupons" value={diagnostics.totalNormalizedCoupons} />
+        <Row label="Normalized deals" value={diagnostics.totalNormalizedDeals} />
+        <Row label="Unique provider advertiser IDs" value={diagnostics.uniqueProviderAdvertiserIds} />
+        <Row label="Unique provider store IDs" value={diagnostics.uniqueProviderStoreIds} />
+        <Row label="Unique provider campaign IDs" value={diagnostics.uniqueProviderCampaignIds} />
+        <Row label="Unique effective store keys" value={diagnostics.uniqueEffectiveStoreKeys} />
+        <Row label="Offers resolving to **unassigned**" value={diagnostics.offersResolvingToUnassigned} />
+      </Section>
+
+      <div className="mb-5">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Top effective store keys</div>
+        <div className="max-h-80 overflow-auto rounded border border-slate-200 bg-white">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 bg-slate-50 text-slate-600">
+              <tr>
+                <th className="px-3 py-2 font-semibold">Effective store key</th>
+                <th className="px-3 py-2 font-semibold">Coupons</th>
+                <th className="px-3 py-2 font-semibold">Deals</th>
+                <th className="px-3 py-2 font-semibold">Merchant / store names</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diagnostics.topStoreKeys.map((row) => (
+                <tr key={row.effectiveStoreKey} className="border-t border-slate-100">
+                  <td className="px-3 py-2 font-mono text-slate-700">{row.effectiveStoreKey}</td>
+                  <td className="px-3 py-2">{row.coupons}</td>
+                  <td className="px-3 py-2">{row.deals}</td>
+                  <td className="px-3 py-2 text-slate-600">{row.merchantNames.join(", ") || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="mb-5">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Sample normalized offers</div>
+        <div className="max-h-80 overflow-auto rounded border border-slate-200 bg-white">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 bg-slate-50 text-slate-600">
+              <tr>
+                <th className="px-3 py-2 font-semibold">Offer title</th>
+                <th className="px-3 py-2 font-semibold">Merchant / store</th>
+                <th className="px-3 py-2 font-semibold">Provider entity ID</th>
+                <th className="px-3 py-2 font-semibold">Advertiser ID</th>
+                <th className="px-3 py-2 font-semibold">Store ID</th>
+                <th className="px-3 py-2 font-semibold">Campaign ID</th>
+                <th className="px-3 py-2 font-semibold">Effective store key</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diagnostics.sampleOffers.map((row) => (
+                <tr key={`${row.providerEntityId}-${row.effectiveStoreKey}`} className="border-t border-slate-100 align-top">
+                  <td className="px-3 py-2 text-slate-800">{row.offerTitle}</td>
+                  <td className="px-3 py-2 text-slate-600">{row.merchantName ?? "—"}</td>
+                  <td className="px-3 py-2 font-mono text-slate-700">{row.providerEntityId}</td>
+                  <td className="px-3 py-2 font-mono text-slate-600">{row.providerAdvertiserId ?? "—"}</td>
+                  <td className="px-3 py-2 font-mono text-slate-600">{row.providerStoreId ?? "—"}</td>
+                  <td className="px-3 py-2 font-mono text-slate-600">{row.providerCampaignId ?? "—"}</td>
+                  <td className="px-3 py-2 font-mono text-slate-700">{row.effectiveStoreKey}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
 
 export function ImportResultModal({
   title,
@@ -436,6 +512,10 @@ export function ImportResultModal({
               )}
 
               <IdentitySummaryTable rows={report.identity} />
+
+              {report.preview && report.identityDiagnostics && (
+                <IdentityDiagnosticsPanel diagnostics={report.identityDiagnostics} />
+              )}
 
               {report.publishing && <PublishingSummaryPanel summary={report.publishing} />}
 

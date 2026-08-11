@@ -19,6 +19,14 @@ export { DuplicateResolver, dedupe, type DedupeOutcome } from "./DuplicateResolv
 export { EntityMatcher, buildSnapshot, type ExistingRow, type ExistingSnapshot } from "./EntityMatcher";
 export { SlugGenerator, slugify } from "./SlugGenerator";
 export {
+  buildIdentityDiagnostics,
+  effectiveStoreKey,
+  UNASSIGNED_STORE_KEY,
+  type IdentityDiagnosticOfferSample,
+  type IdentityDiagnosticStoreKey,
+  type IdentityDiagnostics,
+} from "./IdentityDiagnostics";
+export {
   emptyPlan,
   hasPlanWork,
   planTotals,
