@@ -1,43 +1,34 @@
-## Newsletter Subscription System
+# Deploy the affiliate sync preflight check
 
-The project already has a `subscribers` table and a `subscribe_email` RPC wired to the homepage form. Rather than duplicate it as `newsletter_subscribers`, I'll extend the existing table with the missing fields (`verified`, `unsubscribe_token`) and add a public `/unsubscribe` page. This keeps existing subscribers + admin subscribers module working.
+## Inspection results (already verified, nothing changed)
 
-### 1. Database migration
-Extend `public.subscribers`:
-- Add `verified boolean NOT NULL DEFAULT true`
-- Add `unsubscribe_token uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE`
-- Backfill tokens for existing rows
-- Add index `idx_subscribers_email` (lower(email)) for fast lookup
-- Add index on `unsubscribe_token`
+Commit `93470e8 — feat: add affiliate sync edge preflight` is the current workspace HEAD and is contained in `feature/import-orchestration`.
 
-Update `subscribe_email` RPC to return the new row's token so we could email it later (silent no-op on duplicate stays — prevents enumeration).
+All Phase 1 files present:
 
-New SECURITY DEFINER RPC `unsubscribe_by_token(_token uuid)`:
-- Sets `is_active = false` where token matches
-- Returns boolean (found/not found)
-- Granted to `anon` + `authenticated`
+- `supabase/functions/affiliate-sync-preflight/index.ts`
+- `supabase/functions/_shared/edge-supabase.ts`
+- `supabase/functions/_shared/edge-credentials.ts`
+- `supabase/functions/_shared/integration-crypto.ts`
+- `supabase/config.toml` (contains only the `[functions.affiliate-sync-preflight] verify_jwt = false` block; the function verifies the bearer token itself)
 
-### 2. Unsubscribe route
-New file `src/routes/unsubscribe.tsx`:
-- Reads `?token=<uuid>` from search params (with Zod `validateSearch`)
-- On mount, calls `unsubscribe_by_token` RPC
-- Renders three states: loading, success ("You've been unsubscribed"), invalid/expired ("This link is invalid")
-- Uses the same dark Midnight Indigo theme as the rest of the site
-- Adds `noindex` meta + canonical
+Safety review of the handler:
 
-### 3. Homepage form
-The existing `NewsletterStrip` in `src/routes/index.tsx` already:
-- Validates email format client-side
-- Calls `subscribe_email` RPC
-- Shows success/error messages
-- Handles duplicates silently (RPC uses `ON CONFLICT DO NOTHING`)
+- POST-only: `OPTIONS` returns 204, every other method returns 405.
+- No provider API calls, no `SyncEngine`, no `ImportPipeline`, no `import_apply` — those modules are not imported at all.
+- Reads only: `auth.getUser`, one `user_roles` select, one `affiliate_integrations` select, one `affiliate_integration_credentials` select. No insert/update/delete/RPC.
+- Response body is only six booleans (`authenticated`, `admin`, `privilegedClient`, `integrationFound`, `credentialsReadable`, `credentialsDecryptable`). No keys, ciphertext, plaintext, or database error detail. CORS origin is restricted to the configured site URL.
 
-No changes needed here — it already meets the spec. I'll just double-check the success message copy.
+Cloud secrets: `INTEGRATION_CREDENTIAL_SECRET` and `SITE_URL` are both configured (values not read or displayed).
 
-### 4. Admin
-The existing `admin.subscribers.tsx` list continues to work — new columns are additive. No changes needed.
+## What I will do on approval
 
-### Technical notes
-- Keeping table name `subscribers` avoids a breaking rename across admin route, RPC, RLS policies, security memory, and existing data.
-- `verified` defaults to `true` because we're not adding double opt-in email verification in this pass (no email provider wired for newsletters — that was declined earlier). The column exists so double opt-in can be layered in later.
-- Unsubscribe is token-only (no auth) via SECURITY DEFINER RPC — no broad table grants added.
+1. Deploy exactly one function: `affiliate-sync-preflight`. Nothing else is deployed, and no full affiliate sync function is created.
+2. Leave Preview Import, Run Import, the Admin Integrations UI, the database, RLS, and migrations untouched.
+3. Report deployment status.
+
+## How the preflight gets invoked afterwards
+
+The safest invocation is a single `POST` with an empty body to the function endpoint, carrying your existing signed-in admin session token. I can run this through the edge-function test tool, which reuses your current preview session automatically, so no credential is ever pasted into chat. The call performs no writes and triggers no import; it returns only the six boolean flags, which tell us whether auth, the admin role, the privileged client, the Impact integration row, the stored credentials, and credential decryption all resolve inside the Edge runtime.
+
+If you would rather not invoke it at all in this step, say so and I will stop after the deployment report.
