@@ -1,39 +1,13 @@
 // Server-side loading of publishing policies, rotation state and ranking hints.
 // Kept separate from the engine so the engine stays pure and testable.
 
-import { FALLBACK_POLICY, RANKING_KEYS, type PolicyContext, type PublishingPolicy, type RankingKey } from "./types";
+import { FALLBACK_POLICY, type PolicyContext, type PublishingPolicy } from "./types";
+import { mapPolicyRow } from "./PolicyModel";
 
 type Row = Record<string, unknown>;
 
 const num = (v: unknown, d = 0) => (typeof v === "number" && Number.isFinite(v) ? v : d);
-const bool = (v: unknown, d: boolean) => (typeof v === "boolean" ? v : d);
-
-export function mapPolicyRow(row: Row): PublishingPolicy {
-  const ranking = Array.isArray(row.ranking_priority)
-    ? (row.ranking_priority as string[]).filter((k): k is RankingKey => (RANKING_KEYS as string[]).includes(k))
-    : [];
-  const priority = [...ranking, ...RANKING_KEYS.filter((k) => !ranking.includes(k))];
-  return {
-    id: String(row.id),
-    name: String(row.name ?? "Publishing policy"),
-    description: (row.description as string | null) ?? null,
-    enabled: bool(row.enabled, true),
-    isDefault: bool(row.is_default, false),
-    minCouponsPerStore: num(row.min_coupons_per_store),
-    maxCouponsPerStore: num(row.max_coupons_per_store),
-    minDealsPerStore: num(row.min_deals_per_store),
-    maxDealsPerStore: num(row.max_deals_per_store),
-    rankingPriority: priority,
-    fairDistribution: bool(row.fair_distribution, false),
-    rotation: bool(row.rotation, false),
-    publishOnlyActive: bool(row.publish_only_active, true),
-    skipExpired: bool(row.skip_expired, true),
-    skipDuplicateIdentities: bool(row.skip_duplicate_identities, true),
-    respectManualDisable: bool(row.respect_manual_disable, true),
-    neverOverwriteAdminEdits: bool(row.never_overwrite_admin_edits, true),
-    previewBeforeImport: bool(row.preview_before_import, true),
-  };
-}
+export { mapPolicyRow } from "./PolicyModel";
 
 const SELECT =
   "id, name, description, enabled, is_default, min_coupons_per_store, max_coupons_per_store, min_deals_per_store, max_deals_per_store, ranking_priority, fair_distribution, rotation, publish_only_active, skip_expired, skip_duplicate_identities, respect_manual_disable, never_overwrite_admin_edits, preview_before_import";

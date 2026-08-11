@@ -10,7 +10,7 @@ import type {
   StandardResponse,
   ValidationResult,
 } from "@/lib/integration-engine/types";
-import type { HealthResult } from "@/lib/integration-engine/health-check.server";
+import type { HealthResult } from "@/lib/integration-engine/engine";
 
 /** Generic domain shapes. Adapters return these post-normalize().
  *  Fields intentionally minimal — real normalization is a later phase. */

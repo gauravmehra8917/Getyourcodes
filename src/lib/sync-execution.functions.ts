@@ -82,7 +82,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
     await requireAdmin(ctx.supabase, ctx.userId);
 
     const startedAt = Date.now();
-    const { SyncEngine } = await import("@/lib/sync");
+    const { createServerSyncEngine } = await import("@/lib/sync/SyncEngine.server");
     const { runImport } = await import("@/lib/import");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -97,7 +97,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
       const { loadExistingProviderOfferIds } = await import("@/lib/sync/ProviderIdentityIndex.server");
       const { resolveProviderKey } = await import("@/lib/providers/ProviderFactory");
       const existingProviderOfferIds = await loadExistingProviderOfferIds(resolveProviderKey(integration));
-      const engine = await SyncEngine.forIntegration(data.integrationId, {
+      const engine = await createServerSyncEngine(data.integrationId, {
         entityTypes: data.entityTypes,
         pageSize: data.pageSize ?? integration.orchestration_page_size,
         maxPages: data.maxPages ?? integration.orchestration_max_pages,

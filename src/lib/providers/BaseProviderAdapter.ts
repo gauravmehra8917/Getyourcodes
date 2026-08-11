@@ -3,12 +3,11 @@
 // adapters extend this and override only the methods they implement.
 
 import { IntegrationEngine } from "@/lib/integration-engine/engine";
-import { createServerIntegrationEngine } from "@/lib/integration-engine/engine.server";
 import type {
   IntegrationConfig,
   ValidationResult,
 } from "@/lib/integration-engine/types";
-import type { HealthResult } from "@/lib/integration-engine/health-check.server";
+import type { HealthResult } from "@/lib/integration-engine/engine";
 import {
   notImplementedResponse,
   type FetchOptions,
@@ -28,15 +27,6 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
 
   constructor(engine: IntegrationEngine) {
     this.engine = engine;
-  }
-
-  static async build<T extends BaseProviderAdapter>(
-    this: new (engine: IntegrationEngine) => T,
-    integrationId: string,
-  ): Promise<T> {
-    const engine = await createServerIntegrationEngine(integrationId);
-    const adapter = new this(engine);
-    return adapter;
   }
 
   getConfig(): IntegrationConfig { return this.engine.getConfig(); }

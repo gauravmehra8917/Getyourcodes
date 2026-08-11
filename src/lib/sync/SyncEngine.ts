@@ -15,11 +15,11 @@ import type {
   NormalizationBatch,
   PromotionSplit,
 } from "@/lib/normalizers";
-import type { FetchOptions, ProviderResult } from "@/lib/providers/index.server";
+import type { FetchOptions, ProviderResult } from "@/lib/providers/ProviderAdapter";
 import { supportsOfferEnrichment, type OfferEnricher } from "@/lib/enrichment";
 import { SyncContext } from "./SyncContext";
 import { logSyncPage, logSyncSummary } from "./SyncLogger";
-import type { SyncEntityType, SyncOptions } from "./SyncOptions";
+import type { SyncEntityType } from "./SyncOptions";
 import type { SyncProgress } from "./SyncProgress";
 import type { SyncIssue, SyncResult } from "./SyncResult";
 import { applyEntityStats, type EntityStatistics } from "./SyncStatistics";
@@ -49,10 +49,6 @@ export class SyncEngine {
 
   constructor(ctx: SyncContext) {
     this.ctx = ctx;
-  }
-
-  static async forIntegration(integrationId: string, options?: SyncOptions): Promise<SyncEngine> {
-    return new SyncEngine(await SyncContext.forIntegration(integrationId, options));
   }
 
   // ── Public API ────────────────────────────────────────────────────────────

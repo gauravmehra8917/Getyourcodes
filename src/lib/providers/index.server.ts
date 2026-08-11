@@ -18,4 +18,4 @@ export {
   ProviderFactory,
   resolveProviderKey,
   type ProviderKey,
-} from "./ProviderFactory";
+} from "./ProviderFactory.server";

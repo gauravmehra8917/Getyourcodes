@@ -5,7 +5,7 @@
 // every method returns a StandardResponse.
 
 import type { StandardResponse } from "@/lib/integration-engine/types";
-import { logDebug } from "@/lib/integration-engine/logger.server";
+import { logDebug } from "@/lib/integration-engine/logger";
 import type {
   CanonicalCategory,
   CanonicalCoupon,

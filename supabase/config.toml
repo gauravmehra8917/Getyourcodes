@@ -4,3 +4,7 @@ project_id = "bsnzezxeuttzfeummqdt"
 # The function verifies the Bearer JWT explicitly with Supabase Auth before
 # checking the admin role. This supports modern opaque Edge secret keys.
 verify_jwt = false
+
+[functions.affiliate-sync-preview]
+# The function verifies the Bearer JWT itself before the admin role lookup.
+verify_jwt = false

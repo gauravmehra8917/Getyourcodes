@@ -5,7 +5,7 @@
 import { loadIntegrationConfig } from "./config-loader.server";
 import { runHealthCheck } from "./health-check.server";
 import { executeRequest } from "./http-client.server";
-import { validateConfig } from "./validators.server";
+import { validateConfig } from "./validators";
 import { IntegrationEngine, type IntegrationEngineRuntime } from "./engine";
 
 export { IntegrationEngine } from "./engine";

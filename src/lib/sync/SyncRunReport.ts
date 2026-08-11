@@ -1,7 +1,8 @@
 // Runtime-neutral projection of a sync/import result for the admin preview.
 // It contains no authentication, database, executor, or history concerns.
 
-import type { ImportPlan, ImportResult } from "../import";
+import type { ImportPlan } from "../import/ImportPlan";
+import type { ImportResult } from "../import/ImportResult";
 import type { SyncResult } from "./SyncResult";
 import type { PublishingSummary } from "../publishing-policy";
 import {

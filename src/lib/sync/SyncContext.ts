@@ -2,8 +2,7 @@
 // progress tracker and issue collectors. No provider knowledge.
 
 import type { Normalizer } from "@/lib/normalizers";
-import { NormalizerFactory } from "@/lib/normalizers";
-import { ProviderFactory, type ProviderAdapter } from "@/lib/providers/index.server";
+import type { ProviderAdapter } from "@/lib/providers/ProviderAdapter";
 import { resolveSyncOptions, type ResolvedSyncOptions, type SyncOptions } from "./SyncOptions";
 import { SyncProgressTracker } from "./SyncProgress";
 import type { SyncIssue } from "./SyncResult";
@@ -51,17 +50,4 @@ export class SyncContext {
     this.errors.push(issue);
   }
 
-  /** Build a context straight from a saved integration id. */
-  static async forIntegration(integrationId: string, options?: SyncOptions): Promise<SyncContext> {
-    const adapter = await ProviderFactory.forIntegration(integrationId);
-    const config = adapter.getConfig();
-    const normalizer = NormalizerFactory.for({
-      provider_name: config.providerName,
-      provider_type: config.providerType,
-    });
-    if (!normalizer) {
-      throw new Error(`No normalizer registered for provider "${config.providerName}"`);
-    }
-    return new SyncContext({ adapter, normalizer, options });
-  }
 }

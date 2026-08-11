@@ -5,7 +5,6 @@
 // Nothing else in the app needs to change.
 
 import { IntegrationEngine } from "@/lib/integration-engine/engine";
-import { createServerIntegrationEngine } from "@/lib/integration-engine/engine.server";
 import type { BaseProviderAdapter } from "./BaseProviderAdapter";
 import type { ProviderAdapter } from "./ProviderAdapter";
 
@@ -77,14 +76,6 @@ export class ProviderFactory {
     });
     const Ctor = REGISTRY[key];
     return new Ctor(engine);
-  }
-
-  /** Build an adapter for a saved integration id. Initializes before return. */
-  static async forIntegration(integrationId: string): Promise<ProviderAdapter> {
-    const engine = await createServerIntegrationEngine(integrationId);
-    const adapter = ProviderFactory.fromEngine(engine);
-    await adapter.initialize();
-    return adapter;
   }
 
   /** List every provider key the factory can build. */

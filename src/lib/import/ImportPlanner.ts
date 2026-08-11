@@ -1,6 +1,6 @@
 // Stage 3–5 – turns a SyncResult into an ImportPlan. No database writes.
 
-import type { SyncResult } from "@/lib/sync";
+import type { SyncResult } from "@/lib/sync/SyncResult";
 import { DuplicateResolver } from "./DuplicateResolver";
 import { buildSnapshot, EntityMatcher, type ExistingRow } from "./EntityMatcher";
 import {

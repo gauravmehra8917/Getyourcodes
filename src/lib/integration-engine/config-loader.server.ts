@@ -6,11 +6,11 @@
 // server functions / server routes only.
 
 import type {
-  AuthenticationType,
   CustomHeader,
   IntegrationConfig,
   IntegrationCredentials,
 } from "./types";
+import { mapIntegrationConfig } from "./config-model";
 
 export async function loadIntegrationConfig(integrationId: string): Promise<IntegrationConfig> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -47,20 +47,5 @@ export async function loadIntegrationConfig(integrationId: string): Promise<Inte
     }
   }
 
-  return {
-    id: row.id,
-    name: row.integration_name,
-    providerName: row.provider_name,
-    providerType: row.provider_type,
-    authenticationType: row.authentication_type as AuthenticationType,
-    baseUrl: row.base_url,
-    apiVersion: row.api_version ?? "",
-    timeoutMs: Math.min(600_000, Math.max(1_000, (row.timeout_seconds ?? 30) * 1000)),
-    retryAttempts: Math.max(0, Math.min(20, row.retry_attempts ?? 0)),
-    customHeaders: (row.custom_headers as CustomHeader[] | null) ?? [],
-    endpoints: (row.endpoint_configuration as Record<string, string> | null) ?? {},
-    environment: row.environment ?? "production",
-    isEnabled: !!row.is_enabled,
-    credentials,
-  };
+  return mapIntegrationConfig(row, credentials);
 }

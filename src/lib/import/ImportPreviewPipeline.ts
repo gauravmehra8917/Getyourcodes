@@ -4,7 +4,7 @@
 // logging dependency. Callers must provide the already-read import inputs.
 
 import type { StandardResponse } from "../integration-engine/types";
-import type { SyncResult } from "../sync";
+import type { SyncResult } from "../sync/SyncResult";
 import { applyPublishingPolicy } from "../publishing-policy/PolicyEngine";
 import type { PolicyContext, PublishingPolicy, PublishingSummary } from "../publishing-policy";
 import { buildIdentityDiagnostics, type IdentityDiagnostics } from "./IdentityDiagnostics";

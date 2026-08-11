@@ -1,5 +1,6 @@
-// TanStack/server wrapper retains existing request logging behaviour.
-import { executeRequest } from "./http-client.server";
+// Runtime-neutral health check.
+
+import { executeRequest } from "./http-client";
 import type { HealthResult } from "./engine";
 import type { IntegrationConfig } from "./types";
 
