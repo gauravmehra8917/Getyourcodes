@@ -2,7 +2,8 @@
 // provides safe defaults for every ProviderAdapter method. Concrete
 // adapters extend this and override only the methods they implement.
 
-import { IntegrationEngine } from "@/lib/integration-engine/engine.server";
+import { IntegrationEngine } from "@/lib/integration-engine/engine";
+import { createServerIntegrationEngine } from "@/lib/integration-engine/engine.server";
 import type {
   IntegrationConfig,
   ValidationResult,
@@ -33,7 +34,7 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     this: new (engine: IntegrationEngine) => T,
     integrationId: string,
   ): Promise<T> {
-    const engine = await IntegrationEngine.forIntegration(integrationId);
+    const engine = await createServerIntegrationEngine(integrationId);
     const adapter = new this(engine);
     return adapter;
   }

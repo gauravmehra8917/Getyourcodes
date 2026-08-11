@@ -6,7 +6,7 @@
 
 import { BaseProviderAdapter } from "../BaseProviderAdapter";
 import { ImpactOfferEnricher, type OfferEnricher } from "@/lib/enrichment";
-import { logDebug } from "@/lib/integration-engine/logger.server";
+import { logDebug } from "@/lib/integration-engine/logger";
 import type { HealthResult } from "@/lib/integration-engine/health-check.server";
 import type {
   ErrorClass,

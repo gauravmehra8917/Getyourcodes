@@ -1,17 +1,15 @@
 // Import Pipeline — consumes only a SyncResult and produces an ImportResult.
 // It never talks to provider adapters or the integration engine.
 
-import type { StandardResponse } from "@/lib/integration-engine/types";
 import type { SyncResult } from "@/lib/sync";
 import type { ExistingRow } from "./EntityMatcher";
-import { ImportExecutor } from "./ImportExecutor";
-import { logImportSummary } from "./ImportLogger";
-import { hasPlanWork, planTotals, type ImportPlan } from "./ImportPlan";
-import { ImportPlanner, type ExistingData } from "./ImportPlanner";
+import { hasPlanWork } from "./ImportPlan";
+import type { ExistingData } from "./ImportPlanner";
 import type { ImportResult } from "./ImportResult";
-import type { PolicyContext, PublishingPolicy, PublishingSummary } from "@/lib/publishing-policy";
-import { emptyImportStatistics } from "./ImportStatistics";
-import { buildIdentityDiagnostics, type IdentityDiagnostics } from "./IdentityDiagnostics";
+import type { PolicyContext, PublishingPolicy } from "@/lib/publishing-policy";
+import { prepareImport, prepareImportPreview, type PrepareImportPreviewOptions } from "./ImportPreviewPipeline";
+
+export { prepareImportPreview, type PrepareImportPreviewOptions } from "./ImportPreviewPipeline";
 
 export interface ImportOptions {
   /** Dry run: validate, detect duplicates, build the plan, write nothing. */
@@ -55,140 +53,97 @@ async function loadExisting(provider: string): Promise<ExistingData> {
 export async function runImport(
   sync: SyncResult,
   options: ImportOptions = {},
-): Promise<StandardResponse<ImportResult>> {
+): Promise<import("@/lib/integration-engine/types").StandardResponse<ImportResult>> {
   const preview = options.preview ?? false;
   const startedAt = new Date().toISOString();
   const started = Date.now();
-  const statistics = emptyImportStatistics(sync.provider, sync.integrationId);
-
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  let plan: ImportPlan;
-  let committed = false;
-  let publishing: PublishingSummary | null = null;
-  let identityDiagnostics: IdentityDiagnostics | null = null;
-  let rotationCursors: Record<string, number> = {};
-
-  // ── Stage A: identical for preview and run ────────────────────────────────
-  // existing rows + planning + validation happen exactly once, the same way in
-  // both modes. Nothing here may differ based on `preview`.
   let existing: ExistingData = { stores: [], categories: [], coupons: [] };
+  const inputWarnings: string[] = [];
   try {
     existing = options.existing ?? (await loadExisting(sync.provider));
   } catch (err) {
-    warnings.push(
+    inputWarnings.push(
       `could not load existing rows (${err instanceof Error ? err.message : String(err)}); planning as first import`,
     );
   }
 
-  const planned = ImportPlanner.planImport(sync, existing);
-  plan = planned.plan;
-  statistics.validated = planned.counters.validated;
-  statistics.validationFailures = planned.counters.validationFailures;
-  statistics.duplicates = planned.counters.duplicates;
-  statistics.skipped = plan.skipped.length + planned.counters.duplicates;
-
-  if (plan.validationErrors.length) {
-    warnings.push(`${plan.validationErrors.length} record(s) failed validation and were excluded`);
-  }
-  if (plan.skipped.length) {
-    warnings.push(`${plan.skipped.length} record(s) skipped`);
-  }
-
-  // ── Publishing Policy Engine (provider-agnostic, pre-database) ────────────
-  // The diagnostic observes the normalized SyncResult only for previews. It is
-  // intentionally calculated before policy, planning writes, or persistence.
   if (preview) {
-    identityDiagnostics = buildIdentityDiagnostics(sync.coupons, sync.deals);
-  }
-  if (options.policy) {
-    const { applyPublishingPolicy } = await import("@/lib/publishing-policy");
-    const outcome = applyPublishingPolicy(plan, options.policy, options.policyContext ?? {});
-    plan = outcome.plan;
-    publishing = outcome.summary;
-    rotationCursors = outcome.rotationCursors;
-    const { qualifyStores, planStoreLifecycle } = await import("@/lib/import");
-    const qualifications = qualifyStores(outcome.eligibleCoupons as any, outcome.eligibleDeals as any, outcome.selectedCoupons as any, outcome.selectedDeals as any, options.policy);
-    const lifecycle = planStoreLifecycle(plan.storeCandidates, qualifications);
-    plan = { ...plan, storeLifecycle: lifecycle.decisions, storeLifecycleStatistics: lifecycle.statistics };
-    const heldTotal = publishing.couponsHeld + publishing.dealsHeld;
-    if (heldTotal > 0) {
-      warnings.push(`${heldTotal} offer(s) held back by publishing policy "${publishing.policyName}"`);
-    }
-    statistics.skipped += heldTotal;
+    return prepareImportPreview(sync, {
+      existing,
+      policy: options.policy,
+      policyContext: options.policyContext,
+      inputWarnings,
+      startedAt,
+      startedAtMs: started,
+    });
   }
 
-  const totals = planTotals(plan);
+  const prepared = prepareImport(sync, {
+    existing,
+    policy: options.policy,
+    policyContext: options.policyContext,
+    preview,
+    inputWarnings,
+    startedAt,
+    startedAtMs: started,
+  });
+  const result = prepared.result;
 
   // ── Stage B: the ONLY difference between preview and run ──────────────────
-  if (preview) {
-    statistics.created = 0;
-    statistics.updated = 0;
-  } else if (!hasPlanWork(plan)) {
-    committed = true;
+  if (!hasPlanWork(result.plan)) {
+    result.committed = true;
   } else {
     const txStarted = Date.now();
     try {
-      const outcome = await ImportExecutor.executePlan(plan);
-      statistics.transactionMs = Date.now() - txStarted;
+      // The executor is loaded only by committing imports. Preview preparation
+      // has no import_apply dependency in either source or execution graph.
+      const { ImportExecutor } = await import("./ImportExecutor");
+      const outcome = await ImportExecutor.executePlan(result.plan);
+      result.statistics.transactionMs = Date.now() - txStarted;
       if (outcome.error) {
-        errors.push(outcome.error);
+        result.errors.push(outcome.error);
       } else {
-        committed = true;
-        statistics.created = outcome.created;
-        statistics.updated = outcome.updated;
-        statistics.skipped += outcome.skipped;
+        result.committed = true;
+        result.statistics.created = outcome.created;
+        result.statistics.updated = outcome.updated;
+        result.statistics.skipped += outcome.skipped;
       }
     } catch (err) {
-      statistics.transactionMs = Date.now() - txStarted;
+      result.statistics.transactionMs = Date.now() - txStarted;
       // persistence failure must never alter the plan or validation results
-      errors.push(err instanceof Error ? err.message : String(err));
+      result.errors.push(err instanceof Error ? err.message : String(err));
     }
   }
 
-  statistics.durationMs = Date.now() - started;
+  result.statistics.durationMs = Date.now() - started;
+  result.finishedAt = new Date().toISOString();
 
-  const result: ImportResult = {
-    provider: sync.provider,
-    integrationId: sync.integrationId,
-    preview,
-    committed,
-    startedAt,
-    finishedAt: new Date().toISOString(),
-    plan,
-    statistics,
-    publishing,
-    identityDiagnostics,
-    rotationCursors,
-    warnings,
-    errors,
-  };
-
+  const { logImportSummary } = await import("./ImportLogger");
   logImportSummary({
     provider: sync.provider,
     integrationId: sync.integrationId,
-    preview,
-    committed,
-    validated: statistics.validated,
-    invalid: statistics.validationFailures,
-    duplicates: statistics.duplicates,
-    planCreate: totals.creates,
-    planUpdate: totals.updates,
-    created: statistics.created,
-    updated: statistics.updated,
-    skipped: statistics.skipped,
-    transactionMs: statistics.transactionMs,
-    durationMs: statistics.durationMs,
+    preview: false,
+    committed: result.committed,
+    validated: result.statistics.validated,
+    invalid: result.statistics.validationFailures,
+    duplicates: result.statistics.duplicates,
+    planCreate: prepared.totals.creates,
+    planUpdate: prepared.totals.updates,
+    created: result.statistics.created,
+    updated: result.statistics.updated,
+    skipped: result.statistics.skipped,
+    transactionMs: result.statistics.transactionMs,
+    durationMs: result.statistics.durationMs,
   });
 
-  const success = errors.length === 0;
+  const success = result.errors.length === 0;
   return {
     success,
     status: success ? 200 : 0,
-    latencyMs: statistics.durationMs,
+    latencyMs: result.statistics.durationMs,
     headers: {},
     body: result,
-    error: success ? null : { class: "unknown_error", message: errors[0] },
+    error: success ? null : { class: "unknown_error", message: result.errors[0] },
     retryCount: 0,
     meta: {
       integrationId: sync.integrationId,

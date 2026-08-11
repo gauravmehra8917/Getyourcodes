@@ -17,7 +17,7 @@ export type {
   ValidationResult,
 } from "./types";
 
-export { IntegrationEngine } from "./engine.server";
+export { IntegrationEngine, createServerIntegrationEngine } from "./engine.server";
 export { loadIntegrationConfig } from "./config-loader.server";
 export { validateConfig } from "./validators.server";
 export { runHealthCheck } from "./health-check.server";

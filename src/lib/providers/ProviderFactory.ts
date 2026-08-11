@@ -4,7 +4,8 @@
 //   2. Register it below
 // Nothing else in the app needs to change.
 
-import { IntegrationEngine } from "@/lib/integration-engine/engine.server";
+import { IntegrationEngine } from "@/lib/integration-engine/engine";
+import { createServerIntegrationEngine } from "@/lib/integration-engine/engine.server";
 import type { BaseProviderAdapter } from "./BaseProviderAdapter";
 import type { ProviderAdapter } from "./ProviderAdapter";
 
@@ -80,7 +81,7 @@ export class ProviderFactory {
 
   /** Build an adapter for a saved integration id. Initializes before return. */
   static async forIntegration(integrationId: string): Promise<ProviderAdapter> {
-    const engine = await IntegrationEngine.forIntegration(integrationId);
+    const engine = await createServerIntegrationEngine(integrationId);
     const adapter = ProviderFactory.fromEngine(engine);
     await adapter.initialize();
     return adapter;

@@ -1,7 +1,7 @@
 // Sync logging. Reuses the integration engine's redacted debug logger.
 // Never logs credentials, request bodies, or response bodies.
 
-import { logDebug } from "@/lib/integration-engine/logger.server";
+import { logDebug } from "@/lib/integration-engine/logger";
 import type { SyncEntityType } from "./SyncOptions";
 
 export interface SyncPageLog {

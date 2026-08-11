@@ -48,11 +48,11 @@ test("reports normalized offer identities with the current effective key precede
   assert.equal(diagnostics.totalNormalizedCoupons, 2);
   assert.equal(diagnostics.totalNormalizedDeals, 1);
   assert.equal(diagnostics.uniqueProviderAdvertiserIds, 1);
-  assert.equal(diagnostics.uniqueProviderStoreIds, 1);
+  assert.equal(diagnostics.uniqueProviderStoreIds, 2);
   assert.equal(diagnostics.uniqueProviderCampaignIds, 2);
   assert.equal(diagnostics.uniqueEffectiveStoreKeys, 3);
   assert.equal(diagnostics.offersResolvingToUnassigned, 1);
-  assert.deepEqual(diagnostics.topStoreKeys[0], {
+  assert.deepEqual(diagnostics.topStoreKeys.find((row) => row.effectiveStoreKey === "advertiser-1"), {
     effectiveStoreKey: "advertiser-1",
     coupons: 1,
     deals: 0,

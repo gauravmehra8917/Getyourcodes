@@ -5,104 +5,22 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  couponSeoDescription,
-  couponSeoTitle,
-  storeSeoDescription,
-  storeSeoTitle,
-} from "@/lib/presentation/seo-templates";
-
-/** Quality preview of what a record will look like once published. */
-export interface PresentationRow {
-  entity: "store" | "coupon" | "deal";
-  providerEntityId: string;
-  name: string;
-  seoTitle: string;
-  seoDescription: string;
-  logoStatus: "hosted" | "provider" | "missing";
-  descriptionStatus: "present" | "missing";
-  trackingSource: "ad" | "campaign" | "promotion" | "none";
-  landingPageStatus: "present" | "missing";
-}
-
-export interface LogoSyncSummaryRow {
-  processed: number;
-  downloaded: number;
-  skipped: number;
-  failed: number;
-  errors: string[];
-}
-
-
-export interface ReportIssue {
-  entity: string;
-  providerEntityId: string | null;
-  field: string | null;
-  reason: string;
-  /** Affiliate network owning the identity. */
-  provider?: string | null;
-  /** How many records in the batch shared this provider identity. */
-  occurrences?: number | null;
-  /** Raw provider identifier (e.g. Impact PromotionIds). */
-  rawProviderId?: string | null;
-}
-
-export interface IdentitySummaryRow {
-  entity: string;
-  fetched: number;
-  uniqueIdentities: number;
-  duplicateIdentities: number;
-  duplicateRecords: number;
-  toCreate: number;
-  toUpdate: number;
-}
-
-export interface LifecycleSummary {
-  storesFetched: number;
-  storesEvaluated: number;
-  storesQualified: number;
-  storesHeld: number;
-  storesToCreate: number;
-  storesToUpdate: number;
-  storesToLifecycleHide: number;
-  storesToLifecycleRepublish: number;
-}
-
-export interface LifecycleDiagnostic {
-  store: string;
-  providerEntityId: string;
-  eligibleCoupons: number;
-  eligibleDeals: number;
-  selectedCoupons: number;
-  selectedDeals: number;
-  qualified: boolean;
-  action: string;
-  reason: string;
-}
-
-export interface IdentityDiagnostics {
-  totalNormalizedCoupons: number;
-  totalNormalizedDeals: number;
-  uniqueProviderAdvertiserIds: number;
-  uniqueProviderStoreIds: number;
-  uniqueProviderCampaignIds: number;
-  uniqueEffectiveStoreKeys: number;
-  offersResolvingToUnassigned: number;
-  topStoreKeys: Array<{
-    effectiveStoreKey: string;
-    coupons: number;
-    deals: number;
-    merchantNames: string[];
-  }>;
-  sampleOffers: Array<{
-    offerTitle: string;
-    merchantName: string | null;
-    providerEntityId: string;
-    providerAdvertiserId: string | null;
-    providerStoreId: string | null;
-    providerCampaignId: string | null;
-    effectiveStoreKey: string;
-  }>;
-}
+  emptySyncRunReport,
+  projectImport,
+  projectSync,
+  type LifecycleSummary,
+  type SyncRunReport,
+} from "@/lib/sync/SyncRunReport";
+export type {
+  IdentityDiagnostics,
+  IdentitySummaryRow,
+  LifecycleDiagnostic,
+  LifecycleSummary,
+  LogoSyncSummaryRow,
+  PresentationRow,
+  ReportIssue,
+  SyncRunReport,
+} from "@/lib/sync/SyncRunReport";
 
 export interface ImportRunRow {
   id: string;
@@ -131,188 +49,6 @@ export interface ImportRunRow {
   statistics: { lifecycle?: LifecycleSummary | null } | null;
 }
 
-export interface SyncRunReport {
-  provider: string;
-  integrationId: string;
-  preview: boolean;
-  committed: boolean;
-  durationMs: number;
-  orchestration: {
-    strategy: string;
-    pagesCrawled: number;
-    apiCallsUsed: number;
-    recordsFetched: number;
-    newProviderIdentitiesDiscovered: number;
-    existingProviderIdentitiesEncountered: number;
-    stopReason: string | null;
-  } | null;
-  syncErrors: string[];
-  syncWarnings: string[];
-  progress: {
-    currentEntity: string | null;
-    currentPage: number;
-    recordsFetched: number;
-    recordsNormalized: number;
-    status: string;
-  } | null;
-  planCounts: {
-    storesToCreate: number;
-    storesToUpdate: number;
-    couponsToCreate: number;
-    couponsToUpdate: number;
-    dealsToCreate: number;
-    dealsToUpdate: number;
-    categoriesToCreate: number;
-    categoriesToUpdate: number;
-    skipped: number;
-  } | null;
-  /** Lifecycle plan output, generated once after policy eligibility. */
-  lifecycle: LifecycleSummary | null;
-  lifecycleDiagnostics: LifecycleDiagnostic[];
-  /** Preview-only normalized-offer identity accounting. Never persisted. */
-  identityDiagnostics: IdentityDiagnostics | null;
-  statistics: {
-    validated: number;
-    created: number;
-    updated: number;
-    skipped: number;
-    validationFailures: number;
-    duplicates: number;
-    durationMs: number;
-  } | null;
-  /** Per-record validation failures — entity, provider id, field, reason. */
-  validationErrors: ReportIssue[];
-  /** Records skipped (e.g. unknown store reference). */
-  skipped: ReportIssue[];
-  /** Duplicate provider ids within the same batch. */
-  conflicts: ReportIssue[];
-  /** Provider-identity accounting per entity kind. */
-  identity: IdentitySummaryRow[];
-  /** Phase 3A: generated SEO + enrichment quality preview. */
-  presentation: PresentationRow[];
-  /** Merchant logo download summary (run mode only). */
-  logos: LogoSyncSummaryRow | null;
-  /** Post-import content coverage for this provider (run mode only). */
-  coverage: {
-    stores: number;
-    storesWithHostedLogo: number;
-    offers: number;
-    offersWithDescription: number;
-    offersWithTerms: number;
-  } | null;
-  /** Publishing Policy Engine outcome (held vs published). */
-  publishing: import("@/lib/publishing-policy").PublishingSummary | null;
-  messages: string[];
-  error: string | null;
-
-}
-
-type PlanRecordLike = {
-  providerEntityId: string;
-  slug: string | null;
-  source: {
-    name?: string;
-    title?: string;
-    description?: string | null;
-    logo?: string | null;
-    trackingUrl?: string | null;
-    providerAdvertiserId?: string | null;
-    providerCampaignId?: string | null;
-    providerStoreId?: string | null;
-    metadata?: Record<string, unknown>;
-  };
-};
-
-const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
-
-function trackingSource(meta: Record<string, unknown>, trackingUrl: string | null): PresentationRow["trackingSource"] {
-  if (!trackingUrl) return "none";
-  const warning = str(meta.trackingUrlWarning)?.toLowerCase() ?? "";
-  if (warning.includes("campaign")) return "campaign";
-  if (str(meta.enrichmentAdId)) return "ad";
-  return "promotion";
-}
-
-/** Builds the admin quality preview from the planned records. */
-function buildPresentation(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  plan: any,
-  limit = 50,
-): PresentationRow[] {
-  const rows: PresentationRow[] = [];
-  const storeNames = new Map<string, string>();
-
-  const stores: PlanRecordLike[] = [...(plan.storesToCreate ?? []), ...(plan.storesToUpdate ?? [])];
-  for (const r of stores) {
-    const name = r.source.name ?? "";
-    for (const key of [r.providerEntityId, r.source.providerAdvertiserId, r.source.providerCampaignId]) {
-      if (key) storeNames.set(key, name);
-    }
-    const meta = r.source.metadata ?? {};
-    const logo = str(r.source.logo);
-    rows.push({
-      entity: "store",
-      providerEntityId: r.providerEntityId,
-      name,
-      seoTitle: storeSeoTitle(name),
-      seoDescription: storeSeoDescription(name),
-      logoStatus: logo ? (logo.includes("/storage/v1/object/public/") ? "hosted" : "provider") : "missing",
-      descriptionStatus: str(r.source.description) ? "present" : "missing",
-      trackingSource: str(meta.trackingLink) ? "campaign" : "none",
-      landingPageStatus: str(meta.landingPageUrl) ? "present" : "missing",
-    });
-  }
-
-  const promos: [PresentationRow["entity"], PlanRecordLike[]][] = [
-    ["coupon", [...(plan.couponsToCreate ?? []), ...(plan.couponsToUpdate ?? [])]],
-    ["deal", [...(plan.dealsToCreate ?? []), ...(plan.dealsToUpdate ?? [])]],
-  ];
-  for (const [entity, list] of promos) {
-    for (const r of list) {
-      const meta = r.source.metadata ?? {};
-      const storeName =
-        [r.source.providerAdvertiserId, r.source.providerStoreId, r.source.providerCampaignId]
-          .map((k) => (k ? storeNames.get(k) : undefined))
-          .find(Boolean) ??
-        str(meta.advertiserName) ??
-        "this store";
-      const title = r.source.title ?? "";
-      rows.push({
-        entity,
-        providerEntityId: r.providerEntityId,
-        name: title,
-        seoTitle: couponSeoTitle(title, storeName),
-        seoDescription: couponSeoDescription(title, storeName),
-        logoStatus: "missing",
-        descriptionStatus: str(r.source.description) ? "present" : "missing",
-        trackingSource: trackingSource(meta, str(r.source.trackingUrl)),
-        landingPageStatus: str(meta.landingPageUrl) ? "present" : "missing",
-      });
-    }
-  }
-
-  return rows.slice(0, limit);
-}
-
-/** Projects the already-computed lifecycle plan for admin reporting only. */
-function buildLifecycleDiagnostics(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  plan: any,
-): LifecycleDiagnostic[] {
-  return (plan.storeLifecycle ?? []).map((decision: any) => ({
-    store: decision.candidate?.source?.name ?? decision.providerEntityId,
-    providerEntityId: decision.providerEntityId,
-    eligibleCoupons: decision.qualification?.eligibleCoupons ?? 0,
-    eligibleDeals: decision.qualification?.eligibleDeals ?? 0,
-    selectedCoupons: decision.qualification?.selectedCoupons ?? 0,
-    selectedDeals: decision.qualification?.selectedDeals ?? 0,
-    qualified: decision.qualification?.qualified === true,
-    action: decision.action,
-    reason: decision.qualification?.reason ?? "insufficient_publishable_offers",
-  }));
-}
-
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function requireAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase
@@ -323,26 +59,6 @@ async function requireAdmin(supabase: any, userId: string) {
     .maybeSingle();
   if (error || !data) throw new Error("Forbidden: admin only");
 }
-
-type RawIssue = {
-  entity: string;
-  providerEntityId: string | null;
-  field?: string;
-  reason: string;
-  provider?: string;
-  occurrences?: number;
-  rawProviderId?: string | null;
-};
-const toIssues = (rows: RawIssue[] | undefined): ReportIssue[] =>
-  (rows ?? []).map((i) => ({
-    entity: i.entity,
-    providerEntityId: i.providerEntityId ?? null,
-    field: i.field ?? null,
-    reason: i.reason,
-    provider: i.provider ?? null,
-    occurrences: i.occurrences ?? null,
-    rawProviderId: i.rawProviderId ?? null,
-  }));
 
 export const runProviderSync = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -370,33 +86,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
     const { runImport } = await import("@/lib/import");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const report: SyncRunReport = {
-      provider: "unknown",
-      integrationId: data.integrationId,
-      preview: data.preview,
-      committed: false,
-      durationMs: 0,
-      orchestration: null,
-      syncErrors: [],
-      syncWarnings: [],
-      progress: null,
-      planCounts: null,
-      lifecycle: null,
-      lifecycleDiagnostics: [],
-      identityDiagnostics: null,
-      statistics: null,
-      validationErrors: [],
-      skipped: [],
-      conflicts: [],
-      identity: [],
-      presentation: [],
-      logos: null,
-      coverage: null,
-      publishing: null,
-
-      messages: [],
-      error: null,
-    };
+    const report: SyncRunReport = emptySyncRunReport(data.integrationId, data.preview);
 
     try {
       const { data: integration, error: integrationError } = await (supabaseAdmin as any)
@@ -420,17 +110,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
       const sync = synced.body;
       if (!sync) throw new Error(synced.error?.message ?? "Sync produced no result");
 
-      report.provider = sync.provider;
-      report.orchestration = sync.orchestration;
-      report.progress = {
-        currentEntity: sync.progress.currentEntity,
-        currentPage: sync.progress.currentPage,
-        recordsFetched: sync.progress.recordsFetched,
-        recordsNormalized: sync.progress.recordsNormalized,
-        status: sync.progress.status,
-      };
-      report.syncErrors = sync.errors.map((e) => `[${e.entity ?? "run"}] ${e.message}`);
-      report.syncWarnings = sync.warnings.map((w) => `[${w.entity ?? "run"}] ${w.message}`);
+      projectSync(report, sync);
 
       // Publishing Policy Engine: resolve the policy for this integration and
       // hand it to the import pipeline (applied after dedupe, before writes).
@@ -455,40 +135,7 @@ export const runProviderSync = createServerFn({ method: "POST" })
       });
       const body = imported.body;
       if (body) {
-        const p = body.plan;
-        report.committed = body.committed;
-        report.planCounts = {
-          storesToCreate: p.storesToCreate.length,
-          storesToUpdate: p.storesToUpdate.length,
-          couponsToCreate: p.couponsToCreate.length,
-          couponsToUpdate: p.couponsToUpdate.length,
-          dealsToCreate: p.dealsToCreate.length,
-          dealsToUpdate: p.dealsToUpdate.length,
-          categoriesToCreate: p.categoriesToCreate.length,
-          categoriesToUpdate: p.categoriesToUpdate.length,
-          skipped: p.skipped.length,
-        };
-        report.lifecycle = {
-          storesFetched: sync.statistics?.storesFetched ?? sync.stores.length,
-          ...p.storeLifecycleStatistics,
-        };
-        report.lifecycleDiagnostics = buildLifecycleDiagnostics(p);
-        report.identityDiagnostics = body.preview ? body.identityDiagnostics : null;
-        report.statistics = {
-          validated: body.statistics.validated,
-          created: body.statistics.created,
-          updated: body.statistics.updated,
-          skipped: body.statistics.skipped,
-          validationFailures: body.statistics.validationFailures,
-          duplicates: body.statistics.duplicates,
-          durationMs: body.statistics.durationMs,
-        };
-        report.validationErrors = toIssues(p.validationErrors);
-        report.skipped = toIssues(p.skipped);
-        report.conflicts = toIssues(p.conflicts);
-        report.identity = p.identity.map((row) => ({ ...row }));
-        report.presentation = buildPresentation(p);
-        report.publishing = body.publishing;
+        projectImport(report, sync, body);
         if (policy && !data.preview && body.committed) {
           await saveRotationState(policy, sync.provider, body.rotationCursors);
         }
@@ -546,39 +193,43 @@ export const runProviderSync = createServerFn({ method: "POST" })
 
     report.durationMs = Date.now() - startedAt;
 
-    const stats = report.statistics;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabaseAdmin as any).from("affiliate_import_runs").insert({
-        integration_id: data.integrationId,
-        provider: report.provider,
-        preview: data.preview,
-        finished_at: new Date().toISOString(),
-        duration_ms: report.durationMs,
-        success: !report.error,
-        records_processed: stats?.validated ?? 0,
-        records_created: stats?.created ?? 0,
-        records_updated: stats?.updated ?? 0,
-        records_skipped: stats?.skipped ?? 0,
-        validation_errors: stats?.validationFailures ?? 0,
-        warnings: report.messages.length,
-        error_message: report.error,
-        statistics: { ...(stats ?? {}), lifecycle: report.lifecycle },
-        policy_id: report.publishing?.policyId ?? null,
-        policy_name: report.publishing?.policyName ?? null,
-        records_held: (report.publishing?.couponsHeld ?? 0) + (report.publishing?.dealsHeld ?? 0),
-        publishing_summary: report.publishing ?? null,
-        import_strategy: report.orchestration?.strategy ?? "incremental",
-        pages_crawled: report.orchestration?.pagesCrawled ?? 0,
-        api_calls_used: report.orchestration?.apiCallsUsed ?? 0,
-        records_fetched: report.orchestration?.recordsFetched ?? 0,
-        new_provider_identities: report.orchestration?.newProviderIdentitiesDiscovered ?? 0,
-        existing_provider_identities: report.orchestration?.existingProviderIdentitiesEncountered ?? 0,
-        stop_reason: report.orchestration?.stopReason,
-        triggered_by: ctx.userId,
-      });
-    } catch {
-      // history logging must never break the run
+    // A preview is a strictly read-only operation. Committed runs retain the
+    // existing history record, but preview reports are returned directly.
+    if (!data.preview) {
+      const stats = report.statistics;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabaseAdmin as any).from("affiliate_import_runs").insert({
+          integration_id: data.integrationId,
+          provider: report.provider,
+          preview: false,
+          finished_at: new Date().toISOString(),
+          duration_ms: report.durationMs,
+          success: !report.error,
+          records_processed: stats?.validated ?? 0,
+          records_created: stats?.created ?? 0,
+          records_updated: stats?.updated ?? 0,
+          records_skipped: stats?.skipped ?? 0,
+          validation_errors: stats?.validationFailures ?? 0,
+          warnings: report.messages.length,
+          error_message: report.error,
+          statistics: { ...(stats ?? {}), lifecycle: report.lifecycle },
+          policy_id: report.publishing?.policyId ?? null,
+          policy_name: report.publishing?.policyName ?? null,
+          records_held: (report.publishing?.couponsHeld ?? 0) + (report.publishing?.dealsHeld ?? 0),
+          publishing_summary: report.publishing ?? null,
+          import_strategy: report.orchestration?.strategy ?? "incremental",
+          pages_crawled: report.orchestration?.pagesCrawled ?? 0,
+          api_calls_used: report.orchestration?.apiCallsUsed ?? 0,
+          records_fetched: report.orchestration?.recordsFetched ?? 0,
+          new_provider_identities: report.orchestration?.newProviderIdentitiesDiscovered ?? 0,
+          existing_provider_identities: report.orchestration?.existingProviderIdentitiesEncountered ?? 0,
+          stop_reason: report.orchestration?.stopReason,
+          triggered_by: ctx.userId,
+        });
+      } catch {
+        // history logging must never break the run
+      }
     }
 
     return report;

@@ -1,7 +1,13 @@
 // Public entry point for the Import Pipeline (Phase 2D.2).
 // Consumes a SyncResult, produces an ImportPlan and an ImportResult.
 
-export { ImportPipeline, runImport, type ImportOptions } from "./ImportPipeline";
+export {
+  ImportPipeline,
+  runImport,
+  prepareImportPreview,
+  type ImportOptions,
+  type PrepareImportPreviewOptions,
+} from "./ImportPipeline";
 export { qualifyStores, type StoreQualification, type QualificationReason } from "./StoreQualification";
 export { planStoreLifecycle } from "./StoreLifecyclePlanner";
 export { ImportPlanner, planImport, type ExistingData, type PlannerCounters } from "./ImportPlanner";

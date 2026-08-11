@@ -11,7 +11,6 @@ import {
   type ImportPlan,
   type PlannedRecord,
 } from "./ImportPlan";
-import { logImportEntity } from "./ImportLogger";
 import { ImportValidator } from "./ImportValidator";
 import { SlugGenerator, slugify } from "./SlugGenerator";
 
@@ -104,17 +103,6 @@ export function planImport(
       else plan.categoriesToCreate.push(record);
     }
 
-    logImportEntity({
-      provider: sync.provider,
-      integrationId: sync.integrationId,
-      entity: "category",
-      validated: sync.categories.length,
-      invalid: errors.length,
-      create: plan.categoriesToCreate.length,
-      update: plan.categoriesToUpdate.length,
-      skip: dropped,
-    });
-
     summaries.push(
       identitySummary("category", sync.categories.length, unique.length, duplicates, dropped, plan.categoriesToCreate.length, plan.categoriesToUpdate.length),
     );
@@ -156,17 +144,6 @@ export function planImport(
       else plan.storesToCreate.push(record);
       plan.storeCandidates.push({ ...record, existingLifecycleManaged: !!existingStore?.lifecycleManaged, existingLifecycleHidden: !!existingStore?.lifecycleHidden });
     }
-
-    logImportEntity({
-      provider: sync.provider,
-      integrationId: sync.integrationId,
-      entity: "store",
-      validated: sync.stores.length,
-      invalid: errors.length,
-      create: plan.storesToCreate.length,
-      update: plan.storesToUpdate.length,
-      skip: dropped,
-    });
 
     summaries.push(
       identitySummary("store", sync.stores.length, unique.length, duplicates, dropped, plan.storesToCreate.length, plan.storesToUpdate.length),
@@ -248,17 +225,6 @@ export function planImport(
       else plan.couponsToCreate.push(record);
     }
 
-    logImportEntity({
-      provider: sync.provider,
-      integrationId: sync.integrationId,
-      entity: "coupon",
-      validated: sync.coupons.length,
-      invalid: errors.length,
-      create: plan.couponsToCreate.length,
-      update: plan.couponsToUpdate.length,
-      skip: dropped,
-    });
-
     summaries.push(
       identitySummary("coupon", sync.coupons.length, unique.length, duplicates, dropped, plan.couponsToCreate.length, plan.couponsToUpdate.length),
     );
@@ -302,17 +268,6 @@ export function planImport(
       if (existingId) plan.dealsToUpdate.push(record);
       else plan.dealsToCreate.push(record);
     }
-
-    logImportEntity({
-      provider: sync.provider,
-      integrationId: sync.integrationId,
-      entity: "deal",
-      validated: sync.deals.length,
-      invalid: errors.length,
-      create: plan.dealsToCreate.length,
-      update: plan.dealsToUpdate.length,
-      skip: dropped,
-    });
 
     summaries.push(
       identitySummary("deal", sync.deals.length, unique.length, duplicates, dropped, plan.dealsToCreate.length, plan.dealsToUpdate.length),
