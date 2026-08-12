@@ -23,7 +23,7 @@ function importsOf(source: string): string[] {
   );
 }
 
-test("V2-A1 source is isolated, relative-only, and has no persistence boundary", () => {
+test("V2 core is isolated, relative-only, and has no persistence boundary", () => {
   for (const file of sourceFiles(CORE)) {
     const source = readFileSync(file, "utf8");
     for (const term of FORBIDDEN) {

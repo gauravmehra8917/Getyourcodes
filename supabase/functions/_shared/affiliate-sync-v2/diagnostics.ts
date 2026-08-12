@@ -1,4 +1,4 @@
-import type { MatchMethod, ProviderStoreKey } from "./models.ts";
+import type { MatchMethod, MerchantUnresolvedReasonV2 } from "./models.ts";
 
 export type ImpactStream = "promotions" | "campaigns";
 
@@ -114,12 +114,71 @@ export interface RawFetchDiagnosticsV2 {
   quarantinedRecords: QuarantinedImpactRecordV2[];
 }
 
+export type DuplicateCampaignConflictFieldV2 =
+  | "advertiserId"
+  | "campaignName"
+  | "destinationUrl"
+  | "trackingUrl";
+
+/**
+ * Permanent, sanitized campaign-identity duplicate accounting. The retained
+ * occurrence is the first record in the documented provenance ordering.
+ */
+export interface DuplicateCampaignIdentityDiagnosticV2 {
+  campaignId: string;
+  retainedOccurrence: ImpactRecordProvenanceV2;
+  occurrences: ImpactRecordProvenanceV2[];
+  totalOccurrences: number;
+  duplicateOccurrenceCount: number;
+  conflictingIdentityFields: DuplicateCampaignConflictFieldV2[];
+}
+
+/** Exact campaign-index counters; detail truncation never affects these totals. */
+export interface CampaignIndexDiagnosticsV2 {
+  acceptedCampaignRecords: number;
+  indexedCampaigns: number;
+  duplicateCampaignRecords: number;
+  duplicatedCampaignIdentities: number;
+  campaignIdentitiesWithConflictingFields: number;
+  duplicateCampaignDetails: DuplicateCampaignIdentityDiagnosticV2[];
+  duplicateCampaignDetailsReturned: number;
+  duplicateCampaignDetailsTruncated: boolean;
+  advertisersMappingToExactlyOneCampaign: number;
+  advertisersMappingToMultipleCampaigns: number;
+  campaignsMissingAdvertiserId: number;
+}
+
+/** Compact, credential-free evidence for an exact campaign/advertiser conflict. */
+export interface CampaignAdvertiserConflictDiagnosticV2 {
+  promotionId: string;
+  promotionAdvertiserId: string;
+  campaignId: string;
+  campaignAdvertiserId: string;
+  promotionProvenance: ImpactRecordProvenanceV2;
+  campaignProvenance: ImpactRecordProvenanceV2;
+}
+
 export interface MerchantIdentityDiagnosticsV2 {
+  /** Distinct exact advertiser IDs referenced by deduplicated promotions. */
   advertiserCount: number;
+  /** Distinct campaign-backed provider-store candidates after local indexing. */
   campaignCount: number;
   unresolvedAssociationCount: number;
   matchMethodCounts: Record<MatchMethod, number>;
-  unresolvedReasonCounts: Record<string, number>;
+  unresolvedReasonCounts: Record<MerchantUnresolvedReasonV2, number>;
+  promotionsEvaluated: number;
+  resolvedByCampaignId: number;
+  resolvedByAdvertiserId: number;
+  unmatchedTotal: number;
+  distinctCampaignIdsReferencedByPromotions: number;
+  distinctAdvertiserIdsReferencedByPromotions: number;
+  distinctResolvedProviderStoreKeys: number;
+  /** Exact campaign-ID resolutions where the advertiser cross-check lacked one side. */
+  advertiserCrossCheckUnavailableCount: number;
+  campaignAdvertiserConflicts: CampaignAdvertiserConflictDiagnosticV2[];
+  campaignAdvertiserConflictDetailsReturned: number;
+  campaignAdvertiserConflictDetailsTruncated: boolean;
+  campaignIndex: CampaignIndexDiagnosticsV2;
 }
 
 export interface AdvertiserDistributionV2 {

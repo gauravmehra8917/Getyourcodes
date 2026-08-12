@@ -21,12 +21,32 @@ export type MatchMethod =
   | "explicit_provider_relation"
   | "unmatched";
 
-export interface StoreOfferAssociationV2 {
-  providerStoreKey: ProviderStoreKey | null;
+/** The only unresolved merchant-identity outcomes supported in V2-A4. */
+export type MerchantUnresolvedReasonV2 =
+  | "unknown_campaign_id"
+  | "campaign_advertiser_conflict"
+  | "unknown_advertiser_id"
+  | "ambiguous_advertiser_id"
+  | "missing_merchant_identity";
+
+export interface ResolvedStoreOfferAssociationV2 {
+  providerStoreKey: ProviderStoreKey;
   matchedStoreId: string | null;
-  matchMethod: MatchMethod;
-  unresolvedReason: string | null;
+  matchMethod: Exclude<MatchMethod, "unmatched">;
+  unresolvedReason: null;
 }
+
+export interface UnresolvedStoreOfferAssociationV2 {
+  providerStoreKey: null;
+  matchedStoreId: null;
+  matchMethod: "unmatched";
+  unresolvedReason: MerchantUnresolvedReasonV2;
+}
+
+/** A promotion has one explicit campaign-backed association or one explicit reason. */
+export type StoreOfferAssociationV2 =
+  | ResolvedStoreOfferAssociationV2
+  | UnresolvedStoreOfferAssociationV2;
 
 /** Preserve a provider ID without altering its namespace or semantics. */
 export function toOpaqueProviderId(value: unknown): string | null {

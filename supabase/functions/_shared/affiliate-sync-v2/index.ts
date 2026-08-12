@@ -5,3 +5,4 @@ export * from "./models.ts";
 export * from "./ImpactPageParser.ts";
 export * from "./ImpactClientV2.ts";
 export * from "./RawPromotionDeduplicator.ts";
+export * from "./ImpactMerchantResolver.ts";
