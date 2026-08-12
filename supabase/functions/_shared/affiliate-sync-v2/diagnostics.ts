@@ -39,13 +39,39 @@ export interface QuarantinedImpactRecordV2 {
   provenance: ImpactRecordProvenanceV2;
 }
 
-export type ImpactPageErrorCode = "malformed_page" | "invalid_continuation";
+export type ImpactPageErrorCode =
+  | "malformed_page"
+  | "invalid_continuation"
+  | "response_size_limit_exceeded"
+  | "continuation_loop";
 
 export interface ImpactPageErrorV2 {
   stream: ImpactStream;
   code: ImpactPageErrorCode;
   provenance: Omit<ImpactPageProvenanceV2, "providerPage" | "providerPageSize">;
   detail: string;
+}
+
+/** A credential-free account of one fetched page. */
+export interface ImpactPageFetchDiagnosticV2 {
+  provenance: Omit<ImpactPageProvenanceV2, "providerPage" | "providerPageSize"> & {
+    providerPage: string | null;
+    providerPageSize: string | null;
+  };
+  rawRecordCount: number;
+  acceptedRecordCount: number;
+  quarantinedRecordCount: number;
+  responseBytes: number | null;
+  accepted: boolean;
+}
+
+export interface ImpactRetryDiagnosticV2 {
+  stream: ImpactStream;
+  fetchSequence: number;
+  sanitizedRequestUrl: string;
+  attempts: number;
+  retryDelaysMs: number[];
+  finalStatus: number | null;
 }
 
 export interface DuplicatePromotionProvenanceV2 {
@@ -62,6 +88,8 @@ export interface ImpactStreamFetchDiagnosticsV2 {
   quarantinedRecordCount: number;
   stopReason: StreamStopReason | null;
   pageErrors: ImpactPageErrorV2[];
+  pages: ImpactPageFetchDiagnosticV2[];
+  retries: ImpactRetryDiagnosticV2[];
 }
 
 export interface RawFetchDiagnosticsV2 {
