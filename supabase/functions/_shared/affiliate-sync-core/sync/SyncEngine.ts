@@ -16,6 +16,7 @@ import type {
   PromotionSplit,
 } from "../normalizers/types.ts";
 import type { FetchOptions, ProviderResult } from "../providers/ProviderAdapter.ts";
+import type { RawPromotionDiagnostics } from "../diagnostics/RawPromotionDiagnostics.ts";
 import { supportsOfferEnrichment, type OfferEnricher } from "../enrichment/OfferEnricher.ts";
 import { SyncContext } from "./SyncContext.ts";
 import { logSyncPage, logSyncSummary } from "./SyncLogger.ts";
@@ -32,6 +33,16 @@ interface PromotionAwareNormalizer {
 
 function supportsPromotionSplit(n: unknown): n is PromotionAwareNormalizer {
   return typeof (n as PromotionAwareNormalizer)?.normalizePromotions === "function";
+}
+
+type RawPromotionDiagnosticsAdapter = {
+  enableRawPromotionDiagnostics: () => void;
+  getRawPromotionDiagnostics: () => RawPromotionDiagnostics | null;
+};
+
+function supportsRawPromotionDiagnostics(adapter: unknown): adapter is RawPromotionDiagnosticsAdapter {
+  return typeof (adapter as RawPromotionDiagnosticsAdapter)?.enableRawPromotionDiagnostics === "function" &&
+    typeof (adapter as RawPromotionDiagnosticsAdapter)?.getRawPromotionDiagnostics === "function";
 }
 
 type PageRecords = unknown[];
@@ -56,6 +67,8 @@ export class SyncEngine {
   async run(): Promise<StandardResponse<SyncResult>> {
     const { ctx } = this;
     const { entityTypes, continueOnError } = ctx.options;
+    const collectRawPromotionDiagnostics = ctx.options.rawPromotionDiagnostics && supportsRawPromotionDiagnostics(ctx.adapter);
+    if (collectRawPromotionDiagnostics) ctx.adapter.enableRawPromotionDiagnostics();
     ctx.statistics.strategy = ctx.options.strategy;
     ctx.progress.update({ status: "running" });
 
@@ -174,6 +187,9 @@ export class SyncEngine {
       : "completed";
     const progress = ctx.progress.update({ status, currentEntity: null });
 
+    const rawPromotionDiagnostics = collectRawPromotionDiagnostics
+      ? ctx.adapter.getRawPromotionDiagnostics()
+      : null;
     const result: SyncResult = {
       provider: ctx.provider,
       integrationId: ctx.integrationId,
@@ -197,6 +213,7 @@ export class SyncEngine {
         existingProviderIdentitiesEncountered: this.existingProviderIdentities,
         stopReason: ctx.statistics.stopReason,
       },
+      ...(collectRawPromotionDiagnostics ? { rawPromotionDiagnostics } : {}),
     };
 
     logSyncSummary({

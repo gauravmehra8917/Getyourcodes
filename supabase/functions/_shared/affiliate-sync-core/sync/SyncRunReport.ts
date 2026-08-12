@@ -5,6 +5,7 @@ import type { ImportPlan } from "../import/ImportPlan.ts";
 import type { ImportResult } from "../import/ImportResult.ts";
 import type { SyncResult } from "./SyncResult.ts";
 import type { PublishingSummary } from "../publishing-policy/types.ts";
+import type { RawPromotionDiagnostics } from "../diagnostics/RawPromotionDiagnostics.ts";
 import {
   couponSeoDescription,
   couponSeoTitle,
@@ -133,6 +134,8 @@ export interface SyncRunReport {
   lifecycle: LifecycleSummary | null;
   lifecycleDiagnostics: LifecycleDiagnostic[];
   identityDiagnostics: IdentityDiagnostics | null;
+  /** TEMPORARY — raw Promotions observation, returned by read-only preview only. */
+  rawPromotionDiagnostics: RawPromotionDiagnostics | null;
   statistics: {
     validated: number;
     created: number;
@@ -281,6 +284,7 @@ export function emptySyncRunReport(integrationId: string, preview: boolean): Syn
     provider: "unknown", integrationId, preview, committed: false, durationMs: 0,
     orchestration: null, syncErrors: [], syncWarnings: [], progress: null, planCounts: null,
     lifecycle: null, lifecycleDiagnostics: [], identityDiagnostics: null, statistics: null,
+    rawPromotionDiagnostics: null,
     validationErrors: [], skipped: [], conflicts: [], identity: [], presentation: [], logos: null,
     coverage: null, publishing: null, messages: [], error: null,
   };
@@ -349,5 +353,6 @@ export function projectPreviewSyncRunReport(
   report.preview = true;
   report.committed = false;
   report.durationMs = durationMs;
+  report.rawPromotionDiagnostics = sync.rawPromotionDiagnostics ?? null;
   return report;
 }

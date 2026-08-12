@@ -7,6 +7,7 @@
 import { BaseProviderAdapter } from "../BaseProviderAdapter.ts";
 import { ImpactOfferEnricher } from "../../enrichment/impact/ImpactOfferEnricher.ts";
 import type { OfferEnricher } from "../../enrichment/OfferEnricher.ts";
+import { RawPromotionDiagnosticsCollector, type RawPromotionDiagnostics } from "../../diagnostics/RawPromotionDiagnostics.ts";
 import { logDebug } from "../../integration-engine/logger.ts";
 import type { HealthResult } from "../../integration-engine/engine.ts";
 import type {
@@ -105,6 +106,18 @@ function friendlyError(cls: ErrorClass | undefined, status: number, fallback: st
 
 export class ImpactAdapter extends BaseProviderAdapter {
   readonly providerKey = "impact";
+  // TEMPORARY — only enabled by the read-only preview host.
+  private rawPromotionDiagnostics: RawPromotionDiagnosticsCollector | null = null;
+
+  /** Enable temporary, in-memory observation of already-fetched Promotions pages. */
+  enableRawPromotionDiagnostics(): void {
+    this.rawPromotionDiagnostics = new RawPromotionDiagnosticsCollector();
+  }
+
+  /** Return the compact, sanitized observation without retaining raw responses. */
+  getRawPromotionDiagnostics(): RawPromotionDiagnostics | null {
+    return this.rawPromotionDiagnostics?.snapshot() ?? null;
+  }
 
   /** Endpoint keys as stored on the integration, with sane Impact defaults. */
   private endpointFor(key: "health" | "campaigns" | "promotions" | "catalogs" | "ads"): string {
@@ -202,6 +215,14 @@ export class ImpactAdapter extends BaseProviderAdapter {
     opts?: FetchOptions,
   ): Promise<ProviderResult<T[]>> {
     const res = await this.call<unknown>(label, path, opts);
+    if (label === "promotions" && res.success && this.rawPromotionDiagnostics) {
+      this.rawPromotionDiagnostics.recordPage({
+        requestedPage: opts?.page,
+        requestedPageSize: opts?.pageSize,
+        requestedUrl: res.meta.url,
+        body: res.body,
+      });
+    }
     const records = res.success ? extractRecords(res.body, ENVELOPE_KEYS[label]) : null;
     const pagination = res.success ? extractImpactPagination(res.body) : undefined;
     return { ...res, body: records as T[] | null, ...(pagination ? { pagination } : {}) };

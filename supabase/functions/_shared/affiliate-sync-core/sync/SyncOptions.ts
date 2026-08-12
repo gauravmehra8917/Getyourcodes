@@ -32,6 +32,8 @@ export interface SyncOptions {
   fetchParams?: Record<string, unknown>;
   /** Optional progress callback invoked after every page. */
   onProgress?: (progress: import("./SyncProgress").SyncProgress) => void;
+  /** TEMPORARY — internal read-only observation enabled only by the preview host. */
+  rawPromotionDiagnostics?: boolean;
 }
 
 export interface ResolvedSyncOptions {
@@ -47,6 +49,7 @@ export interface ResolvedSyncOptions {
   includeStatistics: boolean;
   fetchParams: Record<string, unknown>;
   onProgress?: (progress: import("./SyncProgress").SyncProgress) => void;
+  rawPromotionDiagnostics: boolean;
 }
 
 export function resolveSyncOptions(opts?: SyncOptions): ResolvedSyncOptions {
@@ -71,5 +74,6 @@ export function resolveSyncOptions(opts?: SyncOptions): ResolvedSyncOptions {
     includeStatistics: opts?.includeStatistics ?? true,
     fetchParams: opts?.fetchParams ?? {},
     onProgress: opts?.onProgress,
+    rawPromotionDiagnostics: opts?.rawPromotionDiagnostics === true,
   };
 }

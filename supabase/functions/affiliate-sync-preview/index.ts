@@ -74,6 +74,7 @@ function parseRequest(input: PreviewRequest) {
   }
   return {
     integrationId: input.integrationId,
+    preview: input.preview === true,
     entityTypes,
     pageSize: positiveInteger(input.pageSize, 500, "pageSize"),
     maxPages: positiveInteger(input.maxPages, 50, "maxPages"),
@@ -144,6 +145,8 @@ Deno.serve(async (request) => {
           consecutiveNoNewPages: parsed.consecutiveNoNewPages ?? model.orchestration.consecutiveNoNewPages ?? undefined,
           strategy: parsed.strategy ?? configuredStrategy(model.orchestration.strategy),
           existingProviderOfferIds: model.existingProviderOfferIds,
+          // TEMPORARY — read-only observation only; never enabled for an import run.
+          rawPromotionDiagnostics: parsed.preview === true,
         },
       })).run();
       if (!synced.body) throw new Error(synced.error?.message ?? "Sync produced no result");

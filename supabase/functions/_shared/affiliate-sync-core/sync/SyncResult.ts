@@ -11,6 +11,7 @@ import type { SyncEntityType } from "./SyncOptions.ts";
 import type { SyncProgress } from "./SyncProgress.ts";
 import type { SyncStatistics } from "./SyncStatistics.ts";
 import type { ImportStopReason, ImportStrategy } from "./ImportOrchestration.ts";
+import type { RawPromotionDiagnostics } from "../diagnostics/RawPromotionDiagnostics.ts";
 
 export interface SyncIssue {
   entity: SyncEntityType | null;
@@ -42,4 +43,6 @@ export interface SyncResult {
     existingProviderIdentitiesEncountered: number;
     stopReason: ImportStopReason | "multiple" | null;
   };
+  /** TEMPORARY — populated only when the trusted preview host enables it. */
+  rawPromotionDiagnostics?: RawPromotionDiagnostics | null;
 }
