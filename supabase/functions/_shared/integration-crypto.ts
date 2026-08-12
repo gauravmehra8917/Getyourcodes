@@ -9,8 +9,11 @@ function base64ToBytes(value: string): Uint8Array {
   return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
 }
 
-function joinBytes(left: Uint8Array, right: Uint8Array): Uint8Array {
-  const combined = new Uint8Array(left.length + right.length);
+function joinBytes(
+  left: Uint8Array,
+  right: Uint8Array,
+): Uint8Array<ArrayBuffer> {
+  const combined = new Uint8Array(new ArrayBuffer(left.length + right.length));
   combined.set(left);
   combined.set(right, left.length);
   return combined;
