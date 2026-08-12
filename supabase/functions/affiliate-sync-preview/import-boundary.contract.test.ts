@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 
 const ROOT = resolve(process.cwd());
 const ENTRY = join(ROOT, "supabase/functions/affiliate-sync-preview/import-boundary.ts");
+const CORE = join(ROOT, "supabase/functions/_shared/affiliate-sync-core");
 const FORBIDDEN = [
   "ImportExecutor", "import_apply", "ImportLogger", "logo-sync", "affiliate_import_runs",
   "publishing_rotation_state", "logger.server", ".server", "client.server",
@@ -39,6 +40,39 @@ test("Edge preview direct source graph excludes mutation and server-only depende
     }
   }
   assert.ok(visited.size > 10, "the test must traverse the shared preview graph");
+});
+
+function coreFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? coreFiles(path) : [path];
+  });
+}
+
+test("shared core is Deno-relative and has no persistence or source closure", () => {
+  const forbidden = [
+    "src/", "@/", ".server", "ImportExecutor", "import_apply", "ImportLogger",
+    "logo-sync", "affiliate_import_runs", "publishing_rotation_state",
+    "SupabaseClient", "RequestLogSink", "RequestLogEntry", "persistLog",
+    "logRequest", "persistRequestLog", "node:", "Buffer",
+    ".rpc(", ".insert(", ".upsert(", ".delete(",
+  ];
+  for (const file of coreFiles(CORE).filter((path) => path.endsWith(".ts"))) {
+    const source = readFileSync(file, "utf8");
+    for (const token of forbidden) {
+      assert.equal(source.includes(token), false, `${file} contains forbidden ${token}`);
+    }
+    assert.equal(/\b(?:globalThis\.)?process\b/.test(source), false, `${file} references Node process`);
+    assert.equal(
+      /\b(?:supabase|db|client)\s*\.\s*(?:from|rpc|insert|update|upsert|delete)\s*\(/i.test(source),
+      false,
+      `${file} exposes a database query or write call`,
+    );
+    for (const specifier of importsOf(source)) {
+      assert.ok(specifier.startsWith("."), `${file} must use a relative import: ${specifier}`);
+      assert.ok(specifier.endsWith(".ts"), `${file} must use an explicit .ts extension: ${specifier}`);
+    }
+  }
 });
 
 test("Edge endpoint and read boundary contain no mutation call", () => {

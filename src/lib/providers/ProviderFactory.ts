@@ -15,13 +15,12 @@ import { RakutenAdapter } from "./adapters/RakutenAdapter";
 import { ShareASaleAdapter } from "./adapters/ShareASaleAdapter";
 import { CustomRestAdapter } from "./adapters/CustomRestAdapter";
 
-export type ProviderKey =
-  | "impact"
-  | "cj"
-  | "awin"
-  | "rakuten"
-  | "shareasale"
-  | "custom_rest";
+import {
+  resolveProviderKey,
+  type ProviderKey,
+} from "../../../supabase/functions/_shared/affiliate-sync-core/providers/ProviderFactory";
+
+export { resolveProviderKey, type ProviderKey };
 
 type AdapterCtor = new (engine: IntegrationEngine) => BaseProviderAdapter;
 
@@ -33,38 +32,6 @@ const REGISTRY: Record<ProviderKey, AdapterCtor> = {
   shareasale: ShareASaleAdapter,
   custom_rest: CustomRestAdapter,
 };
-
-/** Aliases for values that may appear in provider_name / provider_type. */
-const ALIASES: Record<string, ProviderKey> = {
-  impact: "impact",
-  "impact.com": "impact",
-  "impact radius": "impact",
-  cj: "cj",
-  "cj affiliate": "cj",
-  "commission junction": "cj",
-  awin: "awin",
-  "awin.com": "awin",
-  rakuten: "rakuten",
-  "rakuten advertising": "rakuten",
-  "rakuten linkshare": "rakuten",
-  shareasale: "shareasale",
-  "share a sale": "shareasale",
-  "share-a-sale": "shareasale",
-};
-
-export function resolveProviderKey(input: {
-  provider_name?: string | null;
-  provider_type?: string | null;
-}): ProviderKey {
-  const candidates = [input.provider_name, input.provider_type]
-    .map((v) => (v ?? "").toString().trim().toLowerCase())
-    .filter(Boolean);
-  for (const c of candidates) {
-    if (c in REGISTRY) return c as ProviderKey;
-    if (c in ALIASES) return ALIASES[c];
-  }
-  return "custom_rest";
-}
 
 export class ProviderFactory {
   /** Build an adapter directly for a preloaded IntegrationEngine. */

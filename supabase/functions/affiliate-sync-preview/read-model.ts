@@ -9,10 +9,10 @@ import {
   mapPolicyRow,
   resolveProviderKey,
 } from "./import-boundary.ts";
-import type { IntegrationConfig, IntegrationCredentials } from "../../../src/lib/integration-engine/types.ts";
-import type { ExistingRow } from "../../../src/lib/import/EntityMatcher.ts";
-import type { ExistingData } from "../../../src/lib/import/ImportPlanner.ts";
-import type { PolicyContext, PublishingPolicy } from "../../../src/lib/publishing-policy/types.ts";
+import type { IntegrationConfig, IntegrationCredentials } from "../_shared/affiliate-sync-core/integration-engine/types.ts";
+import type { ExistingRow } from "../_shared/affiliate-sync-core/import/EntityMatcher.ts";
+import type { ExistingData } from "../_shared/affiliate-sync-core/import/ImportPlanner.ts";
+import type { PolicyContext, PublishingPolicy } from "../_shared/affiliate-sync-core/publishing-policy/types.ts";
 
 type Row = Record<string, unknown>;
 

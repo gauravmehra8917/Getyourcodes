@@ -1,15 +1,18 @@
-// This intentionally imports the TypeScript source directly. There is no
-// generated Edge bundle and no TanStack/server composition in this graph.
-
-export { IntegrationEngine } from "../../../src/lib/integration-engine/engine.ts";
-export { validateConfig } from "../../../src/lib/integration-engine/validators.ts";
-export { executeRequest } from "../../../src/lib/integration-engine/http-client.ts";
-export { runHealthCheck } from "../../../src/lib/integration-engine/health-check.ts";
-export { mapIntegrationConfig } from "../../../src/lib/integration-engine/config-model.ts";
-export { ProviderFactory, resolveProviderKey } from "../../../src/lib/providers/ProviderFactory.ts";
-export { NormalizerFactory } from "../../../src/lib/normalizers/NormalizerFactory.ts";
-export { SyncContext } from "../../../src/lib/sync/SyncContext.ts";
-export { SyncEngine } from "../../../src/lib/sync/SyncEngine.ts";
-export { prepareImportPreview } from "../../../src/lib/import/ImportPreviewPipeline.ts";
-export { projectPreviewSyncRunReport } from "../../../src/lib/sync/SyncRunReport.ts";
-export { mapPolicyRow, FALLBACK_POLICY } from "../../../src/lib/publishing-policy/PolicyModel.ts";
+// The Edge deployment includes only supabase/, so this boundary reaches the
+// authoritative runtime-neutral core without importing application source.
+export {
+  IntegrationEngine,
+  validateConfig,
+  executeRequest,
+  runHealthCheck,
+  mapIntegrationConfig,
+  ProviderFactory,
+  resolveProviderKey,
+  NormalizerFactory,
+  SyncContext,
+  SyncEngine,
+  prepareImportPreview,
+  projectPreviewSyncRunReport,
+  mapPolicyRow,
+  FALLBACK_POLICY,
+} from "../_shared/affiliate-sync-core/index.ts";

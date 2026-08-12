@@ -4,6 +4,7 @@
 //
 // NEVER logs credentials, tokens, request bodies, or response bodies.
 
+import { configureDebugLogging } from "./logger";
 import type { HttpMethod, StandardResponse } from "./types";
 
 const SECRET_HEADER_KEYS = new Set([
@@ -61,6 +62,9 @@ export function logConsole(entry: RequestLogEntry) {
 export function debugEnabled(): boolean {
   return String(process.env.INTEGRATION_DEBUG ?? "").toLowerCase() === "true";
 }
+
+// Server composition owns Node environment access; the core receives only a boolean.
+configureDebugLogging(debugEnabled());
 
 export function redactBody(body: unknown, max = 500): string {
   let text = typeof body === "string" ? body : JSON.stringify(body ?? null);

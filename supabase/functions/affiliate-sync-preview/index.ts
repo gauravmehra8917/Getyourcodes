@@ -16,9 +16,9 @@ import {
   validateConfig,
 } from "./import-boundary.ts";
 import { loadPreviewReadModel } from "./read-model.ts";
-import type { SyncEntityType } from "../../../src/lib/sync/SyncOptions.ts";
-import type { ImportStrategy } from "../../../src/lib/sync/ImportOrchestration.ts";
-import type { SyncRunReport } from "../../../src/lib/sync/SyncRunReport.ts";
+import type { SyncEntityType } from "../_shared/affiliate-sync-core/sync/SyncOptions.ts";
+import type { ImportStrategy } from "../_shared/affiliate-sync-core/sync/ImportOrchestration.ts";
+import type { SyncRunReport } from "../_shared/affiliate-sync-core/sync/SyncRunReport.ts";
 
 type PreviewRequest = {
   integrationId?: unknown;
