@@ -26,6 +26,12 @@ test("strictly parses Promotions and preserves distinct provider identities", ()
       AdvertiserName: "Acme",
       CampaignId: "Campaign-09",
       ProgramId: "Program-0007",
+      PromotionTitle: "Save 20%",
+      Description: "A direct provider description",
+      GenericRedemptionCode: "SAVE20",
+      TrackingLink: "https://track.example/promotion",
+      StartDate: "2026-01-01T00:00:00Z",
+      EndDate: "2026-02-01T00:00:00Z",
     }],
   }), { provenance });
   assert.equal(parsed.ok, true);
@@ -41,9 +47,18 @@ test("strictly parses Promotions and preserves distinct provider identities", ()
     advertiserName: "Acme",
     campaignId: "Campaign-09",
     programId: "Program-0007",
+    promotionTitle: "Save 20%",
+    description: "A direct provider description",
+    genericRedemptionCode: "SAVE20",
+    trackingUrl: "https://track.example/promotion",
+    startDate: "2026-01-01T00:00:00Z",
+    endDate: "2026-02-01T00:00:00Z",
     raw: {
       PromotionIds: "  001-A_B  ", AdvertiserId: "Advertiser-01", AdvertiserName: "Acme",
-      CampaignId: "Campaign-09", ProgramId: "Program-0007",
+      CampaignId: "Campaign-09", ProgramId: "Program-0007", PromotionTitle: "Save 20%",
+      Description: "A direct provider description", GenericRedemptionCode: "SAVE20",
+      TrackingLink: "https://track.example/promotion", StartDate: "2026-01-01T00:00:00Z",
+      EndDate: "2026-02-01T00:00:00Z",
     },
     provenance: { ...provenance, providerPage: "2", providerPageSize: "100", recordIndex: 0 },
   });

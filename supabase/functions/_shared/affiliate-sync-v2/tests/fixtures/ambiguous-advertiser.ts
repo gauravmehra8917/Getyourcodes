@@ -32,6 +32,12 @@ export const ambiguousAdvertiserPromotion: RawImpactPromotionV2 = {
   advertiserName: "Presentation-only merchant name",
   campaignId: null,
   programId: "program-ambiguous",
+  promotionTitle: null,
+  description: null,
+  genericRedemptionCode: null,
+  trackingUrl: null,
+  startDate: null,
+  endDate: null,
   raw: { PromotionIds: "promotion-ambiguous-advertiser", AdvertiserId: "advertiser-ambiguous" },
   provenance: {
     stream: "promotions",

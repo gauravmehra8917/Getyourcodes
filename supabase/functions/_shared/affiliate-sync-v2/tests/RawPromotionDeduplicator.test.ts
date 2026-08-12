@@ -20,6 +20,12 @@ function promotion(input: {
     advertiserName: input.advertiserName ?? "Advertiser A",
     campaignId: input.campaignId ?? "campaign-a",
     programId: input.programId ?? "program-a",
+    promotionTitle: null,
+    description: null,
+    genericRedemptionCode: null,
+    trackingUrl: null,
+    startDate: null,
+    endDate: null,
     raw: input.raw ?? { PromotionIds: input.promotionId },
     provenance: {
       stream: "promotions",

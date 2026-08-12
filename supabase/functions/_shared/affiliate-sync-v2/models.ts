@@ -64,6 +64,17 @@ export interface RawImpactPromotionV2 {
   advertiserName: string | null;
   campaignId: string | null;
   programId: string | null;
+  /** Directly parsed from Impact `PromotionTitle`; never derived from identity fields. */
+  promotionTitle: string | null;
+  /** Directly parsed from Impact `Description`. */
+  description: string | null;
+  /** Directly parsed from Impact `GenericRedemptionCode`. */
+  genericRedemptionCode: string | null;
+  /** Directly parsed from Impact `TrackingLink`. */
+  trackingUrl: string | null;
+  /** Directly parsed from Impact `StartDate` and `EndDate`, without date inference. */
+  startDate: string | null;
+  endDate: string | null;
   raw: Record<string, unknown>;
   provenance: ImpactRecordProvenanceV2;
 }
@@ -86,7 +97,7 @@ export interface NormalizedStoreV2 {
   providerStoreKey: ProviderStoreKey;
   campaignId: string;
   advertiserId: string | null;
-  name: string;
+  name: string | null;
   destinationUrl: string | null;
   trackingUrl: string | null;
   raw: RawImpactCampaignV2;
@@ -96,15 +107,17 @@ interface NormalizedOfferBaseV2 {
   provider: ImpactProvider;
   promotionId: string;
   advertiserId: string | null;
+  advertiserName: string | null;
   campaignId: string | null;
   programId: string | null;
-  title: string;
+  title: string | null;
   description: string | null;
   trackingUrl: string | null;
   startDate: string | null;
   endDate: string | null;
   status: NormalizedOfferStatus;
   association: StoreOfferAssociationV2;
+  provenance: ImpactRecordProvenanceV2;
   raw: RawImpactPromotionV2;
 }
 

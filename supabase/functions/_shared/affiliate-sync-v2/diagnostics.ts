@@ -181,6 +181,28 @@ export interface MerchantIdentityDiagnosticsV2 {
   campaignIndex: CampaignIndexDiagnosticsV2;
 }
 
+/** Exact, read-only accounting for the V2-A5 normalization stage. */
+export interface ImpactOfferNormalizationDiagnosticsV2 {
+  deduplicatedPromotionsEvaluated: number;
+  couponsNormalized: number;
+  dealsNormalized: number;
+  offersUnresolvedFromA4: number;
+  offersWithResolvedProviderStoreKey: number;
+  storesNormalized: number;
+}
+
+/** Exact, read-only accounting for V2-A5 snapshot identity matching. */
+export interface StoreOfferMatchDiagnosticsV2 {
+  offersEvaluated: number;
+  offersUnresolvedFromA4: number;
+  offersWithResolvedProviderStoreKey: number;
+  offersMatchedToExistingStore: number;
+  resolvedProviderStoreKeysWithNoExistingStore: number;
+  ambiguousSnapshotStoreKeys: number;
+  newPromotionIdentities: number;
+  existingPromotionIdentities: number;
+}
+
 export interface AdvertiserDistributionV2 {
   advertiserId: string | null;
   advertiserName: string | null;

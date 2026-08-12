@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ImpactMerchantResolver } from "../ImpactMerchantResolver.ts";
+import { ImpactOfferNormalizer } from "../ImpactOfferNormalizer.ts";
 import { RawPromotionDeduplicator } from "../RawPromotionDeduplicator.ts";
+import { StoreOfferMatcher } from "../StoreOfferMatcher.ts";
 import type { RawImpactCampaignV2, RawImpactPromotionV2 } from "../models.ts";
 import { overlappingPagePromotions } from "./fixtures/overlapping-pages.ts";
 
@@ -44,6 +46,12 @@ function promotion(
     advertiserId,
     advertiserName: "Presentation only",
     programId: "program-not-a-campaign",
+    promotionTitle: null,
+    description: null,
+    genericRedemptionCode: null,
+    trackingUrl: null,
+    startDate: null,
+    endDate: null,
     raw: { PromotionIds: promotionId },
     provenance: {
       stream: "promotions",
@@ -121,6 +129,63 @@ test("merchant-resolution invariants preserve namespace boundaries and one expli
   assert.equal(associations.get("namespace-isolation")?.unresolvedReason, "unknown_advertiser_id");
   assert.equal(associations.get("missing")?.unresolvedReason, "missing_merchant_identity");
   assert.equal(result.merchantIdentityDiagnostics.distinctResolvedProviderStoreKeys, 2);
+  assert.deepEqual(promotions, beforePromotions);
+  assert.deepEqual(campaigns, beforeCampaigns);
+});
+
+test("normalization and snapshot matching preserve one offer per promotion and exact campaign-store identity", () => {
+  const promotions = [
+    promotion("exact", "campaign-exact", "advertiser-exact", 0),
+    promotion("unknown-explicit", "campaign-missing", "advertiser-exact", 1),
+    promotion("unique-advertiser", null, "advertiser-unique", 2),
+    promotion("ambiguous-advertiser", null, "advertiser-ambiguous", 3),
+    promotion("namespace-isolation", null, "123", 4),
+    promotion("missing", null, null, 5),
+  ];
+  const campaigns = [
+    campaign("campaign-exact", "advertiser-exact", 0),
+    campaign("campaign-unique", "advertiser-unique", 1),
+    campaign("campaign-ambiguous-a", "advertiser-ambiguous", 2),
+    campaign("campaign-ambiguous-b", "advertiser-ambiguous", 3),
+    campaign("123", "another-advertiser", 4),
+  ];
+  const beforePromotions = structuredClone(promotions);
+  const beforeCampaigns = structuredClone(campaigns);
+  const resolved = ImpactMerchantResolver.resolve(promotions, campaigns);
+  const normalized = ImpactOfferNormalizer.normalize(promotions, resolved.promotionAssociations, campaigns);
+  const matched = StoreOfferMatcher.match(normalized, {
+    stores: [{
+      id: "store-exact",
+      providerStoreKey: { provider: "impact", namespace: "campaign", id: "campaign-exact" },
+    }],
+    offers: [{ id: "offer-exact", promotionId: "exact" }],
+  });
+  const offers = [...matched.normalizedCoupons, ...matched.normalizedDeals];
+  const offersByPromotionId = new Map(offers.map((offer) => [offer.promotionId, offer]));
+
+  assert.equal(normalized.normalizedCoupons.length + normalized.normalizedDeals.length, promotions.length);
+  assert.equal(new Set(offers.map((offer) => offer.promotionId)).size, promotions.length);
+  for (const offer of offers) {
+    const source = promotions.find((promotion) => promotion.promotionId === offer.promotionId);
+    assert.equal(offer.promotionId, source?.promotionId);
+    assert.equal(offer.advertiserId, source?.advertiserId);
+    assert.equal(offer.advertiserName, source?.advertiserName);
+    assert.equal(offer.campaignId, source?.campaignId);
+    assert.equal(offer.programId, source?.programId);
+    if (offer.association.matchMethod === "unmatched") {
+      assert.equal(offer.association.providerStoreKey, null);
+      assert.equal(offer.association.matchedStoreId, null);
+    } else {
+      assert.equal(offer.association.providerStoreKey.provider, "impact");
+      assert.equal(offer.association.providerStoreKey.namespace, "campaign");
+    }
+  }
+  assert.equal(offersByPromotionId.get("exact")?.association.matchedStoreId, "store-exact");
+  assert.equal(offersByPromotionId.get("unknown-explicit")?.association.matchMethod, "unmatched");
+  assert.equal(offersByPromotionId.get("unknown-explicit")?.association.matchedStoreId, null);
+  assert.equal(offersByPromotionId.get("namespace-isolation")?.association.matchMethod, "unmatched");
+  assert.equal(new Set(normalized.normalizedStores.map((store) => store.providerStoreKey.id)).size, normalized.normalizedStores.length);
+  assert.ok(normalized.normalizedStores.every((store) => store.providerStoreKey.namespace === "campaign"));
   assert.deepEqual(promotions, beforePromotions);
   assert.deepEqual(campaigns, beforeCampaigns);
 });

@@ -52,6 +52,12 @@ function promotion(input: {
     advertiserName: input.advertiserName === undefined ? "Presentation only" : input.advertiserName,
     campaignId: input.campaignId === undefined ? "campaign-default" : input.campaignId,
     programId: input.programId === undefined ? "program-default" : input.programId,
+    promotionTitle: null,
+    description: null,
+    genericRedemptionCode: null,
+    trackingUrl: null,
+    startDate: null,
+    endDate: null,
     raw: input.raw ?? { PromotionIds: input.promotionId },
     provenance: {
       stream: "promotions",

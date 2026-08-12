@@ -6,3 +6,5 @@ export * from "./ImpactPageParser.ts";
 export * from "./ImpactClientV2.ts";
 export * from "./RawPromotionDeduplicator.ts";
 export * from "./ImpactMerchantResolver.ts";
+export * from "./ImpactOfferNormalizer.ts";
+export * from "./StoreOfferMatcher.ts";

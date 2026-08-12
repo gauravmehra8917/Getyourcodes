@@ -119,6 +119,12 @@ function promotionOf(
     advertiserName: optionalText(record.AdvertiserName),
     campaignId: toOpaqueProviderId(record.CampaignId),
     programId: toOpaqueProviderId(record.ProgramId),
+    promotionTitle: optionalText(record.PromotionTitle),
+    description: optionalText(record.Description),
+    genericRedemptionCode: optionalText(record.GenericRedemptionCode),
+    trackingUrl: optionalText(record.TrackingLink),
+    startDate: optionalText(record.StartDate),
+    endDate: optionalText(record.EndDate),
     raw: record,
     provenance,
   };

@@ -51,7 +51,7 @@ test("follows exact Promotion continuations without reconstructing page paramete
   assert.equal(result.diagnostics.stopReason, "completed");
   assert.equal(transport.requests[1]?.url, expectedNext);
   assert.equal(transport.requests[1]?.url.includes("retain-order"), true);
-  assert.equal(result.records[1]?.provenance.sanitizedSourceContinuationUrl.includes("Opaque=retain-order"), true);
+  assert.equal(result.records[1]?.provenance.sanitizedSourceContinuationUrl?.includes("Opaque=retain-order"), true);
 });
 
 test("omits host credentials for allowed cross-origin continuations", async () => {
@@ -237,6 +237,6 @@ test("keeps sanitized page provenance for accepted and quarantined records", asy
   const result = await instance.fetchPromotions(initial);
   assert.deepEqual(result.records.map((record) => [record.promotionId, record.provenance.fetchSequence]), [["one", 1], ["two", 2]]);
   assert.deepEqual(result.quarantinedRecords.map((record) => [record.reason, record.provenance.fetchSequence, record.provenance.recordIndex]), [["malformed_record", 1, 0]]);
-  assert.equal(result.records[1]?.provenance.sanitizedSourceContinuationUrl.includes("secret"), false);
-  assert.equal(result.records[1]?.provenance.sanitizedSourceContinuationUrl.includes("%5BREDACTED%5D"), true);
+  assert.equal(result.records[1]?.provenance.sanitizedSourceContinuationUrl?.includes("secret"), false);
+  assert.equal(result.records[1]?.provenance.sanitizedSourceContinuationUrl?.includes("%5BREDACTED%5D"), true);
 });

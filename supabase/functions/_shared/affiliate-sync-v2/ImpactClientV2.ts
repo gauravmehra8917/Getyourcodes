@@ -215,9 +215,12 @@ export class ImpactClientV2 {
       const callerCancelled = scoped.isCallerCancelled();
       scoped.cleanup();
       if (callerCancelled) return { ok: false, stopReason: "cancelled", retry: retry() };
-      if (timedOut || result.kind === "timeout") return { ok: false, stopReason: "timeout", retry: retry() };
-      if (result.kind === "aborted") return { ok: false, stopReason: "cancelled", retry: retry() };
-      if (result.kind === "transport_error") return { ok: false, stopReason: "transport_error", retry: retry() };
+      if (timedOut) return { ok: false, stopReason: "timeout", retry: retry() };
+      if (result.kind !== "response") {
+        if (result.kind === "timeout") return { ok: false, stopReason: "timeout", retry: retry() };
+        if (result.kind === "aborted") return { ok: false, stopReason: "cancelled", retry: retry() };
+        return { ok: false, stopReason: "transport_error", retry: retry() };
+      }
 
       finalStatus = result.status;
       if (isSuccessfulStatus(result.status)) return { ok: true, bodyText: result.bodyText, retry: retry() };
@@ -236,9 +239,9 @@ export class ImpactClientV2 {
     return { ok: false, stopReason: "provider_error", retry: retry() };
   }
 
-  private parserFor(stream: "promotions"): typeof ImpactPageParser.promotions;
-  private parserFor(stream: "campaigns"): typeof ImpactPageParser.campaigns;
-  private parserFor(stream: ImpactStream) {
+  private parserFor(
+    stream: ImpactStream,
+  ): (bodyText: string, input: { provenance: ImpactPageProvenanceV2 }) => ImpactPageParseResultV2<StreamRecord> {
     return stream === "promotions" ? ImpactPageParser.promotions : ImpactPageParser.campaigns;
   }
 
@@ -319,7 +322,7 @@ export class ImpactClientV2 {
         break;
       }
 
-      const parser = this.parserFor(stream) as (body: string, input: { provenance: ImpactPageProvenanceV2 }) => ImpactPageParseResultV2<StreamRecord>;
+      const parser = this.parserFor(stream);
       const parsed = parser(request.bodyText, { provenance: baseProvenance });
       if (!parsed.ok) {
         diagnostics.pages.push(pageDiagnostic(baseProvenance, 0, 0, 0, bytes, false));

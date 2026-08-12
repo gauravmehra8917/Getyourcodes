@@ -11,6 +11,12 @@ function promotion(
     advertiserName: `Advertiser ${promotionId}`,
     campaignId: `campaign-${promotionId}`,
     programId: `program-${promotionId}`,
+    promotionTitle: null,
+    description: null,
+    genericRedemptionCode: null,
+    trackingUrl: null,
+    startDate: null,
+    endDate: null,
     raw: { PromotionIds: promotionId },
     provenance: {
       stream: "promotions",
