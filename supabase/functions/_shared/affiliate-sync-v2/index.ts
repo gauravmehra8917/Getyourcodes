@@ -10,3 +10,5 @@ export * from "./ImpactOfferNormalizer.ts";
 export * from "./StoreOfferMatcher.ts";
 export * from "./OfferQualification.ts";
 export * from "./PublishingPolicy.ts";
+export * from "./ImpactFetchOrchestrator.ts";
+export * from "./PreviewPlanner.ts";

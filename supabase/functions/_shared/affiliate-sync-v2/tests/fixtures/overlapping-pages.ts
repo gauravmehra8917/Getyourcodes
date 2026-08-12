@@ -1,4 +1,4 @@
-import type { RawImpactPromotionV2 } from "../../models.ts";
+import type { RawImpactCampaignV2, RawImpactPromotionV2 } from "../../models.ts";
 
 function promotion(
   promotionId: string,
@@ -41,3 +41,27 @@ export const overlappingPagePromotions: RawImpactPromotionV2[] = [
   promotion("D", 2, 1),
   promotion("E", 2, 2),
 ];
+
+function campaign(id: string, recordIndex: number): RawImpactCampaignV2 {
+  return {
+    campaignId: `campaign-${id}`,
+    advertiserId: `advertiser-${id}`,
+    campaignName: `Campaign ${id}`,
+    destinationUrl: `https://merchant.example/${id}`,
+    trackingUrl: `https://track.example/${id}`,
+    raw: { CampaignId: `campaign-${id}`, AdvertiserId: `advertiser-${id}` },
+    provenance: {
+      stream: "campaigns",
+      fetchSequence: 1,
+      recordIndex,
+      sanitizedRequestUrl: "https://api.impact.com/Mediapartners/%E2%80%A2%E2%80%A2%E2%80%A2%E2%80%A23074/Campaigns?Page=1",
+      sanitizedSourceContinuationUrl: null,
+      providerPage: "1",
+      providerPageSize: "100",
+    },
+  };
+}
+
+/** Exact campaign records needed to carry the overlap fixture through A7. */
+export const overlappingPageCampaigns: RawImpactCampaignV2[] = ["A", "B", "C", "D", "E"]
+  .map(campaign);

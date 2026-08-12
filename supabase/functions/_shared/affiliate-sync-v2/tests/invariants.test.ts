@@ -3,10 +3,16 @@ import test from "node:test";
 import { ImpactMerchantResolver } from "../ImpactMerchantResolver.ts";
 import { ImpactOfferNormalizer } from "../ImpactOfferNormalizer.ts";
 import { OfferQualification } from "../OfferQualification.ts";
+import { PreviewPlanner } from "../PreviewPlanner.ts";
 import { PublishingPolicy, StoreQualification } from "../PublishingPolicy.ts";
 import { RawPromotionDeduplicator } from "../RawPromotionDeduplicator.ts";
 import { StoreOfferMatcher } from "../StoreOfferMatcher.ts";
 import type { RawImpactCampaignV2, RawImpactPromotionV2 } from "../models.ts";
+import {
+  healthyMultiBrandCampaigns,
+  healthyMultiBrandPromotions,
+  healthyMultiBrandSnapshot,
+} from "./fixtures/healthy-multi-brand.ts";
 import { overlappingPagePromotions } from "./fixtures/overlapping-pages.ts";
 import { policyCampaigns, policyPromotions, policySnapshot } from "./fixtures/publishing-policy.ts";
 
@@ -286,4 +292,55 @@ test("qualification and publishing invariants preserve exact store identity and 
   assert.deepEqual(promotions, beforePromotions);
   assert.deepEqual(campaigns, beforeCampaigns);
   assert.deepEqual(snapshot, beforeSnapshot);
+});
+
+test("final preview actions and store coverage reconcile without identity collapse", () => {
+  const stream = (name: "promotions" | "campaigns", count: number) => ({
+    stream: name,
+    pagesFetched: 1,
+    rawRecordCount: count,
+    acceptedRecordCount: count,
+    quarantinedRecordCount: 0,
+    stopReason: "completed" as const,
+    pageErrors: [],
+    pages: [],
+    retries: [],
+  });
+  const preview = PreviewPlanner.plan({
+    acceptedPromotions: healthyMultiBrandPromotions,
+    acceptedCampaigns: healthyMultiBrandCampaigns,
+    fetchDiagnostics: {
+      promotions: stream("promotions", healthyMultiBrandPromotions.length),
+      campaigns: stream("campaigns", healthyMultiBrandCampaigns.length),
+    },
+    quarantinedRecords: [],
+    existingCatalogSnapshot: healthyMultiBrandSnapshot,
+    publishingPolicyConfig: { maxCouponsPerStore: 0, maxDealsPerStore: 0 },
+    storeQualificationConfig: {
+      minimumSelectedCoupons: 0,
+      minimumSelectedDeals: 0,
+      minimumTotalSelectedOffers: 1,
+    },
+    evaluationTimestamp: "2026-06-01T00:00:00Z",
+  });
+  const offerCounts = preview.proposedActions.counts.offers;
+  const storeCounts = preview.proposedActions.counts.stores;
+
+  assert.equal(
+    offerCounts.existing + offerCounts.proposedCreate + offerCounts.held + offerCounts.unresolved,
+    offerCounts.normalized,
+  );
+  assert.equal(
+    preview.publishingPolicy.diagnostics.selectedOffers + preview.publishingPolicy.diagnostics.heldOffers,
+    offerCounts.normalized,
+  );
+  assert.equal(new Set(preview.proposedActions.offers.map((action) => action.promotionId)).size, offerCounts.normalized);
+  assert.equal(
+    storeCounts.matchedExisting + storeCounts.newCandidates + storeCounts.ambiguousSnapshot,
+    storeCounts.discovered,
+  );
+  assert.ok(preview.storeCoverage.qualifiedStores <= preview.storeCoverage.storesWithSelectedOffers);
+  assert.equal(storeCounts.unmatchedAssociations, offerCounts.unresolved);
+  assert.equal(preview.identityIntegrityDiagnostics.identityCollapseDetected, false);
+  assert.equal(preview.identityIntegrityDiagnostics.distinctResolvedProviderStoreKeys, 2);
 });

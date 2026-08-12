@@ -1,0 +1,285 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { PreviewPlanner, type AffiliateSyncPreviewInputV2 } from "../PreviewPlanner.ts";
+import type {
+  ImpactStreamFetchDiagnosticsV2,
+  QuarantinedImpactRecordV2,
+} from "../diagnostics.ts";
+import type {
+  ExistingCatalogSnapshotV2,
+  RawImpactCampaignV2,
+  RawImpactPromotionV2,
+} from "../models.ts";
+import {
+  ambiguousAdvertiserCampaigns,
+  ambiguousAdvertiserPromotion,
+} from "./fixtures/ambiguous-advertiser.ts";
+import {
+  healthyMultiBrandCampaigns,
+  healthyMultiBrandPromotions,
+  healthyMultiBrandSnapshot,
+} from "./fixtures/healthy-multi-brand.ts";
+import {
+  overlappingPageCampaigns,
+  overlappingPagePromotions,
+} from "./fixtures/overlapping-pages.ts";
+
+const EVALUATION_TIMESTAMP = "2026-06-01T00:00:00Z";
+
+function streamDiagnostics(
+  stream: "promotions" | "campaigns",
+  acceptedRecords: number,
+  quarantinedRecords = 0,
+): ImpactStreamFetchDiagnosticsV2 {
+  return {
+    stream,
+    pagesFetched: acceptedRecords + quarantinedRecords > 0 ? 1 : 0,
+    rawRecordCount: acceptedRecords + quarantinedRecords,
+    acceptedRecordCount: acceptedRecords,
+    quarantinedRecordCount: quarantinedRecords,
+    stopReason: "completed",
+    pageErrors: [],
+    pages: [],
+    retries: [],
+  };
+}
+
+function plannerInput(input: {
+  promotions: readonly RawImpactPromotionV2[];
+  campaigns: readonly RawImpactCampaignV2[];
+  snapshot?: ExistingCatalogSnapshotV2;
+  quarantinedRecords?: readonly QuarantinedImpactRecordV2[];
+  diagnosticDetailLimit?: number;
+}): AffiliateSyncPreviewInputV2 {
+  const quarantined = input.quarantinedRecords ?? [];
+  const promotionQuarantine = quarantined.filter((entry) => entry.stream === "promotions").length;
+  const campaignQuarantine = quarantined.filter((entry) => entry.stream === "campaigns").length;
+  return {
+    acceptedPromotions: input.promotions,
+    acceptedCampaigns: input.campaigns,
+    fetchDiagnostics: {
+      promotions: streamDiagnostics("promotions", input.promotions.length, promotionQuarantine),
+      campaigns: streamDiagnostics("campaigns", input.campaigns.length, campaignQuarantine),
+    },
+    quarantinedRecords: quarantined,
+    existingCatalogSnapshot: input.snapshot ?? { stores: [], offers: [] },
+    publishingPolicyConfig: { maxCouponsPerStore: 0, maxDealsPerStore: 0 },
+    storeQualificationConfig: {
+      minimumSelectedCoupons: 0,
+      minimumSelectedDeals: 0,
+      minimumTotalSelectedOffers: 1,
+    },
+    evaluationTimestamp: EVALUATION_TIMESTAMP,
+    ...(input.diagnosticDetailLimit === undefined
+      ? {}
+      : { diagnosticDetailLimit: input.diagnosticDetailLimit }),
+  };
+}
+
+function actionByPromotion(preview: ReturnType<typeof PreviewPlanner.plan>) {
+  return new Map(preview.proposedActions.offers.map((action) => [action.promotionId, action]));
+}
+
+test("healthy multi-brand planning preserves independent stores from raw input through qualification", () => {
+  const input = plannerInput({
+    promotions: healthyMultiBrandPromotions,
+    campaigns: healthyMultiBrandCampaigns,
+    snapshot: healthyMultiBrandSnapshot,
+  });
+  const before = structuredClone(input);
+  const preview = PreviewPlanner.plan(input);
+
+  assert.equal(new Set(healthyMultiBrandCampaigns.map((campaign) => campaign.campaignId)).size, 2);
+  assert.equal(preview.merchantIdentityDiagnostics.advertiserCount, 2);
+  assert.equal(preview.merchantIdentityDiagnostics.campaignCount, 2);
+  assert.deepEqual(preview.normalizedStores.map((store) => store.providerStoreKey.id), [
+    "campaign-acme",
+    "campaign-bravo",
+  ]);
+  assert.equal(new Set(preview.normalizedStores.map((store) => JSON.stringify(store.providerStoreKey))).size, 2);
+  assert.deepEqual(preview.normalizedCoupons.map((offer) => offer.promotionId), ["promotion-acme-coupon"]);
+  assert.deepEqual(preview.normalizedDeals.map((offer) => offer.promotionId), ["promotion-bravo-deal"]);
+  assert.deepEqual(preview.publishingPolicy.stores.map((store) => ({
+    key: store.providerStoreKey.id,
+    offers: [...store.selectedCoupons, ...store.selectedDeals].map((offer) => offer.promotionId),
+  })), [
+    { key: "campaign-acme", offers: ["promotion-acme-coupon"] },
+    { key: "campaign-bravo", offers: ["promotion-bravo-deal"] },
+  ]);
+  assert.equal(preview.storeQualification.length, 2);
+  assert.ok(preview.storeQualification.every((store) => store.qualified));
+  assert.deepEqual(preview.identityIntegrityDiagnostics, {
+    distinctResolvedProviderStoreKeys: 2,
+    normalizedProviderStoreKeys: 2,
+    matchedProviderStoreKeys: 2,
+    policyProviderStoreKeys: 2,
+    qualificationProviderStoreKeys: 2,
+    identityCollapseDetected: false,
+  });
+  assert.deepEqual(preview.storeCoverage, {
+    campaignBackedStoresDiscovered: 2,
+    providerStoreKeysReferencedByPromotions: 2,
+    storesWithResolvedOffers: 2,
+    storesMatchedToExisting: 1,
+    newStoreCandidates: 1,
+    storesWithSelectedOffers: 2,
+    qualifiedStores: 2,
+    unresolvedOffers: 0,
+    ambiguousSnapshotKeys: 0,
+  });
+  assert.deepEqual(preview.proposedActions.stores.map((action) => action.action), ["existing", "create"]);
+  assert.deepEqual(preview.proposedActions.offers.map((action) => action.action), ["existing", "create"]);
+  assert.deepEqual(preview.proposedActions.counts.offers, {
+    normalized: 2,
+    selected: 2,
+    held: 0,
+    unresolved: 0,
+    existing: 1,
+    proposedCreate: 1,
+    duplicateRecordsRemoved: 0,
+    quarantined: 0,
+  });
+  assert.deepEqual(input, before);
+});
+
+test("complete preview is deterministic for logically identical reordered inputs", () => {
+  const forward = plannerInput({
+    promotions: healthyMultiBrandPromotions,
+    campaigns: healthyMultiBrandCampaigns,
+    snapshot: healthyMultiBrandSnapshot,
+  });
+  const reversed: AffiliateSyncPreviewInputV2 = {
+    ...structuredClone(forward),
+    acceptedPromotions: [...healthyMultiBrandPromotions].reverse(),
+    acceptedCampaigns: [...healthyMultiBrandCampaigns].reverse(),
+    existingCatalogSnapshot: {
+      stores: [...healthyMultiBrandSnapshot.stores].reverse(),
+      offers: [...healthyMultiBrandSnapshot.offers].reverse(),
+    },
+  };
+
+  assert.deepEqual(PreviewPlanner.plan(forward), PreviewPlanner.plan(reversed));
+});
+
+test("overlapping pages retain duplicate provenance and normalize each PromotionId once", () => {
+  const preview = PreviewPlanner.plan(plannerInput({
+    promotions: overlappingPagePromotions,
+    campaigns: overlappingPageCampaigns,
+  }));
+  const normalizedIds = [...preview.normalizedCoupons, ...preview.normalizedDeals]
+    .map((offer) => offer.promotionId);
+  const duplicate = preview.deduplicationDiagnostics.duplicateDetails[0];
+
+  assert.equal(preview.rawFetchDiagnostics.promotions.acceptedRecordCount, 6);
+  assert.equal(preview.deduplicationDiagnostics.uniquePromotions, 5);
+  assert.equal(preview.deduplicationDiagnostics.duplicateRecordsRemoved, 1);
+  assert.equal(preview.deduplicationDiagnostics.duplicatedIdentities, 1);
+  assert.equal(normalizedIds.filter((promotionId) => promotionId === "C").length, 1);
+  assert.equal(new Set(normalizedIds).size, 5);
+  assert.equal(duplicate?.promotionId, "C");
+  assert.deepEqual(duplicate?.occurrences.map((entry) => entry.fetchSequence), [1, 2]);
+  assert.deepEqual(preview.rawFetchDiagnostics.duplicates, preview.deduplicationDiagnostics.duplicateDetails);
+  assert.equal(preview.proposedActions.counts.offers.normalized, 5);
+  assert.equal(preview.proposedActions.counts.offers.held, 5);
+  assert.equal(preview.proposedActions.counts.offers.duplicateRecordsRemoved, 1);
+  assert.equal(preview.publishingPolicy.diagnostics.selectedOffers, 0);
+  assert.equal(preview.publishingPolicy.diagnostics.heldOffers, 5);
+});
+
+test("ambiguous advertiser remains unresolved through every downstream preview stage", () => {
+  const preview = PreviewPlanner.plan(plannerInput({
+    promotions: [ambiguousAdvertiserPromotion],
+    campaigns: ambiguousAdvertiserCampaigns,
+  }));
+  const association = preview.associations[0]?.association;
+  const offerAction = actionByPromotion(preview).get("promotion-ambiguous-advertiser");
+
+  assert.equal(preview.merchantIdentityDiagnostics.unresolvedReasonCounts.ambiguous_advertiser_id, 1);
+  assert.deepEqual(association, {
+    providerStoreKey: null,
+    matchedStoreId: null,
+    matchMethod: "unmatched",
+    unresolvedReason: "ambiguous_advertiser_id",
+  });
+  assert.equal(preview.publishingPolicy.selectedDeals.length, 0);
+  assert.equal(preview.publishingPolicy.unresolvedHeldDeals[0]?.reason, "unresolved_store");
+  assert.equal(offerAction?.action, "unresolved");
+  assert.equal(offerAction?.providerStoreKey, null);
+  assert.deepEqual(preview.proposedActions.stores.map((action) => action.action), ["unmatched"]);
+  assert.deepEqual(preview.proposedActions.counts.offers, {
+    normalized: 1,
+    selected: 0,
+    held: 0,
+    unresolved: 1,
+    existing: 0,
+    proposedCreate: 0,
+    duplicateRecordsRemoved: 0,
+    quarantined: 0,
+  });
+  assert.deepEqual(preview.storeCoverage, {
+    campaignBackedStoresDiscovered: 2,
+    providerStoreKeysReferencedByPromotions: 0,
+    storesWithResolvedOffers: 0,
+    storesMatchedToExisting: 0,
+    newStoreCandidates: 0,
+    storesWithSelectedOffers: 0,
+    qualifiedStores: 0,
+    unresolvedOffers: 1,
+    ambiguousSnapshotKeys: 0,
+  });
+});
+
+test("ambiguous exact snapshot keys are reported without choosing a store", () => {
+  const snapshot: ExistingCatalogSnapshotV2 = {
+    ...healthyMultiBrandSnapshot,
+    stores: [
+      ...healthyMultiBrandSnapshot.stores,
+      {
+        id: "store-acme-conflict",
+        providerStoreKey: { provider: "impact", namespace: "campaign", id: "campaign-acme" },
+      },
+    ],
+  };
+  const preview = PreviewPlanner.plan(plannerInput({
+    promotions: healthyMultiBrandPromotions,
+    campaigns: healthyMultiBrandCampaigns,
+    snapshot,
+  }));
+  const acme = preview.proposedActions.stores.find((action) =>
+    action.providerStoreKey?.id === "campaign-acme");
+
+  assert.equal(acme?.action, "ambiguous_snapshot");
+  assert.equal(acme?.matchedStoreId, null);
+  assert.equal(preview.storeCoverage.ambiguousSnapshotKeys, 1);
+  assert.equal(preview.proposedActions.counts.stores.ambiguousSnapshot, 1);
+  assert.equal(preview.proposedActions.counts.stores.matchedExisting, 0);
+});
+
+test("quarantine and diagnostic detail bounds preserve exact aggregate counts", () => {
+  const base = healthyMultiBrandPromotions[0]!.provenance;
+  const quarantinedRecords: QuarantinedImpactRecordV2[] = [
+    { stream: "promotions", reason: "malformed_record", provenance: { ...base, recordIndex: 8 } },
+    {
+      stream: "campaigns",
+      reason: "missing_campaign_id",
+      provenance: { ...base, stream: "campaigns", recordIndex: 9 },
+    },
+  ];
+  const preview = PreviewPlanner.plan(plannerInput({
+    promotions: healthyMultiBrandPromotions,
+    campaigns: healthyMultiBrandCampaigns,
+    snapshot: healthyMultiBrandSnapshot,
+    quarantinedRecords,
+    diagnosticDetailLimit: 1,
+  }));
+
+  assert.equal(preview.parserDiagnostics.quarantinedRecords, 2);
+  assert.equal(preview.parserDiagnostics.quarantineDetailsReturned, 1);
+  assert.equal(preview.parserDiagnostics.quarantineDetailsTruncated, true);
+  assert.equal(preview.rawFetchDiagnostics.quarantinedDetailsReturned, 1);
+  assert.equal(preview.rawFetchDiagnostics.quarantinedDetailsTruncated, true);
+  assert.equal(preview.proposedActions.counts.offers.quarantined, 2);
+  assert.equal(preview.advertiserDistributionTotal, 2);
+  assert.equal(preview.advertiserDistributionDetailsReturned, 1);
+  assert.equal(preview.advertiserDistributionDetailsTruncated, true);
+});

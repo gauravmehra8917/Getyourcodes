@@ -110,8 +110,35 @@ export interface RawFetchDiagnosticsV2 {
   campaigns: ImpactStreamFetchDiagnosticsV2;
   uniquePromotionCount: number;
   duplicatePromotionCount: number;
+  duplicatedPromotionIdentities: number;
   duplicates: DuplicatePromotionProvenanceV2[];
+  duplicateDetailsReturned: number;
+  duplicateDetailsTruncated: boolean;
   quarantinedRecords: QuarantinedImpactRecordV2[];
+  quarantinedDetailsReturned: number;
+  quarantinedDetailsTruncated: boolean;
+}
+
+/** Exact parser accounting with independently bounded sanitized details. */
+export interface ImpactParserDiagnosticsV2 {
+  quarantinedRecords: number;
+  quarantinedPromotions: number;
+  quarantinedCampaigns: number;
+  quarantineDetails: QuarantinedImpactRecordV2[];
+  quarantineDetailsReturned: number;
+  quarantineDetailsTruncated: boolean;
+}
+
+/** A3 aggregate counters and bounded duplicate provenance for the final preview. */
+export interface PromotionDeduplicationDiagnosticsV2 {
+  acceptedInputRecords: number;
+  uniquePromotions: number;
+  duplicateRecordsRemoved: number;
+  duplicatedIdentities: number;
+  identitiesWithConflictingProviderFields: number;
+  duplicateDetails: DuplicatePromotionProvenanceV2[];
+  duplicateDetailsReturned: number;
+  duplicateDetailsTruncated: boolean;
 }
 
 export type DuplicateCampaignConflictFieldV2 =
@@ -210,10 +237,29 @@ export interface AdvertiserDistributionV2 {
 }
 
 export interface StoreCoverageV2 {
-  providerStoresDiscovered: number;
-  existingStoresMatched: number;
-  proposedStores: number;
-  storesWithAssociatedOffers: number;
+  campaignBackedStoresDiscovered: number;
+  providerStoreKeysReferencedByPromotions: number;
+  storesWithResolvedOffers: number;
+  storesMatchedToExisting: number;
+  newStoreCandidates: number;
+  storesWithSelectedOffers: number;
   qualifiedStores: number;
   unresolvedOffers: number;
+  ambiguousSnapshotKeys: number;
+}
+
+export interface ExistingOfferIdentityDiagnosticsV2 {
+  normalizedOffers: number;
+  existingPromotionIdentities: number;
+  newPromotionIdentities: number;
+}
+
+/** Permanent generic regression evidence against downstream provider-store collapse. */
+export interface PreviewIdentityIntegrityDiagnosticsV2 {
+  distinctResolvedProviderStoreKeys: number;
+  normalizedProviderStoreKeys: number;
+  matchedProviderStoreKeys: number;
+  policyProviderStoreKeys: number;
+  qualificationProviderStoreKeys: number;
+  identityCollapseDetected: boolean;
 }

@@ -40,3 +40,10 @@ test("V2 core is isolated, relative-only, and has no persistence boundary", () =
     assert.equal(dirname(file).startsWith(CORE), true, `${file} escaped V2 core`);
   }
 });
+
+test("pure preview planning has no provider-request boundary", () => {
+  const source = readFileSync(join(CORE, "PreviewPlanner.ts"), "utf8");
+  for (const term of ["ImpactClientV2", "ImpactTransport", "ImpactFetchOrchestrator", ".execute(", ".wait("]) {
+    assert.equal(source.includes(term), false, `PreviewPlanner.ts contains ${term}`);
+  }
+});
