@@ -8,3 +8,5 @@ export * from "./RawPromotionDeduplicator.ts";
 export * from "./ImpactMerchantResolver.ts";
 export * from "./ImpactOfferNormalizer.ts";
 export * from "./StoreOfferMatcher.ts";
+export * from "./OfferQualification.ts";
+export * from "./PublishingPolicy.ts";

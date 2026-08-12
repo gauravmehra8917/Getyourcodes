@@ -5,6 +5,10 @@ import type {
   RawFetchDiagnosticsV2,
   StoreCoverageV2,
 } from "./diagnostics.ts";
+import type {
+  PublishingPolicyResultV2,
+  StoreQualificationResultV2,
+} from "./PublishingPolicy.ts";
 
 export type ImpactProvider = "impact";
 
@@ -103,7 +107,7 @@ export interface NormalizedStoreV2 {
   raw: RawImpactCampaignV2;
 }
 
-interface NormalizedOfferBaseV2 {
+export interface NormalizedOfferBaseV2 {
   provider: ImpactProvider;
   promotionId: string;
   advertiserId: string | null;
@@ -123,7 +127,8 @@ interface NormalizedOfferBaseV2 {
 
 export interface NormalizedCouponV2 extends NormalizedOfferBaseV2 {
   kind: "coupon";
-  code: string | null;
+  /** A5 creates coupons only from a non-empty provider redemption code. */
+  code: string;
   discountType: DiscountTypeV2;
   discountValue: number | null;
   terms: string | null;
@@ -154,17 +159,6 @@ export interface ProposedActionCountsV2 {
   coupons: { create: number; update: number; skip: number };
   deals: { create: number; update: number; skip: number };
   total: { create: number; update: number; skip: number };
-}
-
-export interface PublishingPolicyResultV2 {
-  selectedPromotionIds: string[];
-  heldPromotionIds: string[];
-}
-
-export interface StoreQualificationResultV2 {
-  providerStoreKey: ProviderStoreKey;
-  qualified: boolean;
-  reason: string;
 }
 
 /** Strictly read-only V2 output. No execution or persistence capability exists. */

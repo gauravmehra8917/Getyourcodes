@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { ImpactMerchantResolver } from "../ImpactMerchantResolver.ts";
 import { ImpactOfferNormalizer } from "../ImpactOfferNormalizer.ts";
+import { OfferQualification } from "../OfferQualification.ts";
+import { PublishingPolicy, StoreQualification } from "../PublishingPolicy.ts";
 import { RawPromotionDeduplicator } from "../RawPromotionDeduplicator.ts";
 import { StoreOfferMatcher } from "../StoreOfferMatcher.ts";
 import type { RawImpactCampaignV2, RawImpactPromotionV2 } from "../models.ts";
 import { overlappingPagePromotions } from "./fixtures/overlapping-pages.ts";
+import { policyCampaigns, policyPromotions, policySnapshot } from "./fixtures/publishing-policy.ts";
 
 test("raw-promotion deduplication invariants hold for the overlapping-pages fixture", () => {
   const result = RawPromotionDeduplicator.deduplicate(overlappingPagePromotions);
@@ -188,4 +191,99 @@ test("normalization and snapshot matching preserve one offer per promotion and e
   assert.ok(normalized.normalizedStores.every((store) => store.providerStoreKey.namespace === "campaign"));
   assert.deepEqual(promotions, beforePromotions);
   assert.deepEqual(campaigns, beforeCampaigns);
+});
+
+test("qualification and publishing invariants preserve exact store identity and exhaustive offer accounting", () => {
+  const promotions = structuredClone(policyPromotions);
+  const campaigns = structuredClone(policyCampaigns);
+  const snapshot = structuredClone(policySnapshot);
+  const beforePromotions = structuredClone(promotions);
+  const beforeCampaigns = structuredClone(campaigns);
+  const beforeSnapshot = structuredClone(snapshot);
+
+  const run = (orderedPromotions: RawImpactPromotionV2[]) => {
+    const resolved = ImpactMerchantResolver.resolve(orderedPromotions, campaigns);
+    const normalized = ImpactOfferNormalizer.normalize(orderedPromotions, resolved.promotionAssociations, campaigns);
+    const matched = StoreOfferMatcher.match(normalized, snapshot);
+    const eligibility = OfferQualification.evaluate(matched, {
+      evaluationTimestamp: "2026-06-01T00:00:00Z",
+    });
+    const policy = PublishingPolicy.apply(eligibility, {
+      maxCouponsPerStore: 2,
+      maxDealsPerStore: 1,
+    });
+    return { matched, eligibility, policy };
+  };
+
+  const forward = run(promotions);
+  const reverse = run([...promotions].reverse());
+  const evaluatedIds = [
+    ...forward.matched.normalizedCoupons,
+    ...forward.matched.normalizedDeals,
+  ].map((offer) => offer.promotionId);
+  const eligibleIds = [
+    ...forward.eligibility.eligibleCoupons,
+    ...forward.eligibility.eligibleDeals,
+  ].map((offer) => offer.promotionId);
+  const ineligibleIds = [
+    ...forward.eligibility.ineligibleCoupons,
+    ...forward.eligibility.ineligibleDeals,
+  ].map((entry) => entry.offer.promotionId);
+  const selectedIds = [
+    ...forward.policy.selectedCoupons,
+    ...forward.policy.selectedDeals,
+  ].map((offer) => offer.promotionId);
+  const heldIds = [
+    ...forward.policy.heldCoupons,
+    ...forward.policy.heldDeals,
+  ].map((entry) => entry.offer.promotionId);
+
+  assert.equal(eligibleIds.length + ineligibleIds.length, evaluatedIds.length);
+  assert.equal(selectedIds.length + heldIds.length, evaluatedIds.length);
+  assert.equal(new Set(selectedIds).size, selectedIds.length);
+  assert.equal(new Set(heldIds).size, heldIds.length);
+  assert.equal(selectedIds.some((promotionId) => heldIds.includes(promotionId)), false);
+  assert.equal(selectedIds.includes("unresolved-deal"), false);
+  assert.deepEqual(
+    forward.policy.selectedCoupons.map((offer) => offer.promotionId),
+    reverse.policy.selectedCoupons.map((offer) => offer.promotionId),
+  );
+  assert.deepEqual(
+    forward.policy.selectedDeals.map((offer) => offer.promotionId),
+    reverse.policy.selectedDeals.map((offer) => offer.promotionId),
+  );
+  assert.equal(new Set(forward.policy.stores.map((store) => store.providerStoreKey.id)).size, 2);
+  for (const store of forward.policy.stores) {
+    assert.ok(store.selectedCoupons.length <= 2);
+    assert.ok(store.selectedDeals.length <= 1);
+    for (const offer of [
+      ...store.eligibleCoupons,
+      ...store.eligibleDeals,
+      ...store.heldCoupons.map((entry) => entry.offer),
+      ...store.heldDeals.map((entry) => entry.offer),
+    ]) {
+      assert.equal(offer.association.providerStoreKey?.id, store.providerStoreKey.id);
+      assert.equal(offer.association.matchedStoreId, store.matchedStoreId);
+    }
+  }
+
+  const identitiesBeforeQualification = forward.policy.stores.map((store) => ({
+    providerStoreKey: structuredClone(store.providerStoreKey),
+    matchedStoreId: store.matchedStoreId,
+  }));
+  const qualification = StoreQualification.evaluate(forward.policy, {
+    minimumSelectedCoupons: 1,
+    minimumSelectedDeals: 1,
+    minimumTotalSelectedOffers: 2,
+  });
+  assert.deepEqual(
+    qualification.map((store) => ({
+      providerStoreKey: store.providerStoreKey,
+      matchedStoreId: store.matchedStoreId,
+    })),
+    identitiesBeforeQualification,
+  );
+  assert.deepEqual(promotions, beforePromotions);
+  assert.deepEqual(campaigns, beforeCampaigns);
+  assert.deepEqual(snapshot, beforeSnapshot);
 });
