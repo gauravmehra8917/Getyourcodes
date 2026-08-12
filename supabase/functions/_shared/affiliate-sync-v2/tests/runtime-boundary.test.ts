@@ -34,6 +34,7 @@ test("V2-A1 source is isolated, relative-only, and has no persistence boundary",
       assert.equal(specifier.endsWith(".ts"), true, `${file} omits .ts from ${specifier}`);
     }
     assert.equal(/\bimport\s*\(/.test(source), false, `${file} has a dynamic dependency`);
+    assert.equal(/\bfetch\s*\(/.test(source), false, `${file} makes a network request`);
     assert.equal(/authorization|basic\s+auth|service[_-]?role/i.test(source), false, `${file} handles host secrets`);
     assert.equal(/\.(?:from|insert|update|upsert|delete|rpc)\s*\(/i.test(source), false, `${file} has a data mutation path`);
     assert.equal(dirname(file).startsWith(CORE), true, `${file} escaped V2 core`);

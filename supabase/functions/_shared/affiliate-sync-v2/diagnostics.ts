@@ -74,10 +74,23 @@ export interface ImpactRetryDiagnosticV2 {
   finalStatus: number | null;
 }
 
+export type DuplicatePromotionConflictFieldV2 =
+  | "advertiserId"
+  | "advertiserName"
+  | "campaignId"
+  | "programId";
+
+/**
+ * Permanent, sanitized duplicate accounting. `occurrences` includes the
+ * retained first occurrence followed by every later duplicate occurrence.
+ */
 export interface DuplicatePromotionProvenanceV2 {
   promotionId: string;
-  retained: ImpactRecordProvenanceV2;
-  duplicates: ImpactRecordProvenanceV2[];
+  retainedOccurrence: ImpactRecordProvenanceV2;
+  occurrences: ImpactRecordProvenanceV2[];
+  totalOccurrences: number;
+  duplicateOccurrenceCount: number;
+  conflictingProviderFields: DuplicatePromotionConflictFieldV2[];
 }
 
 export interface ImpactStreamFetchDiagnosticsV2 {
