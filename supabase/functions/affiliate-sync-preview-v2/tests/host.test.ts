@@ -189,30 +189,48 @@ function dependencies(input: {
   user?: { id: string } | null;
   transport?: PageTransport;
   decrypt?: (ciphertext: string) => Promise<string>;
+  siteUrl?: string | null;
 } = {}): {
   deps: PreviewV2HostDependencies;
   dataSource: FakeDataSource;
   transport: PageTransport;
   verified: string[];
+  activity: {
+    dataSourceCreations: number;
+    decryptions: number;
+    transportCreations: number;
+  };
 } {
   const dataSource = input.dataSource ?? new FakeDataSource();
   const transport = input.transport ?? new PageTransport();
   const verified: string[] = [];
+  const activity = {
+    dataSourceCreations: 0,
+    decryptions: 0,
+    transportCreations: 0,
+  };
   return {
     dataSource,
     transport,
     verified,
+    activity,
     deps: {
       async verifyUser(authorization, jwt) {
         verified.push(`${authorization}:${jwt}`);
         return input.user === undefined ? { id: "admin-user" } : input.user;
       },
-      createDataSource: () => dataSource,
-      decryptCredentialEnvelope: input.decrypt ?? (async (ciphertext) => {
+      createDataSource: () => {
+        activity.dataSourceCreations += 1;
+        return dataSource;
+      },
+      async decryptCredentialEnvelope(ciphertext) {
+        activity.decryptions += 1;
+        if (input.decrypt) return await input.decrypt(ciphertext);
         assert.equal(ciphertext, CIPHERTEXT);
         return JSON.stringify({ username: ACCOUNT_SID, password: AUTH_TOKEN });
-      }),
+      },
       createImpactTransport: (credentials, origin) => {
+        activity.transportCreations += 1;
         assert.deepEqual(credentials, {
           accountSid: ACCOUNT_SID,
           authToken: AUTH_TOKEN,
@@ -221,7 +239,9 @@ function dependencies(input: {
         return transport;
       },
       now: () => new Date("2026-06-01T00:00:00.000Z"),
-      siteUrl: "https://admin.example",
+      siteUrl: input.siteUrl === undefined
+        ? "https://admin.example"
+        : input.siteUrl,
     },
   };
 }
@@ -229,14 +249,28 @@ function dependencies(input: {
 function previewRequest(
   body: unknown = { integrationId: INTEGRATION_ID, preview: true },
   authorization = "Bearer verified-jwt",
+  origin?: string,
 ): Request {
   return new Request("https://edge.example/affiliate-sync-preview-v2", {
     method: "POST",
     headers: {
       Authorization: authorization,
       "Content-Type": "application/json",
+      ...(origin ? { Origin: origin } : {}),
     },
     body: JSON.stringify(body),
+  });
+}
+
+function preflightRequest(origin: string): Request {
+  return new Request("https://edge.example/affiliate-sync-preview-v2", {
+    method: "OPTIONS",
+    headers: {
+      Origin: origin,
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers":
+        "authorization,apikey,content-type,x-client-info",
+    },
   });
 }
 
@@ -298,6 +332,113 @@ test("validates the narrow method and request contract", async () => {
     previewRequest({ integrationId: INTEGRATION_ID, preview: false }),
   );
   assert.equal(notPreview.status, 400);
+});
+
+test("allows only normalized SITE_URL and exact A8B localhost origins", async () => {
+  for (
+    const siteUrl of [
+      "https://getyourcodes.com",
+      "https://getyourcodes.com/",
+      "https://getyourcodes.com/admin/integrations/?source=a8b",
+    ]
+  ) {
+    const fixture = dependencies({ siteUrl });
+    const response = await createAffiliateSyncPreviewV2Handler(fixture.deps)(
+      preflightRequest("https://getyourcodes.com"),
+    );
+    assert.equal(response.status, 204);
+    assert.equal(
+      response.headers.get("Access-Control-Allow-Origin"),
+      "https://getyourcodes.com",
+    );
+  }
+
+  for (
+    const origin of [
+      "http://localhost:8080",
+      "http://127.0.0.1:8080",
+      "http://[::1]:8080",
+    ]
+  ) {
+    const fixture = dependencies({ siteUrl: "https://getyourcodes.com" });
+    const response = await createAffiliateSyncPreviewV2Handler(fixture.deps)(
+      preflightRequest(origin),
+    );
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+    assert.equal(
+      response.headers.get("Access-Control-Allow-Headers"),
+      "authorization, apikey, content-type, x-client-info",
+    );
+    assert.equal(
+      response.headers.get("Access-Control-Allow-Methods"),
+      "POST, OPTIONS",
+    );
+    assert.equal(response.headers.get("Vary"), "Origin");
+    assert.equal(
+      response.headers.has("Access-Control-Allow-Credentials"),
+      false,
+    );
+    assert.equal(await response.text(), "");
+    assert.deepEqual(fixture.verified, []);
+    assert.deepEqual(fixture.dataSource.operations, []);
+    assert.deepEqual(fixture.activity, {
+      dataSourceCreations: 0,
+      decryptions: 0,
+      transportCreations: 0,
+    });
+    assert.deepEqual(fixture.transport.requests, []);
+  }
+});
+
+test("rejects unapproved and deceptive CORS origins", async () => {
+  const fixture = dependencies({ siteUrl: "https://getyourcodes.com/path" });
+  const handler = createAffiliateSyncPreviewV2Handler(fixture.deps);
+  for (
+    const origin of [
+      "http://localhost:8081",
+      "https://localhost:8080",
+      "http://localhost:8080.evil.example",
+      "https://getyourcodes.com.evil.example",
+      "https://id-preview--project.lovable.app",
+      "https://arbitrary.lovable.app",
+    ]
+  ) {
+    const response = await handler(preflightRequest(origin));
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), "null");
+  }
+});
+
+test("approved POST success and error responses retain the exact CORS origin", async () => {
+  const successFixture = dependencies({
+    siteUrl: "https://getyourcodes.com/path",
+  });
+  const success = await createAffiliateSyncPreviewV2Handler(
+    successFixture.deps,
+  )(
+    previewRequest(
+      undefined,
+      "Bearer verified-jwt",
+      "https://getyourcodes.com",
+    ),
+  );
+  assert.equal(success.status, 200);
+  assert.equal(
+    success.headers.get("Access-Control-Allow-Origin"),
+    "https://getyourcodes.com",
+  );
+
+  const errorFixture = dependencies({ siteUrl: "https://getyourcodes.com" });
+  const error = await createAffiliateSyncPreviewV2Handler(errorFixture.deps)(
+    previewRequest(undefined, "", "http://localhost:8080"),
+  );
+  assert.equal(error.status, 401);
+  assert.equal(
+    error.headers.get("Access-Control-Allow-Origin"),
+    "http://localhost:8080",
+  );
+  assert.equal(error.headers.get("Vary"), "Origin");
 });
 
 test("classifies missing, disabled, and non-Impact integrations without credential leakage", async () => {

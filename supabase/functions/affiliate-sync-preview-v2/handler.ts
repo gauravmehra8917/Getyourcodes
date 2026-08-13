@@ -21,6 +21,11 @@ import type {
 const VERSION = "v2-a8a" as const;
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const LOCAL_A8B_CORS_ORIGINS = new Set([
+  "http://localhost:8080",
+  "http://127.0.0.1:8080",
+  "http://[::1]:8080",
+]);
 
 const ERROR_MESSAGES: Record<PreviewV2ErrorCode, string> = {
   method_not_allowed: "This endpoint accepts POST requests only.",
@@ -43,7 +48,18 @@ function corsHeaders(
   origin: string | null,
   siteUrl: string | null,
 ): HeadersInit {
-  const allowedOrigin = siteUrl && origin === siteUrl ? origin : "null";
+  let siteOrigin: string | null = null;
+  if (siteUrl) {
+    try {
+      siteOrigin = new URL(siteUrl).origin;
+    } catch {
+      siteOrigin = null;
+    }
+  }
+  const allowedOrigin =
+    origin && (origin === siteOrigin || LOCAL_A8B_CORS_ORIGINS.has(origin))
+      ? origin
+      : "null";
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": allowedOrigin,
