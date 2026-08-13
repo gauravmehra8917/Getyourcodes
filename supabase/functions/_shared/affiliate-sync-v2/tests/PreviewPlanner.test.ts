@@ -50,6 +50,7 @@ function plannerInput(input: {
   snapshot?: ExistingCatalogSnapshotV2;
   quarantinedRecords?: readonly QuarantinedImpactRecordV2[];
   diagnosticDetailLimit?: number;
+  storeQualificationConfig?: AffiliateSyncPreviewInputV2["storeQualificationConfig"];
 }): AffiliateSyncPreviewInputV2 {
   const quarantined = input.quarantinedRecords ?? [];
   const promotionQuarantine = quarantined.filter((entry) => entry.stream === "promotions").length;
@@ -64,7 +65,7 @@ function plannerInput(input: {
     quarantinedRecords: quarantined,
     existingCatalogSnapshot: input.snapshot ?? { stores: [], offers: [] },
     publishingPolicyConfig: { maxCouponsPerStore: 0, maxDealsPerStore: 0 },
-    storeQualificationConfig: {
+    storeQualificationConfig: input.storeQualificationConfig ?? {
       minimumSelectedCoupons: 0,
       minimumSelectedDeals: 0,
       minimumTotalSelectedOffers: 1,
@@ -79,6 +80,27 @@ function plannerInput(input: {
 function actionByPromotion(preview: ReturnType<typeof PreviewPlanner.plan>) {
   return new Map(preview.proposedActions.offers.map((action) => [action.promotionId, action]));
 }
+
+function promotionWith(
+  promotionId: string,
+  recordIndex: number,
+  fields: Partial<RawImpactPromotionV2>,
+): RawImpactPromotionV2 {
+  const source = healthyMultiBrandPromotions[0]!;
+  return {
+    ...structuredClone(source),
+    promotionId,
+    raw: { ...source.raw, PromotionIds: promotionId },
+    provenance: { ...source.provenance, recordIndex },
+    ...fields,
+  };
+}
+
+const ZERO_QUALIFICATION_THRESHOLDS: AffiliateSyncPreviewInputV2["storeQualificationConfig"] = {
+  minimumSelectedCoupons: 0,
+  minimumSelectedDeals: 0,
+  minimumTotalSelectedOffers: 0,
+};
 
 test("healthy multi-brand planning preserves independent stores from raw input through qualification", () => {
   const input = plannerInput({
@@ -184,6 +206,106 @@ test("overlapping pages retain duplicate provenance and normalize each Promotion
   assert.equal(preview.proposedActions.counts.offers.duplicateRecordsRemoved, 1);
   assert.equal(preview.publishingPolicy.diagnostics.selectedOffers, 0);
   assert.equal(preview.publishingPolicy.diagnostics.heldOffers, 5);
+});
+
+test("zero qualification thresholds allow a deterministic held-only resolved store to qualify", () => {
+  const promotions = [
+    promotionWith("expired-coupon", 0, {
+      endDate: "2026-05-31T23:59:59Z",
+    }),
+    promotionWith("expired-deal", 1, {
+      genericRedemptionCode: null,
+      endDate: "2026-05-31T23:59:59Z",
+    }),
+  ];
+  const input = plannerInput({
+    promotions,
+    campaigns: [healthyMultiBrandCampaigns[0]!],
+    storeQualificationConfig: ZERO_QUALIFICATION_THRESHOLDS,
+  });
+  const before = structuredClone(input);
+  const preview = PreviewPlanner.plan(input);
+  const reordered = PreviewPlanner.plan({
+    ...structuredClone(input),
+    acceptedPromotions: [...input.acceptedPromotions].reverse(),
+  });
+
+  assert.deepEqual(reordered, preview);
+  assert.deepEqual(input, before);
+  assert.equal(preview.publishingPolicy.diagnostics.selectedOffers, 0);
+  assert.equal(preview.publishingPolicy.diagnostics.heldOffers, 2);
+  assert.equal(preview.publishingPolicy.diagnostics.holdReasonCounts.expired, 2);
+  assert.deepEqual(preview.storeQualification, [{
+    providerStoreKey: { provider: "impact", namespace: "campaign", id: "campaign-acme" },
+    matchedStoreId: null,
+    selectedCouponCount: 0,
+    selectedDealCount: 0,
+    selectedTotal: 0,
+    qualified: true,
+    reasons: ["qualified"],
+  }]);
+  assert.equal(preview.storeCoverage.storesWithSelectedOffers, 0);
+  assert.equal(preview.storeCoverage.qualifiedStores, 1);
+  assert.ok(
+    preview.storeCoverage.qualifiedStores > preview.storeCoverage.storesWithSelectedOffers,
+  );
+  assert.equal(preview.identityIntegrityDiagnostics.identityCollapseDetected, false);
+  assert.deepEqual(
+    preview.proposedActions.offers.map((action) => [action.action, action.holdReason]),
+    [["held", "expired"], ["held", "expired"]],
+  );
+
+  const nonzeroMinimum = PreviewPlanner.plan(plannerInput({
+    promotions,
+    campaigns: [healthyMultiBrandCampaigns[0]!],
+    storeQualificationConfig: {
+      ...ZERO_QUALIFICATION_THRESHOLDS,
+      minimumTotalSelectedOffers: 1,
+    },
+  }));
+  assert.deepEqual(nonzeroMinimum.storeQualification[0], {
+    providerStoreKey: { provider: "impact", namespace: "campaign", id: "campaign-acme" },
+    matchedStoreId: null,
+    selectedCouponCount: 0,
+    selectedDealCount: 0,
+    selectedTotal: 0,
+    qualified: false,
+    reasons: ["insufficient_total_offers"],
+  });
+  assert.equal(nonzeroMinimum.storeCoverage.qualifiedStores, 0);
+});
+
+test("held-only eligibility reasons remain intact with zero qualification thresholds", () => {
+  const cases: Array<{
+    reason: "missing_title" | "invalid_date" | "expired" | "not_started";
+    fields: Partial<RawImpactPromotionV2>;
+  }> = [
+    { reason: "missing_title", fields: { promotionTitle: null } },
+    { reason: "invalid_date", fields: { startDate: "not-a-date" } },
+    { reason: "expired", fields: { endDate: "2026-05-31T23:59:59Z" } },
+    {
+      reason: "not_started",
+      fields: { startDate: "2027-01-01T00:00:00Z", endDate: null },
+    },
+  ];
+
+  for (const [recordIndex, { reason, fields }] of cases.entries()) {
+    const preview = PreviewPlanner.plan(plannerInput({
+      promotions: [promotionWith(`held-${reason}`, recordIndex, fields)],
+      campaigns: [healthyMultiBrandCampaigns[0]!],
+      storeQualificationConfig: ZERO_QUALIFICATION_THRESHOLDS,
+    }));
+
+    assert.equal(preview.offerQualificationDiagnostics.ineligibleReasonCounts[reason], 1);
+    assert.equal(preview.publishingPolicy.diagnostics.holdReasonCounts[reason], 1);
+    assert.equal(preview.publishingPolicy.diagnostics.selectedOffers, 0);
+    assert.equal(preview.publishingPolicy.diagnostics.heldOffers, 1);
+    assert.equal(preview.storeQualification[0]?.qualified, true);
+    assert.equal(preview.storeQualification[0]?.selectedTotal, 0);
+    assert.equal(preview.storeCoverage.storesWithSelectedOffers, 0);
+    assert.equal(preview.storeCoverage.qualifiedStores, 1);
+    assert.equal(preview.identityIntegrityDiagnostics.identityCollapseDetected, false);
+  }
 });
 
 test("ambiguous advertiser remains unresolved through every downstream preview stage", () => {

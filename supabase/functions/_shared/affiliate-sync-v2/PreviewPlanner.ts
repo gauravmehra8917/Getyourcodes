@@ -527,9 +527,6 @@ export class PreviewPlanner {
       unresolvedOffers: resolved.merchantIdentityDiagnostics.unmatchedTotal,
       ambiguousSnapshotKeys: matched.diagnostics.ambiguousSnapshotStoreKeys,
     };
-    if (storeCoverage.qualifiedStores > storeCoverage.storesWithSelectedOffers) {
-      throw new Error("PreviewPlanner cannot qualify more stores than have selected offers");
-    }
 
     return {
       provider: "impact",
