@@ -14,6 +14,7 @@ import type {
   AffiliateSyncPreviewV2HostResponse,
   PreviewV2ErrorCode,
   PreviewV2ErrorResponse,
+  PreviewV2FailureDiagnostic,
   PreviewV2HostDependencies,
   PreviewV2RequestBody,
 } from "./types.ts";
@@ -96,10 +97,12 @@ function errorResponse(
   status: number,
   origin: string | null,
   siteUrl: string | null,
+  diagnostic?: PreviewV2FailureDiagnostic,
 ): Response {
   const body: PreviewV2ErrorResponse = {
     host: { version: VERSION, readOnly: true },
     error: { code, message: ERROR_MESSAGES[code] },
+    ...(diagnostic === undefined ? {} : { diagnostic }),
   };
   return jsonResponse(body, status, origin, siteUrl);
 }
@@ -127,17 +130,36 @@ function parseRequestBody(
   return { integrationId: body.integrationId, preview: true };
 }
 
-function incompleteFetchError(
+interface IncompleteFetchFailure {
+  code: "malformed_provider_response" | "provider_fetch_failed";
+  diagnostic?: PreviewV2FailureDiagnostic;
+}
+
+function incompleteFetchFailure(
   result: ImpactProviderFetchResultV2,
-): PreviewV2ErrorCode | null {
-  const reasons = [
-    result.fetchDiagnostics.promotions.stopReason,
-    result.fetchDiagnostics.campaigns.stopReason,
-  ];
-  if (reasons.every((reason) => reason === "completed")) return null;
-  return reasons.includes("malformed_page")
-    ? "malformed_provider_response"
-    : "provider_fetch_failed";
+): IncompleteFetchFailure | null {
+  const promotionsReason = result.fetchDiagnostics.promotions.stopReason;
+  const campaignsReason = result.fetchDiagnostics.campaigns.stopReason;
+  if (promotionsReason === "completed" && campaignsReason === "completed") {
+    return null;
+  }
+  const promotionsMalformed = promotionsReason === "malformed_page";
+  const campaignsMalformed = campaignsReason === "malformed_page";
+  if (!promotionsMalformed && !campaignsMalformed) {
+    return { code: "provider_fetch_failed" };
+  }
+  return {
+    code: "malformed_provider_response",
+    diagnostic: {
+      stage: "provider_parse",
+      stopReason: "malformed_page",
+      resource: promotionsMalformed === campaignsMalformed
+        ? null
+        : promotionsMalformed
+        ? "promotions"
+        : "campaigns",
+    },
+  };
 }
 
 function configErrorResponse(
@@ -331,22 +353,48 @@ export function createAffiliateSyncPreviewV2Handler(
         dependencies.siteUrl,
       );
     }
-    const fetchError = incompleteFetchError(fetched);
-    if (fetchError) {
-      return errorResponse(fetchError, 502, origin, dependencies.siteUrl);
+    const fetchFailure = incompleteFetchFailure(fetched);
+    if (fetchFailure) {
+      return errorResponse(
+        fetchFailure.code,
+        502,
+        origin,
+        dependencies.siteUrl,
+        fetchFailure.diagnostic,
+      );
+    }
+
+    let evaluationTimestamp: string;
+    try {
+      evaluationTimestamp = dependencies.now().toISOString();
+    } catch {
+      return errorResponse("internal_error", 500, origin, dependencies.siteUrl);
+    }
+
+    const plannerInput = {
+      acceptedPromotions: fetched.acceptedPromotions,
+      acceptedCampaigns: fetched.acceptedCampaigns,
+      fetchDiagnostics: fetched.fetchDiagnostics,
+      quarantinedRecords: fetched.quarantinedRecords,
+      existingCatalogSnapshot: snapshot,
+      publishingPolicyConfig: resolved.publishingPolicyConfig,
+      storeQualificationConfig: resolved.storeQualificationConfig,
+      evaluationTimestamp,
+    };
+    let preview: AffiliateSyncPreviewV2HostResponse["preview"];
+    try {
+      preview = PreviewPlanner.plan(plannerInput);
+    } catch {
+      return errorResponse(
+        "malformed_provider_response",
+        502,
+        origin,
+        dependencies.siteUrl,
+        { stage: "preview_plan", stopReason: null, resource: null },
+      );
     }
 
     try {
-      const preview = PreviewPlanner.plan({
-        acceptedPromotions: fetched.acceptedPromotions,
-        acceptedCampaigns: fetched.acceptedCampaigns,
-        fetchDiagnostics: fetched.fetchDiagnostics,
-        quarantinedRecords: fetched.quarantinedRecords,
-        existingCatalogSnapshot: snapshot,
-        publishingPolicyConfig: resolved.publishingPolicyConfig,
-        storeQualificationConfig: resolved.storeQualificationConfig,
-        evaluationTimestamp: dependencies.now().toISOString(),
-      });
       const body: AffiliateSyncPreviewV2HostResponse = {
         host: {
           version: VERSION,
@@ -363,12 +411,7 @@ export function createAffiliateSyncPreviewV2Handler(
         [credentials.accountSid, credentials.authToken],
       );
     } catch {
-      return errorResponse(
-        "malformed_provider_response",
-        502,
-        origin,
-        dependencies.siteUrl,
-      );
+      return errorResponse("internal_error", 500, origin, dependencies.siteUrl);
     }
   };
 }

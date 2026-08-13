@@ -114,9 +114,18 @@ export type PreviewV2ErrorCode =
   | "malformed_provider_response"
   | "internal_error";
 
+export type PreviewV2FailureStage = "provider_parse" | "preview_plan";
+
+export interface PreviewV2FailureDiagnostic {
+  stage: PreviewV2FailureStage;
+  stopReason: "malformed_page" | null;
+  resource: "promotions" | "campaigns" | null;
+}
+
 export interface PreviewV2ErrorResponse {
   host: { version: "v2-a8a"; readOnly: true };
   error: { code: PreviewV2ErrorCode; message: string };
+  diagnostic?: PreviewV2FailureDiagnostic;
 }
 
 export interface PreviewV2CatalogInput {

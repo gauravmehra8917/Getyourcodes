@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type {
-  ImpactTransport,
-  ImpactTransportRequest,
-  ImpactTransportResult,
+import {
+  type ImpactTransport,
+  type ImpactTransportRequest,
+  type ImpactTransportResult,
+  PreviewPlanner,
 } from "../../_shared/affiliate-sync-v2/index.ts";
 import {
   loadExistingCatalogSnapshotV2,
@@ -104,9 +105,21 @@ const campaignsPage = {
 class PageTransport implements ImpactTransport {
   readonly requests: ImpactTransportRequest[] = [];
   readonly waits: number[] = [];
-  private readonly mode: "healthy" | "transport_error" | "malformed";
+  private readonly mode:
+    | "healthy"
+    | "transport_error"
+    | "malformed_promotions"
+    | "malformed_campaigns"
+    | "malformed_both";
 
-  constructor(mode: "healthy" | "transport_error" | "malformed" = "healthy") {
+  constructor(
+    mode:
+      | "healthy"
+      | "transport_error"
+      | "malformed_promotions"
+      | "malformed_campaigns"
+      | "malformed_both" = "healthy",
+  ) {
     this.mode = mode;
   }
 
@@ -118,12 +131,22 @@ class PageTransport implements ImpactTransport {
       return { kind: "transport_error", errorCode: "fixture_failure" };
     }
     const promotions = request.url.includes("/Promotions");
+    const malformed = this.mode === "malformed_both" ||
+      (promotions && this.mode === "malformed_promotions") ||
+      (!promotions && this.mode === "malformed_campaigns");
     return {
       kind: "response",
       status: 200,
       bodyText: JSON.stringify(
-        this.mode === "malformed" && promotions
-          ? { Ads: [] }
+        malformed
+          ? {
+            UnexpectedCollection: [{
+              Authorization: `Basic ${AUTH_TOKEN}`,
+              AccountSid: ACCOUNT_SID,
+              Url: "https://api.impact.com/provider-controlled",
+            }],
+            arbitraryProviderText: CIPHERTEXT,
+          }
           : promotions
           ? promotionsPage
           : campaignsPage,
@@ -189,6 +212,7 @@ function dependencies(input: {
   user?: { id: string } | null;
   transport?: PageTransport;
   decrypt?: (ciphertext: string) => Promise<string>;
+  now?: () => Date;
   siteUrl?: string | null;
 } = {}): {
   deps: PreviewV2HostDependencies;
@@ -238,7 +262,7 @@ function dependencies(input: {
         assert.equal(origin, "https://api.impact.com");
         return transport;
       },
-      now: () => new Date("2026-06-01T00:00:00.000Z"),
+      now: input.now ?? (() => new Date("2026-06-01T00:00:00.000Z")),
       siteUrl: input.siteUrl === undefined
         ? "https://admin.example"
         : input.siteUrl,
@@ -280,13 +304,32 @@ async function responseBody(
   return await response.json() as Record<string, unknown>;
 }
 
+async function withPreviewPlanner(
+  plan: typeof PreviewPlanner.plan,
+  action: () => Promise<Response>,
+): Promise<Response> {
+  const original = PreviewPlanner.plan;
+  PreviewPlanner.plan = plan;
+  try {
+    return await action();
+  } finally {
+    PreviewPlanner.plan = original;
+  }
+}
+
 test("rejects missing JWT before privileged access", async () => {
   const fixture = dependencies();
   const response = await createAffiliateSyncPreviewV2Handler(fixture.deps)(
     previewRequest(undefined, ""),
   );
   assert.equal(response.status, 401);
-  assert.equal((await responseBody(response)).error instanceof Object, true);
+  assert.deepEqual(await responseBody(response), {
+    host: { version: "v2-a8a", readOnly: true },
+    error: {
+      code: "unauthenticated",
+      message: "Authentication is required.",
+    },
+  });
   assert.deepEqual(fixture.verified, []);
   assert.deepEqual(fixture.dataSource.operations, []);
 });
@@ -298,6 +341,13 @@ test("rejects a verified non-admin and accepts an admin", async () => {
     previewRequest(),
   );
   assert.equal(rejected.status, 403);
+  assert.deepEqual(await responseBody(rejected), {
+    host: { version: "v2-a8a", readOnly: true },
+    error: {
+      code: "unauthorized",
+      message: "Administrator access is required.",
+    },
+  });
   assert.deepEqual(forbidden.dataSource.operations, ["read:user_roles"]);
 
   const accepted = dependencies();
@@ -514,7 +564,7 @@ test("classifies invalid stored endpoints and unavailable credentials", async ()
   assert.equal(serialized.includes(CIPHERTEXT), false);
 });
 
-test("classifies catalog, provider, and malformed-page failures with sanitized errors", async () => {
+test("classifies catalog and non-malformed provider failures without stage diagnostics", async () => {
   const catalog = dependencies();
   catalog.dataSource.failCatalog = true;
   const catalogResponse = await createAffiliateSyncPreviewV2Handler(
@@ -533,17 +583,163 @@ test("classifies catalog, provider, and malformed-page failures with sanitized e
     provider.deps,
   )(previewRequest());
   assert.equal(providerResponse.status, 502);
+  assert.deepEqual(await responseBody(providerResponse), {
+    host: { version: "v2-a8a", readOnly: true },
+    error: {
+      code: "provider_fetch_failed",
+      message: "Impact preview retrieval did not complete.",
+    },
+  });
+});
 
-  const malformed = dependencies({ transport: new PageTransport("malformed") });
-  const malformedResponse = await createAffiliateSyncPreviewV2Handler(
-    malformed.deps,
+test("reports only bounded provider-parse stage and resource diagnostics", async () => {
+  const cases = [
+    { mode: "malformed_promotions" as const, resource: "promotions" },
+    { mode: "malformed_campaigns" as const, resource: "campaigns" },
+    { mode: "malformed_both" as const, resource: null },
+  ];
+  for (const { mode, resource } of cases) {
+    const fixture = dependencies({ transport: new PageTransport(mode) });
+    const response = await createAffiliateSyncPreviewV2Handler(fixture.deps)(
+      previewRequest(),
+    );
+    assert.equal(response.status, 502);
+    const body = await responseBody(response);
+    assert.deepEqual(body, {
+      host: { version: "v2-a8a", readOnly: true },
+      error: {
+        code: "malformed_provider_response",
+        message: "Impact returned a malformed response.",
+      },
+      diagnostic: {
+        stage: "provider_parse",
+        stopReason: "malformed_page",
+        resource,
+      },
+    });
+    const serialized = JSON.stringify(body);
+    for (
+      const prohibited of [
+        ACCOUNT_SID,
+        AUTH_TOKEN,
+        CIPHERTEXT,
+        INTEGRATION_ID,
+        "Authorization",
+        "api.impact.com",
+        "UnexpectedCollection",
+        "arbitraryProviderText",
+      ]
+    ) {
+      assert.equal(serialized.includes(prohibited), false, prohibited);
+    }
+  }
+});
+
+test("reports a fixed preview-plan diagnostic without exposing the thrown exception", async () => {
+  const fixture = dependencies();
+  const exceptionText = `planner failed ${AUTH_TOKEN} https://api.impact.com/private`;
+  const response = await withPreviewPlanner(
+    () => {
+      throw new Error(exceptionText);
+    },
+    () =>
+      createAffiliateSyncPreviewV2Handler(fixture.deps)(previewRequest()),
+  );
+  assert.equal(response.status, 502);
+  const body = await responseBody(response);
+  assert.deepEqual(body, {
+    host: { version: "v2-a8a", readOnly: true },
+    error: {
+      code: "malformed_provider_response",
+      message: "Impact returned a malformed response.",
+    },
+    diagnostic: {
+      stage: "preview_plan",
+      stopReason: null,
+      resource: null,
+    },
+  });
+  assert.equal(JSON.stringify(body).includes(exceptionText), false);
+  assert.equal(JSON.stringify(body).includes(AUTH_TOKEN), false);
+});
+
+test("now and success serialization failures remain fixed internal errors", async () => {
+  const nowFailure = dependencies({
+    now: () => {
+      throw new Error(`clock failed ${AUTH_TOKEN}`);
+    },
+  });
+  const nowResponse = await createAffiliateSyncPreviewV2Handler(
+    nowFailure.deps,
   )(previewRequest());
-  assert.equal(malformedResponse.status, 502);
-  const error = (await responseBody(malformedResponse)).error as Record<
-    string,
-    unknown
-  >;
-  assert.equal(error.code, "malformed_provider_response");
+  assert.equal(nowResponse.status, 500);
+  assert.deepEqual(await responseBody(nowResponse), {
+    host: { version: "v2-a8a", readOnly: true },
+    error: {
+      code: "internal_error",
+      message: "The preview could not be completed.",
+    },
+  });
+
+  const fixture = dependencies();
+  const originalPlan = PreviewPlanner.plan;
+  const serializationResponse = await withPreviewPlanner(
+    (input) =>
+      new Proxy(originalPlan(input), {
+        ownKeys() {
+          throw new Error(`serialization failed ${CIPHERTEXT}`);
+        },
+      }),
+    () =>
+      createAffiliateSyncPreviewV2Handler(fixture.deps)(previewRequest()),
+  );
+  assert.equal(serializationResponse.status, 500);
+  assert.deepEqual(await responseBody(serializationResponse), {
+    host: { version: "v2-a8a", readOnly: true },
+    error: {
+      code: "internal_error",
+      message: "The preview could not be completed.",
+    },
+  });
+});
+
+test("success Response construction failures are not classified as preview-plan failures", async () => {
+  const fixture = dependencies();
+  const responseDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "Response",
+  )!;
+  const OriginalResponse = Response;
+  class ThrowingSuccessResponse extends OriginalResponse {
+    constructor(body?: BodyInit | null, init?: ResponseInit) {
+      if (init?.status === 200) {
+        throw new Error(`response failed ${ACCOUNT_SID}`);
+      }
+      super(body, init);
+    }
+  }
+  Object.defineProperty(globalThis, "Response", {
+    configurable: true,
+    enumerable: responseDescriptor.enumerable ?? false,
+    value: ThrowingSuccessResponse,
+    writable: true,
+  });
+  let response: Response;
+  try {
+    response = await createAffiliateSyncPreviewV2Handler(fixture.deps)(
+      previewRequest(),
+    );
+  } finally {
+    Object.defineProperty(globalThis, "Response", responseDescriptor);
+  }
+  assert.equal(response.status, 500);
+  assert.deepEqual(await responseBody(response), {
+    host: { version: "v2-a8a", readOnly: true },
+    error: {
+      code: "internal_error",
+      message: "The preview could not be completed.",
+    },
+  });
 });
 
 test("healthy multi-brand host preview preserves independent campaign stores and performs reads only", async () => {
@@ -553,6 +749,7 @@ test("healthy multi-brand host preview preserves independent campaign stores and
   );
   assert.equal(response.status, 200);
   const body = await responseBody(response);
+  assert.deepEqual(Object.keys(body).sort(), ["host", "preview"]);
   const preview = body.preview as Record<string, unknown>;
   const integrity = preview.identityIntegrityDiagnostics as Record<
     string,
