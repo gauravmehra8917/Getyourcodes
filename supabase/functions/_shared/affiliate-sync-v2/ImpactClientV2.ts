@@ -61,6 +61,8 @@ interface ScopedRequestSignal {
 }
 
 const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const MALFORMED_PAGE_DIAGNOSTIC_DETAIL =
+  "Impact page did not satisfy the strict parser contract";
 
 function isSuccessfulStatus(status: number): boolean {
   return status >= 200 && status < 300;
@@ -74,6 +76,7 @@ function emptyDiagnostics(stream: ImpactStream): ImpactStreamFetchDiagnosticsV2 
     acceptedRecordCount: 0,
     quarantinedRecordCount: 0,
     stopReason: null,
+    parseFailureReason: null,
     pageErrors: [],
     pages: [],
     retries: [],
@@ -326,8 +329,14 @@ export class ImpactClientV2 {
       const parsed = parser(request.bodyText, { provenance: baseProvenance });
       if (!parsed.ok) {
         diagnostics.pages.push(pageDiagnostic(baseProvenance, 0, 0, 0, bytes, false));
-        diagnostics.pageErrors.push(pageError(stream, "malformed_page", baseProvenance, parsed.detail));
+        diagnostics.pageErrors.push(pageError(
+          stream,
+          "malformed_page",
+          baseProvenance,
+          MALFORMED_PAGE_DIAGNOSTIC_DETAIL,
+        ));
         diagnostics.stopReason = "malformed_page";
+        diagnostics.parseFailureReason = parsed.reason;
         break;
       }
 

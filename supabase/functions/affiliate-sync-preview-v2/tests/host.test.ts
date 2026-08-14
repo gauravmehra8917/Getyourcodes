@@ -139,12 +139,21 @@ class PageTransport implements ImpactTransport {
       status: 200,
       bodyText: JSON.stringify(
         malformed
+          ? promotions
           ? {
             UnexpectedCollection: [{
               Authorization: `Basic ${AUTH_TOKEN}`,
               AccountSid: ACCOUNT_SID,
               Url: "https://api.impact.com/provider-controlled",
             }],
+            arbitraryProviderText: CIPHERTEXT,
+          }
+          : {
+            Campaigns: {
+              Authorization: `Basic ${AUTH_TOKEN}`,
+              AccountSid: ACCOUNT_SID,
+              Url: "https://api.impact.com/provider-controlled",
+            },
             arbitraryProviderText: CIPHERTEXT,
           }
           : promotions
@@ -594,11 +603,28 @@ test("classifies catalog and non-malformed provider failures without stage diagn
 
 test("reports only bounded provider-parse stage and resource diagnostics", async () => {
   const cases = [
-    { mode: "malformed_promotions" as const, resource: "promotions" },
-    { mode: "malformed_campaigns" as const, resource: "campaigns" },
-    { mode: "malformed_both" as const, resource: null },
+    {
+      mode: "malformed_promotions" as const,
+      resource: "promotions",
+      promotionsReason: "missing_collection",
+      campaignsReason: null,
+    },
+    {
+      mode: "malformed_campaigns" as const,
+      resource: "campaigns",
+      promotionsReason: null,
+      campaignsReason: "collection_not_array",
+    },
+    {
+      mode: "malformed_both" as const,
+      resource: null,
+      promotionsReason: "missing_collection",
+      campaignsReason: "collection_not_array",
+    },
   ];
-  for (const { mode, resource } of cases) {
+  for (
+    const { mode, resource, promotionsReason, campaignsReason } of cases
+  ) {
     const fixture = dependencies({ transport: new PageTransport(mode) });
     const response = await createAffiliateSyncPreviewV2Handler(fixture.deps)(
       previewRequest(),
@@ -615,6 +641,16 @@ test("reports only bounded provider-parse stage and resource diagnostics", async
         stage: "provider_parse",
         stopReason: "malformed_page",
         resource,
+        parseFailures: {
+          promotions: {
+            pagesFetched: 1,
+            reason: promotionsReason,
+          },
+          campaigns: {
+            pagesFetched: 1,
+            reason: campaignsReason,
+          },
+        },
       },
     });
     const serialized = JSON.stringify(body);
@@ -628,6 +664,8 @@ test("reports only bounded provider-parse stage and resource diagnostics", async
         "api.impact.com",
         "UnexpectedCollection",
         "arbitraryProviderText",
+        "Impact response is missing Promotions",
+        "Impact response Campaigns is not an array",
       ]
     ) {
       assert.equal(serialized.includes(prohibited), false, prohibited);

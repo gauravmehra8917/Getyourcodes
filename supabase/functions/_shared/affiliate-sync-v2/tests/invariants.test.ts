@@ -302,6 +302,7 @@ test("final preview actions and store coverage reconcile without identity collap
     acceptedRecordCount: count,
     quarantinedRecordCount: 0,
     stopReason: "completed" as const,
+    parseFailureReason: null,
     pageErrors: [],
     pages: [],
     retries: [],

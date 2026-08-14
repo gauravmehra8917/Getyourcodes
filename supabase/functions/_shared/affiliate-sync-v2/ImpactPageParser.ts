@@ -1,4 +1,5 @@
 import type {
+  ImpactParseFailureReasonV2,
   ImpactPageProvenanceV2,
   ImpactRecordProvenanceV2,
   QuarantinedImpactRecordV2,
@@ -19,6 +20,7 @@ export interface ImpactPaginationMetadataV2 {
 export interface ImpactPageParseFailureV2 {
   ok: false;
   code: "malformed_page";
+  reason: ImpactParseFailureReasonV2;
   detail: string;
 }
 
@@ -95,16 +97,36 @@ function parseEnvelope(
   try {
     parsed = JSON.parse(bodyText);
   } catch {
-    return { ok: false, code: "malformed_page", detail: "Impact response is not valid JSON" };
+    return {
+      ok: false,
+      code: "malformed_page",
+      reason: "invalid_json",
+      detail: "Impact response is not valid JSON",
+    };
   }
   if (!isRecord(parsed)) {
-    return { ok: false, code: "malformed_page", detail: "Impact response envelope is not an object" };
+    return {
+      ok: false,
+      code: "malformed_page",
+      reason: "envelope_not_object",
+      detail: "Impact response envelope is not an object",
+    };
   }
   if (!(collectionName in parsed)) {
-    return { ok: false, code: "malformed_page", detail: `Impact response is missing ${collectionName}` };
+    return {
+      ok: false,
+      code: "malformed_page",
+      reason: "missing_collection",
+      detail: `Impact response is missing ${collectionName}`,
+    };
   }
   if (!Array.isArray(parsed[collectionName])) {
-    return { ok: false, code: "malformed_page", detail: `Impact response ${collectionName} is not an array` };
+    return {
+      ok: false,
+      code: "malformed_page",
+      reason: "collection_not_array",
+      detail: `Impact response ${collectionName} is not an array`,
+    };
   }
   return { envelope: parsed, records: parsed[collectionName] as unknown[] };
 }
@@ -179,7 +201,12 @@ export class ImpactPageParser {
     const parsed = parseEnvelope(bodyText, "Promotions");
     if ("ok" in parsed) return parsed;
     if ("@nextpageuri" in parsed.envelope && !nextContinuationOf(parsed.envelope)) {
-      return { ok: false, code: "malformed_page", detail: "Impact response @nextpageuri is not a nonempty string" };
+      return {
+        ok: false,
+        code: "malformed_page",
+        reason: "invalid_nextpageuri",
+        detail: "Impact response @nextpageuri is not a nonempty string",
+      };
     }
     const pagination = paginationOf(parsed.envelope);
     const records = parseRecords({
@@ -211,7 +238,12 @@ export class ImpactPageParser {
     const parsed = parseEnvelope(bodyText, "Campaigns");
     if ("ok" in parsed) return parsed;
     if ("@nextpageuri" in parsed.envelope && !nextContinuationOf(parsed.envelope)) {
-      return { ok: false, code: "malformed_page", detail: "Impact response @nextpageuri is not a nonempty string" };
+      return {
+        ok: false,
+        code: "malformed_page",
+        reason: "invalid_nextpageuri",
+        detail: "Impact response @nextpageuri is not a nonempty string",
+      };
     }
     const pagination = paginationOf(parsed.envelope);
     const records = parseRecords({

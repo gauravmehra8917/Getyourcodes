@@ -66,14 +66,17 @@ test("strictly parses Promotions and preserves distinct provider identities", ()
 
 test("rejects malformed Promotion pages without envelope fallbacks", () => {
   const cases = [
-    ["{", "Impact response is not valid JSON"],
-    [JSON.stringify({ Ads: [] }), "Impact response is missing Promotions"],
-    [JSON.stringify({ Promotions: {} }), "Impact response Promotions is not an array"],
-    [JSON.stringify({ Promotions: [], "@nextpageuri": 2 }), "Impact response @nextpageuri is not a nonempty string"],
-  ];
-  for (const [body, detail] of cases) {
+    ["{", "invalid_json", "Impact response is not valid JSON"],
+    [JSON.stringify([]), "envelope_not_object", "Impact response envelope is not an object"],
+    [JSON.stringify({ Ads: [] }), "missing_collection", "Impact response is missing Promotions"],
+    [JSON.stringify({ Promotions: {} }), "collection_not_array", "Impact response Promotions is not an array"],
+    [JSON.stringify({ Promotions: [], "@nextpageuri": 2 }), "invalid_nextpageuri", "Impact response @nextpageuri is not a nonempty string"],
+    [JSON.stringify({ Promotions: [], "@nextpageuri": "" }), "invalid_nextpageuri", "Impact response @nextpageuri is not a nonempty string"],
+    [JSON.stringify({ Promotions: [], "@nextpageuri": null }), "invalid_nextpageuri", "Impact response @nextpageuri is not a nonempty string"],
+  ] as const;
+  for (const [body, reason, detail] of cases) {
     const parsed = ImpactPageParser.promotions(body, { provenance });
-    assert.deepEqual(parsed, { ok: false, code: "malformed_page", detail });
+    assert.deepEqual(parsed, { ok: false, code: "malformed_page", reason, detail });
   }
 });
 
@@ -118,10 +121,19 @@ test("strictly parses Campaigns and keeps supplied advertiser identity separate"
 });
 
 test("rejects malformed Campaign pages and quarantines missing campaign IDs", () => {
-  const missing = ImpactPageParser.campaigns(JSON.stringify({ Promotions: [] }), { provenance });
-  assert.deepEqual(missing, { ok: false, code: "malformed_page", detail: "Impact response is missing Campaigns" });
-  const notArray = ImpactPageParser.campaigns(JSON.stringify({ Campaigns: {} }), { provenance });
-  assert.deepEqual(notArray, { ok: false, code: "malformed_page", detail: "Impact response Campaigns is not an array" });
+  const cases = [
+    ["{", "invalid_json", "Impact response is not valid JSON"],
+    [JSON.stringify([]), "envelope_not_object", "Impact response envelope is not an object"],
+    [JSON.stringify({ Promotions: [] }), "missing_collection", "Impact response is missing Campaigns"],
+    [JSON.stringify({ Campaigns: {} }), "collection_not_array", "Impact response Campaigns is not an array"],
+    [JSON.stringify({ Campaigns: [], "@nextpageuri": 2 }), "invalid_nextpageuri", "Impact response @nextpageuri is not a nonempty string"],
+    [JSON.stringify({ Campaigns: [], "@nextpageuri": "" }), "invalid_nextpageuri", "Impact response @nextpageuri is not a nonempty string"],
+    [JSON.stringify({ Campaigns: [], "@nextpageuri": null }), "invalid_nextpageuri", "Impact response @nextpageuri is not a nonempty string"],
+  ] as const;
+  for (const [body, reason, detail] of cases) {
+    const malformed = ImpactPageParser.campaigns(body, { provenance });
+    assert.deepEqual(malformed, { ok: false, code: "malformed_page", reason, detail });
+  }
   const parsed = ImpactPageParser.campaigns(JSON.stringify({ Campaigns: [{ ProgramId: "not-a-campaign" }] }), { provenance });
   assert.equal(parsed.ok, true);
   if (!parsed.ok) return;

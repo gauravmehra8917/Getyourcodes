@@ -3,6 +3,7 @@ import type {
   ExistingCatalogSnapshotV2,
   ImpactClientLimitsV2,
   ImpactContinuationPolicy,
+  ImpactParseFailureReasonV2,
   ImpactTransport,
   PublishingPolicyConfigV2,
   StoreQualificationConfigV2,
@@ -116,11 +117,30 @@ export type PreviewV2ErrorCode =
 
 export type PreviewV2FailureStage = "provider_parse" | "preview_plan";
 
-export interface PreviewV2FailureDiagnostic {
-  stage: PreviewV2FailureStage;
-  stopReason: "malformed_page" | null;
-  resource: "promotions" | "campaigns" | null;
+export interface PreviewV2ParseFailureStreamDiagnostic {
+  pagesFetched: number;
+  reason: ImpactParseFailureReasonV2 | null;
 }
+
+export interface PreviewV2ProviderParseFailureDiagnostic {
+  stage: "provider_parse";
+  stopReason: "malformed_page";
+  resource: "promotions" | "campaigns" | null;
+  parseFailures: {
+    promotions: PreviewV2ParseFailureStreamDiagnostic;
+    campaigns: PreviewV2ParseFailureStreamDiagnostic;
+  };
+}
+
+export interface PreviewV2PreviewPlanFailureDiagnostic {
+  stage: "preview_plan";
+  stopReason: null;
+  resource: null;
+}
+
+export type PreviewV2FailureDiagnostic =
+  | PreviewV2ProviderParseFailureDiagnostic
+  | PreviewV2PreviewPlanFailureDiagnostic;
 
 export interface PreviewV2ErrorResponse {
   host: { version: "v2-a8a"; readOnly: true };

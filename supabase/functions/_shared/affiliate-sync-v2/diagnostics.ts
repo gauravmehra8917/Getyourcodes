@@ -2,6 +2,13 @@ import type { MatchMethod, MerchantUnresolvedReasonV2 } from "./models.ts";
 
 export type ImpactStream = "promotions" | "campaigns";
 
+export type ImpactParseFailureReasonV2 =
+  | "invalid_json"
+  | "envelope_not_object"
+  | "missing_collection"
+  | "collection_not_array"
+  | "invalid_nextpageuri";
+
 export type StreamStopReason =
   | "completed"
   | "page_limit"
@@ -100,6 +107,7 @@ export interface ImpactStreamFetchDiagnosticsV2 {
   acceptedRecordCount: number;
   quarantinedRecordCount: number;
   stopReason: StreamStopReason | null;
+  parseFailureReason: ImpactParseFailureReasonV2 | null;
   pageErrors: ImpactPageErrorV2[];
   pages: ImpactPageFetchDiagnosticV2[];
   retries: ImpactRetryDiagnosticV2[];

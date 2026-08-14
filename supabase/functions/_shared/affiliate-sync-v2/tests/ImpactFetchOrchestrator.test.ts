@@ -67,6 +67,8 @@ test("fetch composition preserves both streams, exact continuation evidence, and
   assert.deepEqual(result.acceptedCampaigns.map((record) => record.campaignId), ["campaign-one"]);
   assert.equal(result.fetchDiagnostics.promotions.pagesFetched, 2);
   assert.equal(result.fetchDiagnostics.campaigns.pagesFetched, 1);
+  assert.equal(result.fetchDiagnostics.promotions.parseFailureReason, null);
+  assert.equal(result.fetchDiagnostics.campaigns.parseFailureReason, null);
   assert.equal(result.fetchDiagnostics.promotions.rawRecordCount, 3);
   assert.equal(result.fetchDiagnostics.promotions.acceptedRecordCount, 2);
   assert.equal(result.fetchDiagnostics.promotions.quarantinedRecordCount, 1);
@@ -108,6 +110,8 @@ test("fetch composition propagates malformed-page diagnostics without partial re
   assert.equal(result.acceptedCampaigns.length, 0);
   assert.equal(result.fetchDiagnostics.promotions.stopReason, "completed");
   assert.equal(result.fetchDiagnostics.campaigns.stopReason, "malformed_page");
+  assert.equal(result.fetchDiagnostics.promotions.parseFailureReason, null);
+  assert.equal(result.fetchDiagnostics.campaigns.parseFailureReason, "missing_collection");
   assert.deepEqual(result.fetchDiagnostics.campaigns.pageErrors.map((error) => error.code), [
     "malformed_page",
   ]);

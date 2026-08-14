@@ -240,3 +240,32 @@ test("keeps sanitized page provenance for accepted and quarantined records", asy
   assert.equal(result.records[1]?.provenance.sanitizedSourceContinuationUrl?.includes("secret"), false);
   assert.equal(result.records[1]?.provenance.sanitizedSourceContinuationUrl?.includes("%5BREDACTED%5D"), true);
 });
+
+test("retains prior accepted pages and reports an invalid terminal continuation at fetch depth two", async () => {
+  const next = "/Mediapartners/2303074/Promotions?Page=2&cursor=opaque-provider-value";
+  const { instance, transport } = client([
+    response(promotions([{ PromotionIds: "accepted-page-one" }], next)),
+    response({
+      "@page": "2",
+      Promotions: [{ PromotionIds: "unaccepted-page-two-secret" }],
+      "@nextpageuri": "",
+    }),
+  ]);
+
+  const result = await instance.fetchPromotions(initial);
+  assert.equal(result.diagnostics.stopReason, "malformed_page");
+  assert.equal(result.diagnostics.parseFailureReason, "invalid_nextpageuri");
+  assert.equal(result.diagnostics.pagesFetched, 2);
+  assert.deepEqual(result.records.map((record) => record.promotionId), ["accepted-page-one"]);
+  assert.equal(result.diagnostics.rawRecordCount, 1);
+  assert.equal(result.diagnostics.acceptedRecordCount, 1);
+  assert.equal(result.diagnostics.pages[1]?.accepted, false);
+  assert.equal(
+    result.diagnostics.pageErrors[0]?.detail,
+    "Impact page did not satisfy the strict parser contract",
+  );
+  assert.equal(transport.requests.length, 2);
+  assert.equal(JSON.stringify(result.diagnostics).includes("unaccepted-page-two-secret"), false);
+  assert.equal(JSON.stringify(result.diagnostics).includes("opaque-provider-value"), false);
+  assert.equal(JSON.stringify(result.diagnostics).includes("@nextpageuri"), false);
+});

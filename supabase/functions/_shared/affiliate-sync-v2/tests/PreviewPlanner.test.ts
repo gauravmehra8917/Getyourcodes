@@ -38,6 +38,7 @@ function streamDiagnostics(
     acceptedRecordCount: acceptedRecords,
     quarantinedRecordCount: quarantinedRecords,
     stopReason: "completed",
+    parseFailureReason: null,
     pageErrors: [],
     pages: [],
     retries: [],

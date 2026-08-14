@@ -158,6 +158,20 @@ function incompleteFetchFailure(
         : promotionsMalformed
         ? "promotions"
         : "campaigns",
+      parseFailures: {
+        promotions: {
+          pagesFetched: result.fetchDiagnostics.promotions.pagesFetched,
+          reason: promotionsMalformed
+            ? result.fetchDiagnostics.promotions.parseFailureReason
+            : null,
+        },
+        campaigns: {
+          pagesFetched: result.fetchDiagnostics.campaigns.pagesFetched,
+          reason: campaignsMalformed
+            ? result.fetchDiagnostics.campaigns.parseFailureReason
+            : null,
+        },
+      },
     },
   };
 }
