@@ -6,6 +6,7 @@ import type {
   ImpactPageErrorV2,
   ImpactPageFetchDiagnosticV2,
   ImpactPageProvenanceV2,
+  ImpactPromotionIdentifierCarrierDiagnosticsV2,
   ImpactPromotionIdShapeCountsV2,
   ImpactQuarantineReasonCountsV2,
   ImpactRetryDiagnosticV2,
@@ -19,7 +20,11 @@ import {
   validateImpactContinuation,
   type ImpactContinuationPolicy,
 } from "./impact-url-safety.ts";
-import { ImpactPageParser, type ImpactPageParseResultV2 } from "./ImpactPageParser.ts";
+import {
+  ImpactPageParser,
+  type ImpactPageParseResultV2,
+  type ImpactPromotionIdentifierCarrierDistinctValuesV2,
+} from "./ImpactPageParser.ts";
 import type { RawImpactCampaignV2, RawImpactPromotionV2 } from "./models.ts";
 
 export interface ImpactClientLimitsV2 {
@@ -92,6 +97,51 @@ function emptyPromotionIdShapeCounts(): ImpactPromotionIdShapeCountsV2 {
   };
 }
 
+function emptyOpaqueScalarCarrierDiagnostics() {
+  return {
+    missing: 0,
+    null: 0,
+    validOpaqueScalar: 0,
+    invalidShape: 0,
+    distinctValidOpaqueValues: 0,
+  };
+}
+
+function emptyPromotionIdentifierCarrierDiagnostics(): ImpactPromotionIdentifierCarrierDiagnosticsV2 {
+  return {
+    promotionFileId: emptyOpaqueScalarCarrierDiagnostics(),
+    uri: {
+      missing: 0,
+      null: 0,
+      nonemptyString: 0,
+      invalidShape: 0,
+      distinctNonemptyValues: 0,
+      promotionRetrievePathShape: 0,
+      distinctPromotionRetrieveTerminalSegments: 0,
+    },
+    promotionIdSingular: emptyOpaqueScalarCarrierDiagnostics(),
+    id: emptyOpaqueScalarCarrierDiagnostics(),
+  };
+}
+
+interface MutablePromotionIdentifierCarrierDistinctValuesV2 {
+  promotionFileId: Set<string>;
+  uri: Set<string>;
+  promotionIdSingular: Set<string>;
+  id: Set<string>;
+  promotionRetrieveTerminalSegments: Set<string>;
+}
+
+function emptyPromotionIdentifierCarrierDistinctValues(): MutablePromotionIdentifierCarrierDistinctValuesV2 {
+  return {
+    promotionFileId: new Set<string>(),
+    uri: new Set<string>(),
+    promotionIdSingular: new Set<string>(),
+    id: new Set<string>(),
+    promotionRetrieveTerminalSegments: new Set<string>(),
+  };
+}
+
 function addQuarantineReasonCounts(
   counts: ImpactQuarantineReasonCountsV2,
   records: readonly QuarantinedImpactRecordV2[],
@@ -108,6 +158,39 @@ function addPromotionIdShapeCounts(
   }
 }
 
+function addDistinctValues(target: Set<string>, source: ReadonlySet<string>): void {
+  for (const value of source) target.add(value);
+}
+
+function addPromotionIdentifierCarrierDiagnostics(
+  counts: ImpactPromotionIdentifierCarrierDiagnosticsV2,
+  pageCounts: ImpactPromotionIdentifierCarrierDiagnosticsV2,
+  distinctValues: MutablePromotionIdentifierCarrierDistinctValuesV2,
+  pageDistinctValues: ImpactPromotionIdentifierCarrierDistinctValuesV2,
+): void {
+  for (const key of ["promotionFileId", "promotionIdSingular", "id"] as const) {
+    counts[key].missing += pageCounts[key].missing;
+    counts[key].null += pageCounts[key].null;
+    counts[key].validOpaqueScalar += pageCounts[key].validOpaqueScalar;
+    counts[key].invalidShape += pageCounts[key].invalidShape;
+    addDistinctValues(distinctValues[key], pageDistinctValues[key]);
+    counts[key].distinctValidOpaqueValues = distinctValues[key].size;
+  }
+  counts.uri.missing += pageCounts.uri.missing;
+  counts.uri.null += pageCounts.uri.null;
+  counts.uri.nonemptyString += pageCounts.uri.nonemptyString;
+  counts.uri.invalidShape += pageCounts.uri.invalidShape;
+  counts.uri.promotionRetrievePathShape += pageCounts.uri.promotionRetrievePathShape;
+  addDistinctValues(distinctValues.uri, pageDistinctValues.uri);
+  addDistinctValues(
+    distinctValues.promotionRetrieveTerminalSegments,
+    pageDistinctValues.promotionRetrieveTerminalSegments,
+  );
+  counts.uri.distinctNonemptyValues = distinctValues.uri.size;
+  counts.uri.distinctPromotionRetrieveTerminalSegments =
+    distinctValues.promotionRetrieveTerminalSegments.size;
+}
+
 function emptyDiagnostics(stream: ImpactStream): ImpactStreamFetchDiagnosticsV2 {
   return {
     stream,
@@ -116,7 +199,12 @@ function emptyDiagnostics(stream: ImpactStream): ImpactStreamFetchDiagnosticsV2 
     acceptedRecordCount: 0,
     quarantinedRecordCount: 0,
     quarantineReasonCounts: emptyQuarantineReasonCounts(),
-    ...(stream === "promotions" ? { promotionIdShapeCounts: emptyPromotionIdShapeCounts() } : {}),
+    ...(stream === "promotions"
+      ? {
+        promotionIdShapeCounts: emptyPromotionIdShapeCounts(),
+        promotionIdentifierCarrierDiagnostics: emptyPromotionIdentifierCarrierDiagnostics(),
+      }
+      : {}),
     stopReason: null,
     parseFailureReason: null,
     pageErrors: [],
@@ -296,6 +384,9 @@ export class ImpactClientV2 {
     signal: AbortSignal | undefined,
   ): Promise<ImpactStreamFetchResultV2<StreamRecord>> {
     const diagnostics = emptyDiagnostics(stream);
+    const promotionIdentifierCarrierDistinctValues = stream === "promotions"
+      ? emptyPromotionIdentifierCarrierDistinctValues()
+      : null;
     const records: StreamRecord[] = [];
     const quarantinedRecords: QuarantinedImpactRecordV2[] = [];
     const initial = validateImpactContinuation(initialUrl, this.options.continuationPolicy);
@@ -393,6 +484,19 @@ export class ImpactClientV2 {
       addQuarantineReasonCounts(diagnostics.quarantineReasonCounts, parsed.quarantinedRecords);
       if (diagnostics.promotionIdShapeCounts && parsed.promotionIdShapeCounts) {
         addPromotionIdShapeCounts(diagnostics.promotionIdShapeCounts, parsed.promotionIdShapeCounts);
+      }
+      if (
+        diagnostics.promotionIdentifierCarrierDiagnostics &&
+        parsed.promotionIdentifierCarrierDiagnostics &&
+        promotionIdentifierCarrierDistinctValues &&
+        parsed.promotionIdentifierCarrierDistinctValues
+      ) {
+        addPromotionIdentifierCarrierDiagnostics(
+          diagnostics.promotionIdentifierCarrierDiagnostics,
+          parsed.promotionIdentifierCarrierDiagnostics,
+          promotionIdentifierCarrierDistinctValues,
+          parsed.promotionIdentifierCarrierDistinctValues,
+        );
       }
       const exceedsRecordLimit = records.length + parsed.records.length > this.options.limits.maxRecords;
       diagnostics.pages.push(pageDiagnostic(

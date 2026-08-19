@@ -36,6 +36,11 @@ const QUARANTINED_CAMPAIGN_ID = "quarantined-campaign-id-sensitive";
 const QUARANTINED_ADVERTISER_ID = "quarantined-advertiser-id-sensitive";
 const QUARANTINED_TITLE = "quarantined-title-sensitive";
 const QUARANTINED_URL = "https://provider.example/quarantined-url-sensitive";
+const CARRIER_FILE_ID = "carrier-file-id-sensitive";
+const CARRIER_TERMINAL = "carrier-terminal-sensitive";
+const CARRIER_SINGULAR_ID_ONE = "carrier-singular-id-one-sensitive";
+const CARRIER_SINGULAR_ID_TWO = "carrier-singular-id-two-sensitive";
+const CARRIER_OBJECT_VALUE = "carrier-object-value-sensitive";
 
 const healthyIntegration: StoredIntegrationV2 = {
   id: INTEGRATION_ID,
@@ -156,10 +161,20 @@ class PageTransport implements ImpactTransport {
                 AdvertiserId: QUARANTINED_ADVERTISER_ID,
                 PromotionTitle: QUARANTINED_TITLE,
                 TrackingLink: QUARANTINED_URL,
+                PromotionFileId: CARRIER_FILE_ID,
+                Uri:
+                  `/Mediapartners/${ACCOUNT_SID}/Promotions/${CARRIER_TERMINAL}?private=query`,
+                PromotionId: CARRIER_SINGULAR_ID_ONE,
+                Id: { private: CARRIER_OBJECT_VALUE },
               },
               {
                 PromotionIds: [QUARANTINED_PROMOTION_ID],
                 CampaignId: QUARANTINED_CAMPAIGN_ID,
+                PromotionFileId: CARRIER_FILE_ID,
+                Uri:
+                  `https://api.impact.com/Mediapartners/other-account/Promotions/${CARRIER_TERMINAL}#private`,
+                PromotionId: CARRIER_SINGULAR_ID_TWO,
+                Id: 42,
               },
             ],
           }
@@ -880,12 +895,45 @@ test("successful preview exposes aggregate quarantine reasons without individual
     boolean: 0,
     other: 0,
   });
+  assert.deepEqual(promotions.promotionIdentifierCarrierDiagnostics, {
+    promotionFileId: {
+      missing: 0,
+      null: 0,
+      validOpaqueScalar: 2,
+      invalidShape: 0,
+      distinctValidOpaqueValues: 1,
+    },
+    uri: {
+      missing: 0,
+      null: 0,
+      nonemptyString: 2,
+      invalidShape: 0,
+      distinctNonemptyValues: 2,
+      promotionRetrievePathShape: 2,
+      distinctPromotionRetrieveTerminalSegments: 1,
+    },
+    promotionIdSingular: {
+      missing: 0,
+      null: 0,
+      validOpaqueScalar: 2,
+      invalidShape: 0,
+      distinctValidOpaqueValues: 2,
+    },
+    id: {
+      missing: 0,
+      null: 0,
+      validOpaqueScalar: 1,
+      invalidShape: 1,
+      distinctValidOpaqueValues: 1,
+    },
+  });
   assert.deepEqual(campaigns.quarantineReasonCounts, {
     malformed_record: 0,
     missing_promotion_id: 0,
     missing_campaign_id: 1,
   });
   assert.equal("promotionIdShapeCounts" in campaigns, false);
+  assert.equal("promotionIdentifierCarrierDiagnostics" in campaigns, false);
   for (const stream of [promotions, campaigns]) {
     const counts = stream.quarantineReasonCounts as Record<string, number>;
     assert.equal(
@@ -909,6 +957,11 @@ test("successful preview exposes aggregate quarantine reasons without individual
     QUARANTINED_ADVERTISER_ID,
     QUARANTINED_TITLE,
     QUARANTINED_URL,
+    CARRIER_FILE_ID,
+    CARRIER_TERMINAL,
+    CARRIER_SINGULAR_ID_ONE,
+    CARRIER_SINGULAR_ID_TWO,
+    CARRIER_OBJECT_VALUE,
   ]) assert.equal(serialized.includes(privateValue), false);
 });
 

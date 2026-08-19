@@ -305,6 +305,103 @@ test("aggregates closed quarantine reasons across Promotion pages without leakin
   ]) assert.equal(publicDiagnostics.includes(privateValue), false);
 });
 
+test("aggregates identifier-carrier distinct cardinality across Promotion pages", async () => {
+  const repeatedUri =
+    "/Mediapartners/account-private/Promotions/terminal-private";
+  const { instance } = client([
+    response(promotions([
+      {
+        PromotionIds: "accepted-one",
+        PromotionFileId: "file-repeat-private",
+        Uri: repeatedUri,
+        PromotionId: "singular-repeat-private",
+        Id: 1,
+      },
+      {
+        PromotionFileId: "file-page-one-private",
+        Uri: repeatedUri,
+        PromotionId: null,
+        Id: { private: "id-object-must-not-leak" },
+      },
+    ], "/Mediapartners/2303074/Promotions?Page=2")),
+    response({
+      "@page": "2",
+      "@numpages": "2",
+      "@nextpageuri": null,
+      Promotions: [
+        {
+          PromotionIds: "accepted-two",
+          PromotionFileId: "file-repeat-private",
+          Uri:
+            "https://api.impact.com/Mediapartners/account-other/Promotions/terminal-private",
+          PromotionId: "singular-repeat-private",
+          Id: 1,
+        },
+        {
+          PromotionFileId: null,
+          Uri: null,
+          PromotionId: "singular-page-two-private",
+          Id: 2,
+        },
+      ],
+    }),
+  ]);
+
+  const result = await instance.fetchPromotions(initial);
+  assert.equal(result.diagnostics.stopReason, "completed");
+  assert.equal(result.diagnostics.pagesFetched, 2);
+  assert.equal(result.diagnostics.rawRecordCount, 4);
+  assert.equal(result.diagnostics.acceptedRecordCount, 2);
+  assert.equal(result.diagnostics.quarantinedRecordCount, 2);
+  assert.deepEqual(result.diagnostics.promotionIdentifierCarrierDiagnostics, {
+    promotionFileId: {
+      missing: 0,
+      null: 1,
+      validOpaqueScalar: 3,
+      invalidShape: 0,
+      distinctValidOpaqueValues: 2,
+    },
+    uri: {
+      missing: 0,
+      null: 1,
+      nonemptyString: 3,
+      invalidShape: 0,
+      distinctNonemptyValues: 2,
+      promotionRetrievePathShape: 3,
+      distinctPromotionRetrieveTerminalSegments: 1,
+    },
+    promotionIdSingular: {
+      missing: 0,
+      null: 1,
+      validOpaqueScalar: 3,
+      invalidShape: 0,
+      distinctValidOpaqueValues: 2,
+    },
+    id: {
+      missing: 0,
+      null: 0,
+      validOpaqueScalar: 3,
+      invalidShape: 1,
+      distinctValidOpaqueValues: 2,
+    },
+  });
+  assert.deepEqual(
+    result.records.map((record) => record.promotionId),
+    ["accepted-one", "accepted-two"],
+  );
+  const publicDiagnostics = JSON.stringify(result.diagnostics);
+  for (const privateValue of [
+    "file-repeat-private",
+    "file-page-one-private",
+    "singular-repeat-private",
+    "singular-page-two-private",
+    "terminal-private",
+    "account-private",
+    "account-other",
+    "id-object-must-not-leak",
+  ]) assert.equal(publicDiagnostics.includes(privateValue), false);
+});
+
 test("completes when a later page has a metadata-proven null terminal continuation", async () => {
   const next = "/Mediapartners/2303074/Promotions?Page=2&cursor=opaque-provider-value";
   const { instance, transport } = client([

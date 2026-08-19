@@ -89,12 +89,53 @@ test("fetch composition preserves both streams, exact continuation evidence, and
     boolean: 0,
     other: 0,
   });
+  assert.deepEqual(
+    result.fetchDiagnostics.promotions
+      .promotionIdentifierCarrierDiagnostics,
+    {
+      promotionFileId: {
+        missing: 2,
+        null: 0,
+        validOpaqueScalar: 0,
+        invalidShape: 0,
+        distinctValidOpaqueValues: 0,
+      },
+      uri: {
+        missing: 2,
+        null: 0,
+        nonemptyString: 0,
+        invalidShape: 0,
+        distinctNonemptyValues: 0,
+        promotionRetrievePathShape: 0,
+        distinctPromotionRetrieveTerminalSegments: 0,
+      },
+      promotionIdSingular: {
+        missing: 2,
+        null: 0,
+        validOpaqueScalar: 0,
+        invalidShape: 0,
+        distinctValidOpaqueValues: 0,
+      },
+      id: {
+        missing: 2,
+        null: 0,
+        validOpaqueScalar: 0,
+        invalidShape: 0,
+        distinctValidOpaqueValues: 0,
+      },
+    },
+  );
   assert.deepEqual(result.fetchDiagnostics.campaigns.quarantineReasonCounts, {
     malformed_record: 1,
     missing_promotion_id: 0,
     missing_campaign_id: 0,
   });
   assert.equal("promotionIdShapeCounts" in result.fetchDiagnostics.campaigns, false);
+  assert.equal(
+    "promotionIdentifierCarrierDiagnostics" in
+      result.fetchDiagnostics.campaigns,
+    false,
+  );
   assert.deepEqual(result.quarantinedRecords.map((entry) => [entry.stream, entry.reason]), [
     ["promotions", "malformed_record"],
     ["campaigns", "malformed_record"],

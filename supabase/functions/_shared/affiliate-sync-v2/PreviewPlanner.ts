@@ -453,6 +453,83 @@ function validateFetchInput(input: AffiliateSyncPreviewInputV2): void {
   if (shapeCounts.reduce((total, count) => total + count, 0) !== structurallyValidPromotions) {
     throw new Error("PreviewPlanner PromotionIds shape counts do not reconcile");
   }
+  const carrierDiagnostics =
+    input.fetchDiagnostics.promotions.promotionIdentifierCarrierDiagnostics;
+  if (!carrierDiagnostics) {
+    throw new Error(
+      "PreviewPlanner requires identifier-carrier diagnostics for Promotions",
+    );
+  }
+  if (
+    input.fetchDiagnostics.campaigns
+      .promotionIdentifierCarrierDiagnostics !== undefined
+  ) {
+    throw new Error(
+      "PreviewPlanner forbids identifier-carrier diagnostics for Campaigns",
+    );
+  }
+  for (const diagnostics of [
+    carrierDiagnostics.promotionFileId,
+    carrierDiagnostics.promotionIdSingular,
+    carrierDiagnostics.id,
+  ]) {
+    const counts = [
+      diagnostics.missing,
+      diagnostics.null,
+      diagnostics.validOpaqueScalar,
+      diagnostics.invalidShape,
+      diagnostics.distinctValidOpaqueValues,
+    ];
+    if (counts.some((count) => !Number.isInteger(count) || count < 0)) {
+      throw new Error(
+        "PreviewPlanner identifier-carrier counts must be non-negative integers",
+      );
+    }
+    if (
+      diagnostics.missing + diagnostics.null +
+        diagnostics.validOpaqueScalar + diagnostics.invalidShape !==
+        structurallyValidPromotions
+    ) {
+      throw new Error(
+        "PreviewPlanner identifier-carrier shape counts do not reconcile",
+      );
+    }
+    if (
+      diagnostics.distinctValidOpaqueValues >
+        diagnostics.validOpaqueScalar
+    ) {
+      throw new Error(
+        "PreviewPlanner identifier-carrier distinct counts exceed valid counts",
+      );
+    }
+  }
+  const uriCounts = Object.values(carrierDiagnostics.uri);
+  if (uriCounts.some((count) => !Number.isInteger(count) || count < 0)) {
+    throw new Error(
+      "PreviewPlanner identifier-carrier counts must be non-negative integers",
+    );
+  }
+  if (
+    carrierDiagnostics.uri.missing + carrierDiagnostics.uri.null +
+      carrierDiagnostics.uri.nonemptyString +
+      carrierDiagnostics.uri.invalidShape !== structurallyValidPromotions
+  ) {
+    throw new Error(
+      "PreviewPlanner identifier-carrier shape counts do not reconcile",
+    );
+  }
+  if (
+    carrierDiagnostics.uri.distinctNonemptyValues >
+      carrierDiagnostics.uri.nonemptyString ||
+    carrierDiagnostics.uri.promotionRetrievePathShape >
+      carrierDiagnostics.uri.nonemptyString ||
+    carrierDiagnostics.uri.distinctPromotionRetrieveTerminalSegments >
+      carrierDiagnostics.uri.promotionRetrievePathShape
+  ) {
+    throw new Error(
+      "PreviewPlanner identifier-carrier distinct counts exceed valid counts",
+    );
+  }
   const expectedQuarantined =
     input.fetchDiagnostics.promotions.quarantinedRecordCount +
     input.fetchDiagnostics.campaigns.quarantinedRecordCount;

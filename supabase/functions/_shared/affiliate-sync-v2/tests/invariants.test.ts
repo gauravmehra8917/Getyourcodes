@@ -319,6 +319,38 @@ test("final preview actions and store coverage reconcile without identity collap
           boolean: 0,
           other: 0,
         },
+        promotionIdentifierCarrierDiagnostics: {
+          promotionFileId: {
+            missing: count,
+            null: 0,
+            validOpaqueScalar: 0,
+            invalidShape: 0,
+            distinctValidOpaqueValues: 0,
+          },
+          uri: {
+            missing: count,
+            null: 0,
+            nonemptyString: 0,
+            invalidShape: 0,
+            distinctNonemptyValues: 0,
+            promotionRetrievePathShape: 0,
+            distinctPromotionRetrieveTerminalSegments: 0,
+          },
+          promotionIdSingular: {
+            missing: count,
+            null: 0,
+            validOpaqueScalar: 0,
+            invalidShape: 0,
+            distinctValidOpaqueValues: 0,
+          },
+          id: {
+            missing: count,
+            null: 0,
+            validOpaqueScalar: 0,
+            invalidShape: 0,
+            distinctValidOpaqueValues: 0,
+          },
+        },
       }
       : {}),
     stopReason: "completed" as const,

@@ -211,6 +211,146 @@ test("counts an extreme JSON number as raw number shape while preserving finite-
   assert.deepEqual(parsed.quarantinedRecords.map((record) => record.reason), ["missing_promotion_id"]);
 });
 
+test("counts PromotionFileId opaque scalar shapes and exact distinct cardinality only", () => {
+  const parsed = ImpactPageParser.promotions(JSON.stringify({
+    Promotions: [
+      {},
+      { PromotionFileId: null },
+      { PromotionFileId: " file-repeat " },
+      { PromotionFileId: "file-repeat" },
+      { PromotionFileId: 17 },
+      { PromotionFileId: { private: "file-object-must-not-leak" } },
+    ],
+  }), { provenance });
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  assert.deepEqual(
+    parsed.promotionIdentifierCarrierDiagnostics?.promotionFileId,
+    {
+      missing: 1,
+      null: 1,
+      validOpaqueScalar: 3,
+      invalidShape: 1,
+      distinctValidOpaqueValues: 2,
+    },
+  );
+  assert.deepEqual(
+    parsed.quarantinedRecords.map((record) => record.reason),
+    Array.from({ length: 6 }, () => "missing_promotion_id"),
+  );
+  assert.equal(
+    JSON.stringify(parsed.promotionIdentifierCarrierDiagnostics).includes(
+      "file-object-must-not-leak",
+    ),
+    false,
+  );
+
+  const unique = ImpactPageParser.promotions(JSON.stringify({
+    Promotions: [
+      { PromotionFileId: "file-one" },
+      { PromotionFileId: 2 },
+      { PromotionFileId: "file-three" },
+    ],
+  }), { provenance });
+  assert.equal(unique.ok, true);
+  if (!unique.ok) return;
+  const counts = unique.promotionIdentifierCarrierDiagnostics?.promotionFileId;
+  assert.equal(counts?.validOpaqueScalar, 3);
+  assert.equal(counts?.distinctValidOpaqueValues, 3);
+});
+
+test("counts bounded Uri shapes and promotion retrieval path cardinality without values", () => {
+  const relative =
+    "/Mediapartners/account-private/Promotions/terminal-private?query=private";
+  const absolute =
+    "https://api.impact.com/prefix/Mediapartners/account-other/Promotions/terminal-private#fragment-private";
+  const malformed = "http://[malformed-private";
+  const parsed = ImpactPageParser.promotions(JSON.stringify({
+    Promotions: [
+      {},
+      { Uri: null },
+      { Uri: relative },
+      { Uri: relative },
+      { Uri: absolute },
+      { Uri: "https://api.impact.com/Mediapartners/account/Campaigns/not-promotion" },
+      { Uri: { private: "uri-object-must-not-leak" } },
+      { Uri: "   " },
+      { Uri: malformed },
+    ],
+  }), { provenance });
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  assert.deepEqual(parsed.promotionIdentifierCarrierDiagnostics?.uri, {
+    missing: 1,
+    null: 1,
+    nonemptyString: 5,
+    invalidShape: 2,
+    distinctNonemptyValues: 4,
+    promotionRetrievePathShape: 3,
+    distinctPromotionRetrieveTerminalSegments: 1,
+  });
+  const serialized = JSON.stringify(
+    parsed.promotionIdentifierCarrierDiagnostics,
+  );
+  for (const privateValue of [
+    relative,
+    absolute,
+    malformed,
+    "account-private",
+    "terminal-private",
+    "uri-object-must-not-leak",
+  ]) assert.equal(serialized.includes(privateValue), false);
+});
+
+test("diagnostic carrier candidates never replace exact PromotionIds identity", () => {
+  const candidateOnly = {
+    PromotionFileId: "file-candidate-private",
+    Uri: "/Mediapartners/account-private/Promotions/terminal-private",
+    PromotionId: "singular-candidate-private",
+    Id: 41,
+  };
+  const parsed = ImpactPageParser.promotions(JSON.stringify({
+    Promotions: [
+      candidateOnly,
+      {
+        ...candidateOnly,
+        PromotionFileId: "file-accepted-private",
+        Uri: "https://api.impact.com/Mediapartners/account-private/Promotions/terminal-accepted-private",
+        PromotionId: "singular-accepted-private",
+        Id: 42,
+        PromotionIds: "canonical-promotion-id",
+      },
+    ],
+  }), { provenance });
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  assert.deepEqual(
+    parsed.quarantinedRecords.map((record) => record.reason),
+    ["missing_promotion_id"],
+  );
+  assert.deepEqual(
+    parsed.records.map((record) => record.promotionId),
+    ["canonical-promotion-id"],
+  );
+  assert.deepEqual(
+    parsed.promotionIdentifierCarrierDiagnostics?.promotionIdSingular,
+    {
+      missing: 0,
+      null: 0,
+      validOpaqueScalar: 2,
+      invalidShape: 0,
+      distinctValidOpaqueValues: 2,
+    },
+  );
+  assert.deepEqual(parsed.promotionIdentifierCarrierDiagnostics?.id, {
+    missing: 0,
+    null: 0,
+    validOpaqueScalar: 2,
+    invalidShape: 0,
+    distinctValidOpaqueValues: 2,
+  });
+});
+
 test("strictly parses Campaigns and keeps supplied advertiser identity separate", () => {
   const parsed = ImpactPageParser.campaigns(JSON.stringify({
     "@page": 1,
@@ -225,6 +365,8 @@ test("strictly parses Campaigns and keeps supplied advertiser identity separate"
   assert.equal(parsed.ok, true);
   if (!parsed.ok) return;
   assert.equal(parsed.promotionIdShapeCounts, null);
+  assert.equal(parsed.promotionIdentifierCarrierDiagnostics, null);
+  assert.equal(parsed.promotionIdentifierCarrierDistinctValues, null);
   assert.deepEqual(parsed.records[0], {
     campaignId: "Campaign-001",
     advertiserId: "Advertiser-002",

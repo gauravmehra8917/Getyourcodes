@@ -60,6 +60,37 @@ export interface ImpactPromotionIdShapeCountsV2 {
   other: number;
 }
 
+/** Count-only diagnostics for a fixed, diagnostic-only opaque scalar field. */
+export interface ImpactOpaqueScalarCarrierDiagnosticsV2 {
+  missing: number;
+  null: number;
+  validOpaqueScalar: number;
+  invalidShape: number;
+  distinctValidOpaqueValues: number;
+}
+
+/** Count-only diagnostics for the documented Promotion Uri field. */
+export interface ImpactPromotionUriCarrierDiagnosticsV2 {
+  missing: number;
+  null: number;
+  nonemptyString: number;
+  invalidShape: number;
+  distinctNonemptyValues: number;
+  promotionRetrievePathShape: number;
+  distinctPromotionRetrieveTerminalSegments: number;
+}
+
+/**
+ * Promotions-only aggregate diagnostics for four fixed identifier-carrying
+ * fields. None of these observations establishes Promotion identity.
+ */
+export interface ImpactPromotionIdentifierCarrierDiagnosticsV2 {
+  promotionFileId: ImpactOpaqueScalarCarrierDiagnosticsV2;
+  uri: ImpactPromotionUriCarrierDiagnosticsV2;
+  promotionIdSingular: ImpactOpaqueScalarCarrierDiagnosticsV2;
+  id: ImpactOpaqueScalarCarrierDiagnosticsV2;
+}
+
 export interface QuarantinedImpactRecordV2 {
   stream: ImpactStream;
   reason: QuarantineReason;
@@ -129,6 +160,8 @@ export interface ImpactStreamFetchDiagnosticsV2 {
   quarantineReasonCounts: ImpactQuarantineReasonCountsV2;
   /** Present only when `stream` is Promotions. */
   promotionIdShapeCounts?: ImpactPromotionIdShapeCountsV2;
+  /** Present only when `stream` is Promotions. Values are aggregate counts only. */
+  promotionIdentifierCarrierDiagnostics?: ImpactPromotionIdentifierCarrierDiagnosticsV2;
   stopReason: StreamStopReason | null;
   parseFailureReason: ImpactParseFailureReasonV2 | null;
   pageErrors: ImpactPageErrorV2[];

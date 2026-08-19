@@ -1,6 +1,7 @@
 import type {
   ImpactParseFailureReasonV2,
   ImpactPageProvenanceV2,
+  ImpactPromotionIdentifierCarrierDiagnosticsV2,
   ImpactPromotionIdShapeCountsV2,
   ImpactRecordProvenanceV2,
   QuarantinedImpactRecordV2,
@@ -33,6 +34,10 @@ export interface ParsedImpactPageV2<T> {
   rawRecordCount: number;
   /** Count-only raw PromotionIds shapes; null for Campaign pages. */
   promotionIdShapeCounts: ImpactPromotionIdShapeCountsV2 | null;
+  /** Count-only observations of the fixed Promotions-only candidate set. */
+  promotionIdentifierCarrierDiagnostics: ImpactPromotionIdentifierCarrierDiagnosticsV2 | null;
+  /** Internal-only exact values needed to aggregate distinct counts across pages. */
+  promotionIdentifierCarrierDistinctValues: ImpactPromotionIdentifierCarrierDistinctValuesV2 | null;
   pagination: ImpactPaginationMetadataV2;
   /**
    * Used only by the immediately following client continuation decision. It is
@@ -46,6 +51,22 @@ export type ImpactPageParseResultV2<T> = ParsedImpactPageV2<T> | ImpactPageParse
 
 export interface ImpactPageParserInputV2 {
   provenance: ImpactPageProvenanceV2;
+}
+
+export interface ImpactPromotionIdentifierCarrierDistinctValuesV2 {
+  promotionFileId: ReadonlySet<string>;
+  uri: ReadonlySet<string>;
+  promotionIdSingular: ReadonlySet<string>;
+  id: ReadonlySet<string>;
+  promotionRetrieveTerminalSegments: ReadonlySet<string>;
+}
+
+interface MutablePromotionIdentifierCarrierDistinctValuesV2 {
+  promotionFileId: Set<string>;
+  uri: Set<string>;
+  promotionIdSingular: Set<string>;
+  id: Set<string>;
+  promotionRetrieveTerminalSegments: Set<string>;
 }
 
 function isRecord(value: unknown): value is ImpactEnvelope {
@@ -64,6 +85,140 @@ function emptyPromotionIdShapeCounts(): ImpactPromotionIdShapeCountsV2 {
     boolean: 0,
     other: 0,
   };
+}
+
+function emptyOpaqueScalarCarrierDiagnostics() {
+  return {
+    missing: 0,
+    null: 0,
+    validOpaqueScalar: 0,
+    invalidShape: 0,
+    distinctValidOpaqueValues: 0,
+  };
+}
+
+function emptyPromotionIdentifierCarrierDiagnostics(): ImpactPromotionIdentifierCarrierDiagnosticsV2 {
+  return {
+    promotionFileId: emptyOpaqueScalarCarrierDiagnostics(),
+    uri: {
+      missing: 0,
+      null: 0,
+      nonemptyString: 0,
+      invalidShape: 0,
+      distinctNonemptyValues: 0,
+      promotionRetrievePathShape: 0,
+      distinctPromotionRetrieveTerminalSegments: 0,
+    },
+    promotionIdSingular: emptyOpaqueScalarCarrierDiagnostics(),
+    id: emptyOpaqueScalarCarrierDiagnostics(),
+  };
+}
+
+function emptyPromotionIdentifierCarrierDistinctValues(): MutablePromotionIdentifierCarrierDistinctValuesV2 {
+  return {
+    promotionFileId: new Set<string>(),
+    uri: new Set<string>(),
+    promotionIdSingular: new Set<string>(),
+    id: new Set<string>(),
+    promotionRetrieveTerminalSegments: new Set<string>(),
+  };
+}
+
+function observeOpaqueScalarCarrier(
+  record: ImpactEnvelope,
+  property: "PromotionFileId" | "PromotionId" | "Id",
+  diagnostics: ReturnType<typeof emptyOpaqueScalarCarrierDiagnostics>,
+  distinctValues: Set<string>,
+): void {
+  if (!Object.prototype.hasOwnProperty.call(record, property)) {
+    diagnostics.missing += 1;
+    return;
+  }
+  const value = record[property];
+  if (value === null) {
+    diagnostics.null += 1;
+    return;
+  }
+  const opaque = toOpaqueProviderId(value);
+  if (opaque === null) {
+    diagnostics.invalidShape += 1;
+    return;
+  }
+  diagnostics.validOpaqueScalar += 1;
+  distinctValues.add(opaque);
+  diagnostics.distinctValidOpaqueValues = distinctValues.size;
+}
+
+function promotionRetrieveTerminalSegment(value: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(value.trim(), "https://impact-diagnostic.invalid/");
+  } catch {
+    return null;
+  }
+  const segments = parsed.pathname.split("/");
+  if (segments.length < 4) return null;
+  const terminal = segments.at(-1) ?? "";
+  const promotions = segments.at(-2) ?? "";
+  const account = segments.at(-3) ?? "";
+  const mediaPartners = segments.at(-4) ?? "";
+  if (
+    mediaPartners !== "Mediapartners" ||
+    !account ||
+    promotions !== "Promotions" ||
+    !terminal
+  ) return null;
+  return terminal;
+}
+
+function observeUriCarrier(
+  record: ImpactEnvelope,
+  diagnostics: ImpactPromotionIdentifierCarrierDiagnosticsV2["uri"],
+  distinctValues: MutablePromotionIdentifierCarrierDistinctValuesV2,
+): void {
+  if (!Object.prototype.hasOwnProperty.call(record, "Uri")) {
+    diagnostics.missing += 1;
+    return;
+  }
+  const value = record.Uri;
+  if (value === null) {
+    diagnostics.null += 1;
+    return;
+  }
+  if (typeof value !== "string" || !value.trim()) {
+    diagnostics.invalidShape += 1;
+    return;
+  }
+  diagnostics.nonemptyString += 1;
+  distinctValues.uri.add(value);
+  diagnostics.distinctNonemptyValues = distinctValues.uri.size;
+  const terminal = promotionRetrieveTerminalSegment(value);
+  if (terminal === null) return;
+  diagnostics.promotionRetrievePathShape += 1;
+  distinctValues.promotionRetrieveTerminalSegments.add(terminal);
+  diagnostics.distinctPromotionRetrieveTerminalSegments =
+    distinctValues.promotionRetrieveTerminalSegments.size;
+}
+
+function observePromotionIdentifierCarriers(
+  record: ImpactEnvelope,
+  diagnostics: ImpactPromotionIdentifierCarrierDiagnosticsV2,
+  distinctValues: MutablePromotionIdentifierCarrierDistinctValuesV2,
+): void {
+  observeOpaqueScalarCarrier(
+    record,
+    "PromotionFileId",
+    diagnostics.promotionFileId,
+    distinctValues.promotionFileId,
+  );
+  observeUriCarrier(record, diagnostics.uri, distinctValues);
+  observeOpaqueScalarCarrier(
+    record,
+    "PromotionId",
+    diagnostics.promotionIdSingular,
+    distinctValues.promotionIdSingular,
+  );
+  observeOpaqueScalarCarrier(record, "Id", diagnostics.id, distinctValues.id);
 }
 
 function promotionIdShape(record: ImpactEnvelope): keyof ImpactPromotionIdShapeCountsV2 {
@@ -275,6 +430,8 @@ export class ImpactPageParser {
     }
     const pagination = paginationOf(parsed.envelope);
     const promotionIdShapeCounts = emptyPromotionIdShapeCounts();
+    const promotionIdentifierCarrierDiagnostics = emptyPromotionIdentifierCarrierDiagnostics();
+    const promotionIdentifierCarrierDistinctValues = emptyPromotionIdentifierCarrierDistinctValues();
     const records = parseRecords({
       stream: "promotions",
       records: parsed.records,
@@ -288,6 +445,11 @@ export class ImpactPageParser {
       missingIdentityReason: "missing_promotion_id",
       observeRecord: (record) => {
         promotionIdShapeCounts[promotionIdShape(record)] += 1;
+        observePromotionIdentifierCarriers(
+          record,
+          promotionIdentifierCarrierDiagnostics,
+          promotionIdentifierCarrierDistinctValues,
+        );
       },
     });
     return {
@@ -296,6 +458,8 @@ export class ImpactPageParser {
       ...records,
       rawRecordCount: parsed.records.length,
       promotionIdShapeCounts,
+      promotionIdentifierCarrierDiagnostics,
+      promotionIdentifierCarrierDistinctValues,
       pagination,
       nextContinuationUri: continuation.nextContinuationUri,
     };
@@ -335,6 +499,8 @@ export class ImpactPageParser {
       ...records,
       rawRecordCount: parsed.records.length,
       promotionIdShapeCounts: null,
+      promotionIdentifierCarrierDiagnostics: null,
+      promotionIdentifierCarrierDistinctValues: null,
       pagination,
       nextContinuationUri: continuation.nextContinuationUri,
     };

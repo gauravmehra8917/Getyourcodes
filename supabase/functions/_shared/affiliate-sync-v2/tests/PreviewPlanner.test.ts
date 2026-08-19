@@ -47,6 +47,29 @@ function streamDiagnostics(
     boolean: 0,
     other: 0,
   };
+  const structurallyValidRecords = acceptedRecords + quarantinedRecords.length -
+    quarantineReasonCounts.malformed_record;
+  const missingOpaqueCarrier = {
+    missing: structurallyValidRecords,
+    null: 0,
+    validOpaqueScalar: 0,
+    invalidShape: 0,
+    distinctValidOpaqueValues: 0,
+  };
+  const promotionIdentifierCarrierDiagnostics = {
+    promotionFileId: { ...missingOpaqueCarrier },
+    uri: {
+      missing: structurallyValidRecords,
+      null: 0,
+      nonemptyString: 0,
+      invalidShape: 0,
+      distinctNonemptyValues: 0,
+      promotionRetrievePathShape: 0,
+      distinctPromotionRetrieveTerminalSegments: 0,
+    },
+    promotionIdSingular: { ...missingOpaqueCarrier },
+    id: { ...missingOpaqueCarrier },
+  };
   return {
     stream,
     pagesFetched: acceptedRecords + quarantinedRecords.length > 0 ? 1 : 0,
@@ -54,7 +77,9 @@ function streamDiagnostics(
     acceptedRecordCount: acceptedRecords,
     quarantinedRecordCount: quarantinedRecords.length,
     quarantineReasonCounts,
-    ...(stream === "promotions" ? { promotionIdShapeCounts } : {}),
+    ...(stream === "promotions"
+      ? { promotionIdShapeCounts, promotionIdentifierCarrierDiagnostics }
+      : {}),
     stopReason: "completed",
     parseFailureReason: null,
     pageErrors: [],
@@ -490,5 +515,42 @@ test("PromotionIds shape aggregates must be Promotions-only, non-negative, and r
   assert.throws(
     () => PreviewPlanner.plan(campaignShape),
     /forbids PromotionIds shape diagnostics for Campaigns/,
+  );
+});
+
+test("identifier-carrier aggregates must be Promotions-only, bounded, and reconciled", () => {
+  const negative = plannerInput({ promotions: [], campaigns: [] });
+  negative.fetchDiagnostics.promotions
+    .promotionIdentifierCarrierDiagnostics!.promotionFileId.invalidShape = -1;
+  assert.throws(
+    () => PreviewPlanner.plan(negative),
+    /identifier-carrier counts must be non-negative integers/,
+  );
+
+  const unreconciled = plannerInput({ promotions: [], campaigns: [] });
+  unreconciled.fetchDiagnostics.promotions
+    .promotionIdentifierCarrierDiagnostics!.uri.missing = 1;
+  assert.throws(
+    () => PreviewPlanner.plan(unreconciled),
+    /identifier-carrier shape counts do not reconcile/,
+  );
+
+  const excessiveDistinct = plannerInput({ promotions: [], campaigns: [] });
+  excessiveDistinct.fetchDiagnostics.promotions
+    .promotionIdentifierCarrierDiagnostics!.id.distinctValidOpaqueValues = 1;
+  assert.throws(
+    () => PreviewPlanner.plan(excessiveDistinct),
+    /identifier-carrier distinct counts exceed valid counts/,
+  );
+
+  const campaignCarrier = plannerInput({ promotions: [], campaigns: [] });
+  campaignCarrier.fetchDiagnostics.campaigns
+    .promotionIdentifierCarrierDiagnostics = structuredClone(
+      campaignCarrier.fetchDiagnostics.promotions
+        .promotionIdentifierCarrierDiagnostics!,
+    );
+  assert.throws(
+    () => PreviewPlanner.plan(campaignCarrier),
+    /forbids identifier-carrier diagnostics for Campaigns/,
   );
 });
