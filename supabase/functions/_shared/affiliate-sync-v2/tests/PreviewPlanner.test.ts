@@ -29,14 +29,20 @@ const EVALUATION_TIMESTAMP = "2026-06-01T00:00:00Z";
 function streamDiagnostics(
   stream: "promotions" | "campaigns",
   acceptedRecords: number,
-  quarantinedRecords = 0,
+  quarantinedRecords: readonly QuarantinedImpactRecordV2[] = [],
 ): ImpactStreamFetchDiagnosticsV2 {
+  const quarantineReasonCounts = {
+    malformed_record: quarantinedRecords.filter((entry) => entry.reason === "malformed_record").length,
+    missing_promotion_id: quarantinedRecords.filter((entry) => entry.reason === "missing_promotion_id").length,
+    missing_campaign_id: quarantinedRecords.filter((entry) => entry.reason === "missing_campaign_id").length,
+  };
   return {
     stream,
-    pagesFetched: acceptedRecords + quarantinedRecords > 0 ? 1 : 0,
-    rawRecordCount: acceptedRecords + quarantinedRecords,
+    pagesFetched: acceptedRecords + quarantinedRecords.length > 0 ? 1 : 0,
+    rawRecordCount: acceptedRecords + quarantinedRecords.length,
     acceptedRecordCount: acceptedRecords,
-    quarantinedRecordCount: quarantinedRecords,
+    quarantinedRecordCount: quarantinedRecords.length,
+    quarantineReasonCounts,
     stopReason: "completed",
     parseFailureReason: null,
     pageErrors: [],
@@ -54,8 +60,8 @@ function plannerInput(input: {
   storeQualificationConfig?: AffiliateSyncPreviewInputV2["storeQualificationConfig"];
 }): AffiliateSyncPreviewInputV2 {
   const quarantined = input.quarantinedRecords ?? [];
-  const promotionQuarantine = quarantined.filter((entry) => entry.stream === "promotions").length;
-  const campaignQuarantine = quarantined.filter((entry) => entry.stream === "campaigns").length;
+  const promotionQuarantine = quarantined.filter((entry) => entry.stream === "promotions");
+  const campaignQuarantine = quarantined.filter((entry) => entry.stream === "campaigns");
   return {
     acceptedPromotions: input.promotions,
     acceptedCampaigns: input.campaigns,
@@ -397,12 +403,47 @@ test("quarantine and diagnostic detail bounds preserve exact aggregate counts", 
   }));
 
   assert.equal(preview.parserDiagnostics.quarantinedRecords, 2);
-  assert.equal(preview.parserDiagnostics.quarantineDetailsReturned, 1);
+  assert.deepEqual(preview.parserDiagnostics.quarantineDetails, []);
+  assert.equal(preview.parserDiagnostics.quarantineDetailsReturned, 0);
   assert.equal(preview.parserDiagnostics.quarantineDetailsTruncated, true);
-  assert.equal(preview.rawFetchDiagnostics.quarantinedDetailsReturned, 1);
+  assert.deepEqual(preview.rawFetchDiagnostics.quarantinedRecords, []);
+  assert.equal(preview.rawFetchDiagnostics.quarantinedDetailsReturned, 0);
   assert.equal(preview.rawFetchDiagnostics.quarantinedDetailsTruncated, true);
+  assert.deepEqual(preview.rawFetchDiagnostics.promotions.quarantineReasonCounts, {
+    malformed_record: 1,
+    missing_promotion_id: 0,
+    missing_campaign_id: 0,
+  });
+  assert.deepEqual(preview.rawFetchDiagnostics.campaigns.quarantineReasonCounts, {
+    malformed_record: 0,
+    missing_promotion_id: 0,
+    missing_campaign_id: 1,
+  });
   assert.equal(preview.proposedActions.counts.offers.quarantined, 2);
   assert.equal(preview.advertiserDistributionTotal, 2);
   assert.equal(preview.advertiserDistributionDetailsReturned, 1);
   assert.equal(preview.advertiserDistributionDetailsTruncated, true);
+});
+
+test("quarantine reason aggregates must be non-negative integers and reconcile", () => {
+  const negative = plannerInput({ promotions: [], campaigns: [] });
+  negative.fetchDiagnostics.promotions.quarantineReasonCounts.malformed_record = -1;
+  assert.throws(
+    () => PreviewPlanner.plan(negative),
+    /quarantine reason counts must be non-negative integers/,
+  );
+
+  const fractional = plannerInput({ promotions: [], campaigns: [] });
+  fractional.fetchDiagnostics.campaigns.quarantineReasonCounts.missing_campaign_id = 0.5;
+  assert.throws(
+    () => PreviewPlanner.plan(fractional),
+    /quarantine reason counts must be non-negative integers/,
+  );
+
+  const unreconciled = plannerInput({ promotions: [], campaigns: [] });
+  unreconciled.fetchDiagnostics.promotions.quarantineReasonCounts.missing_promotion_id = 1;
+  assert.throws(
+    () => PreviewPlanner.plan(unreconciled),
+    /quarantine reason counts do not reconcile/,
+  );
 });

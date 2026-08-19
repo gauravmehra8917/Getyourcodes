@@ -40,6 +40,13 @@ export type QuarantineReason =
   | "missing_promotion_id"
   | "missing_campaign_id";
 
+/** Fixed, aggregate-only quarantine accounting for one provider stream. */
+export interface ImpactQuarantineReasonCountsV2 {
+  malformed_record: number;
+  missing_promotion_id: number;
+  missing_campaign_id: number;
+}
+
 export interface QuarantinedImpactRecordV2 {
   stream: ImpactStream;
   reason: QuarantineReason;
@@ -106,6 +113,7 @@ export interface ImpactStreamFetchDiagnosticsV2 {
   rawRecordCount: number;
   acceptedRecordCount: number;
   quarantinedRecordCount: number;
+  quarantineReasonCounts: ImpactQuarantineReasonCountsV2;
   stopReason: StreamStopReason | null;
   parseFailureReason: ImpactParseFailureReasonV2 | null;
   pageErrors: ImpactPageErrorV2[];
@@ -127,7 +135,7 @@ export interface RawFetchDiagnosticsV2 {
   quarantinedDetailsTruncated: boolean;
 }
 
-/** Exact parser accounting with independently bounded sanitized details. */
+/** Exact parser accounting; legacy detail fields remain present but are empty in public previews. */
 export interface ImpactParserDiagnosticsV2 {
   quarantinedRecords: number;
   quarantinedPromotions: number;

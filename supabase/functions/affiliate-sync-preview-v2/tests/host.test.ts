@@ -31,6 +31,11 @@ const INTEGRATION_ID = "11111111-1111-4111-8111-111111111111";
 const ACCOUNT_SID = "account-sensitive";
 const AUTH_TOKEN = "token-sensitive";
 const CIPHERTEXT = "ciphertext-sensitive";
+const QUARANTINED_PROMOTION_ID = "quarantined-promotion-id-sensitive";
+const QUARANTINED_CAMPAIGN_ID = "quarantined-campaign-id-sensitive";
+const QUARANTINED_ADVERTISER_ID = "quarantined-advertiser-id-sensitive";
+const QUARANTINED_TITLE = "quarantined-title-sensitive";
+const QUARANTINED_URL = "https://provider.example/quarantined-url-sensitive";
 
 const healthyIntegration: StoredIntegrationV2 = {
   id: INTEGRATION_ID,
@@ -110,7 +115,8 @@ class PageTransport implements ImpactTransport {
     | "transport_error"
     | "malformed_promotions"
     | "malformed_campaigns"
-    | "malformed_both";
+    | "malformed_both"
+    | "quarantined_records";
 
   constructor(
     mode:
@@ -118,7 +124,8 @@ class PageTransport implements ImpactTransport {
       | "transport_error"
       | "malformed_promotions"
       | "malformed_campaigns"
-      | "malformed_both" = "healthy",
+      | "malformed_both"
+      | "quarantined_records" = "healthy",
   ) {
     this.mode = mode;
   }
@@ -138,7 +145,33 @@ class PageTransport implements ImpactTransport {
       kind: "response",
       status: 200,
       bodyText: JSON.stringify(
-        malformed
+        this.mode === "quarantined_records"
+          ? promotions
+          ? {
+            Promotions: [
+              null,
+              {
+                PromotionIds: "",
+                CampaignId: QUARANTINED_CAMPAIGN_ID,
+                AdvertiserId: QUARANTINED_ADVERTISER_ID,
+                PromotionTitle: QUARANTINED_TITLE,
+                TrackingLink: QUARANTINED_URL,
+              },
+              {
+                PromotionIds: [QUARANTINED_PROMOTION_ID],
+                CampaignId: QUARANTINED_CAMPAIGN_ID,
+              },
+            ],
+          }
+          : {
+            Campaigns: [{
+              CampaignId: "",
+              AdvertiserId: QUARANTINED_ADVERTISER_ID,
+              CampaignName: QUARANTINED_TITLE,
+              CampaignUrl: QUARANTINED_URL,
+            }],
+          }
+          : malformed
           ? promotions
           ? {
             UnexpectedCollection: [{
@@ -820,6 +853,51 @@ test("healthy multi-brand host preview preserves independent campaign stores and
   for (const secret of [ACCOUNT_SID, AUTH_TOKEN, CIPHERTEXT, "verified-jwt"]) {
     assert.equal(serialized.includes(secret), false);
   }
+});
+
+test("successful preview exposes aggregate quarantine reasons without individual record data", async () => {
+  const fixture = dependencies({ transport: new PageTransport("quarantined_records") });
+  const response = await createAffiliateSyncPreviewV2Handler(fixture.deps)(previewRequest());
+  assert.equal(response.status, 200);
+  const body = await responseBody(response);
+  const preview = body.preview as Record<string, unknown>;
+  const rawFetch = preview.rawFetchDiagnostics as Record<string, unknown>;
+  const promotions = rawFetch.promotions as Record<string, unknown>;
+  const campaigns = rawFetch.campaigns as Record<string, unknown>;
+  assert.deepEqual(promotions.quarantineReasonCounts, {
+    malformed_record: 1,
+    missing_promotion_id: 2,
+    missing_campaign_id: 0,
+  });
+  assert.deepEqual(campaigns.quarantineReasonCounts, {
+    malformed_record: 0,
+    missing_promotion_id: 0,
+    missing_campaign_id: 1,
+  });
+  for (const stream of [promotions, campaigns]) {
+    const counts = stream.quarantineReasonCounts as Record<string, number>;
+    assert.equal(
+      Object.values(counts).reduce((total, count) => total + count, 0),
+      stream.quarantinedRecordCount,
+    );
+  }
+  assert.deepEqual(rawFetch.quarantinedRecords, []);
+  assert.equal(rawFetch.quarantinedDetailsReturned, 0);
+  assert.equal(rawFetch.quarantinedDetailsTruncated, true);
+  const parser = preview.parserDiagnostics as Record<string, unknown>;
+  assert.deepEqual(parser.quarantineDetails, []);
+  assert.equal(parser.quarantineDetailsReturned, 0);
+  assert.equal(parser.quarantineDetailsTruncated, true);
+
+  const serialized = JSON.stringify(body);
+  assert.equal(serialized.includes("recordIndex"), false);
+  for (const privateValue of [
+    QUARANTINED_PROMOTION_ID,
+    QUARANTINED_CAMPAIGN_ID,
+    QUARANTINED_ADVERTISER_ID,
+    QUARANTINED_TITLE,
+    QUARANTINED_URL,
+  ]) assert.equal(serialized.includes(privateValue), false);
 });
 
 test("snapshot loader preserves exact keys, PromotionIds, and ambiguity without fuzzy fallback", async () => {

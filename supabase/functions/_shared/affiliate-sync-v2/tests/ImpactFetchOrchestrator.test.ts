@@ -73,6 +73,16 @@ test("fetch composition preserves both streams, exact continuation evidence, and
   assert.equal(result.fetchDiagnostics.promotions.acceptedRecordCount, 2);
   assert.equal(result.fetchDiagnostics.promotions.quarantinedRecordCount, 1);
   assert.equal(result.fetchDiagnostics.campaigns.quarantinedRecordCount, 1);
+  assert.deepEqual(result.fetchDiagnostics.promotions.quarantineReasonCounts, {
+    malformed_record: 1,
+    missing_promotion_id: 0,
+    missing_campaign_id: 0,
+  });
+  assert.deepEqual(result.fetchDiagnostics.campaigns.quarantineReasonCounts, {
+    malformed_record: 1,
+    missing_promotion_id: 0,
+    missing_campaign_id: 0,
+  });
   assert.deepEqual(result.quarantinedRecords.map((entry) => [entry.stream, entry.reason]), [
     ["promotions", "malformed_record"],
     ["campaigns", "malformed_record"],

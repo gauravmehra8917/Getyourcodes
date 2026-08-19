@@ -301,6 +301,11 @@ test("final preview actions and store coverage reconcile without identity collap
     rawRecordCount: count,
     acceptedRecordCount: count,
     quarantinedRecordCount: 0,
+    quarantineReasonCounts: {
+      malformed_record: 0,
+      missing_promotion_id: 0,
+      missing_campaign_id: 0,
+    },
     stopReason: "completed" as const,
     parseFailureReason: null,
     pageErrors: [],

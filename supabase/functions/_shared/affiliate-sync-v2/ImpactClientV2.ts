@@ -6,6 +6,7 @@ import type {
   ImpactPageErrorV2,
   ImpactPageFetchDiagnosticV2,
   ImpactPageProvenanceV2,
+  ImpactQuarantineReasonCountsV2,
   ImpactRetryDiagnosticV2,
   ImpactStream,
   ImpactStreamFetchDiagnosticsV2,
@@ -68,6 +69,21 @@ function isSuccessfulStatus(status: number): boolean {
   return status >= 200 && status < 300;
 }
 
+function emptyQuarantineReasonCounts(): ImpactQuarantineReasonCountsV2 {
+  return {
+    malformed_record: 0,
+    missing_promotion_id: 0,
+    missing_campaign_id: 0,
+  };
+}
+
+function addQuarantineReasonCounts(
+  counts: ImpactQuarantineReasonCountsV2,
+  records: readonly QuarantinedImpactRecordV2[],
+): void {
+  for (const record of records) counts[record.reason] += 1;
+}
+
 function emptyDiagnostics(stream: ImpactStream): ImpactStreamFetchDiagnosticsV2 {
   return {
     stream,
@@ -75,6 +91,7 @@ function emptyDiagnostics(stream: ImpactStream): ImpactStreamFetchDiagnosticsV2 
     rawRecordCount: 0,
     acceptedRecordCount: 0,
     quarantinedRecordCount: 0,
+    quarantineReasonCounts: emptyQuarantineReasonCounts(),
     stopReason: null,
     parseFailureReason: null,
     pageErrors: [],
@@ -348,6 +365,7 @@ export class ImpactClientV2 {
       diagnostics.rawRecordCount += parsed.rawRecordCount;
       quarantinedRecords.push(...parsed.quarantinedRecords);
       diagnostics.quarantinedRecordCount += parsed.quarantinedRecords.length;
+      addQuarantineReasonCounts(diagnostics.quarantineReasonCounts, parsed.quarantinedRecords);
       const exceedsRecordLimit = records.length + parsed.records.length > this.options.limits.maxRecords;
       diagnostics.pages.push(pageDiagnostic(
         provenance,

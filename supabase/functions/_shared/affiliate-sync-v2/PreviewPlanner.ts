@@ -78,28 +78,18 @@ function keyIdentity(key: ProviderStoreKey): string {
   return JSON.stringify([key.provider, key.namespace, key.id]);
 }
 
-function compareQuarantine(left: QuarantinedImpactRecordV2, right: QuarantinedImpactRecordV2): number {
-  return (
-    compareOpaque(left.stream, right.stream) ||
-    left.provenance.fetchSequence - right.provenance.fetchSequence ||
-    left.provenance.recordIndex - right.provenance.recordIndex ||
-    compareOpaque(left.reason, right.reason)
-  );
-}
-
 function parserDiagnostics(
   records: readonly QuarantinedImpactRecordV2[],
-  limit: number,
 ): ImpactParserDiagnosticsV2 {
-  const ordered = [...records].sort(compareQuarantine);
-  const details = ordered.slice(0, limit);
+  const quarantinedPromotions = records.filter((entry) => entry.stream === "promotions").length;
+  const quarantinedCampaigns = records.filter((entry) => entry.stream === "campaigns").length;
   return {
-    quarantinedRecords: ordered.length,
-    quarantinedPromotions: ordered.filter((entry) => entry.stream === "promotions").length,
-    quarantinedCampaigns: ordered.filter((entry) => entry.stream === "campaigns").length,
-    quarantineDetails: details,
-    quarantineDetailsReturned: details.length,
-    quarantineDetailsTruncated: details.length < ordered.length,
+    quarantinedRecords: records.length,
+    quarantinedPromotions,
+    quarantinedCampaigns,
+    quarantineDetails: [],
+    quarantineDetailsReturned: 0,
+    quarantineDetailsTruncated: records.length > 0,
   };
 }
 
@@ -438,6 +428,15 @@ function validateFetchInput(input: AffiliateSyncPreviewInputV2): void {
   if (input.fetchDiagnostics.campaigns.acceptedRecordCount !== input.acceptedCampaigns.length) {
     throw new Error("PreviewPlanner Campaigns count does not match fetch diagnostics");
   }
+  for (const diagnostics of [input.fetchDiagnostics.promotions, input.fetchDiagnostics.campaigns]) {
+    const counts = Object.values(diagnostics.quarantineReasonCounts);
+    if (counts.some((count) => !Number.isInteger(count) || count < 0)) {
+      throw new Error("PreviewPlanner quarantine reason counts must be non-negative integers");
+    }
+    if (counts.reduce((total, count) => total + count, 0) !== diagnostics.quarantinedRecordCount) {
+      throw new Error("PreviewPlanner quarantine reason counts do not reconcile");
+    }
+  }
   const expectedQuarantined =
     input.fetchDiagnostics.promotions.quarantinedRecordCount +
     input.fetchDiagnostics.campaigns.quarantinedRecordCount;
@@ -473,7 +472,7 @@ export class PreviewPlanner {
     });
     const policy = PublishingPolicy.apply(eligibility, input.publishingPolicyConfig);
     const qualification = StoreQualification.evaluate(policy, input.storeQualificationConfig);
-    const parser = parserDiagnostics(input.quarantinedRecords, limit);
+    const parser = parserDiagnostics(input.quarantinedRecords);
     const deduplication = deduplicationDiagnostics(deduplicated);
     const distribution = advertiserDistribution(deduplicated.uniquePromotions, limit);
     const offers: MatchedOfferV2[] = [...matched.normalizedCoupons, ...matched.normalizedDeals];

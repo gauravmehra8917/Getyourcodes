@@ -241,6 +241,54 @@ test("keeps sanitized page provenance for accepted and quarantined records", asy
   assert.equal(result.records[1]?.provenance.sanitizedSourceContinuationUrl?.includes("%5BREDACTED%5D"), true);
 });
 
+test("aggregates closed quarantine reasons across Promotion pages without leaking record data", async () => {
+  const next = "/Mediapartners/2303074/Promotions?Page=2&cursor=quarantine-cursor-secret";
+  const { instance } = client([
+    response(promotions([
+      null,
+      {
+        PromotionIds: "",
+        PromotionTitle: "quarantined-title-secret",
+        TrackingLink: "https://provider.example/quarantined-url-secret",
+      },
+      { PromotionIds: "accepted-one" },
+    ], next)),
+    response({
+      "@page": "2",
+      "@numpages": "2",
+      "@nextpageuri": null,
+      Promotions: [
+        42,
+        { PromotionIds: ["quarantined-id-secret"] },
+        { PromotionIds: "accepted-two" },
+      ],
+    }),
+  ]);
+
+  const result = await instance.fetchPromotions(initial);
+  assert.equal(result.diagnostics.pagesFetched, 2);
+  assert.equal(result.diagnostics.rawRecordCount, 6);
+  assert.equal(result.diagnostics.acceptedRecordCount, 2);
+  assert.equal(result.diagnostics.quarantinedRecordCount, 4);
+  assert.deepEqual(result.diagnostics.quarantineReasonCounts, {
+    malformed_record: 2,
+    missing_promotion_id: 2,
+    missing_campaign_id: 0,
+  });
+  assert.equal(
+    Object.values(result.diagnostics.quarantineReasonCounts).reduce((total, count) => total + count, 0),
+    result.diagnostics.quarantinedRecordCount,
+  );
+  assert.deepEqual(result.records.map((record) => record.promotionId), ["accepted-one", "accepted-two"]);
+  const publicDiagnostics = JSON.stringify(result.diagnostics);
+  for (const privateValue of [
+    "quarantined-title-secret",
+    "quarantined-url-secret",
+    "quarantined-id-secret",
+    "quarantine-cursor-secret",
+  ]) assert.equal(publicDiagnostics.includes(privateValue), false);
+});
+
 test("completes when a later page has a metadata-proven null terminal continuation", async () => {
   const next = "/Mediapartners/2303074/Promotions?Page=2&cursor=opaque-provider-value";
   const { instance, transport } = client([
