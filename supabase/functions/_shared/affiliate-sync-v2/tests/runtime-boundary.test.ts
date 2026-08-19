@@ -47,3 +47,24 @@ test("pure preview planning has no provider-request boundary", () => {
     assert.equal(source.includes(term), false, `PreviewPlanner.ts contains ${term}`);
   }
 });
+
+test("A9B persistence planning has no host, V1, clock, random, or hashing boundary", () => {
+  const source = readFileSync(join(CORE, "PersistencePlannerV2.ts"), "utf8");
+  for (const term of [
+    "EntityMatcher",
+    "DuplicateResolver",
+    "ImportPlanner",
+    "StoreLifecyclePlanner",
+    "affiliate-sync-core",
+    "Date.now",
+    "Math.random",
+    "randomUUID",
+    "subtle.digest",
+    "createHash",
+    ".server",
+  ]) {
+    assert.equal(source.includes(term), false, `PersistencePlannerV2.ts contains ${term}`);
+  }
+  assert.deepEqual(importsOf(source).every((specifier) =>
+    specifier.startsWith(".") && specifier.endsWith(".ts")), true);
+});
