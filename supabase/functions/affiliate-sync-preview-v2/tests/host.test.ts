@@ -72,6 +72,7 @@ const promotionsPage = {
   "@pagesize": "100",
   Promotions: [
     {
+      PromotionId: "promotion-acme-coupon",
       PromotionIds: "promotion-acme-coupon",
       AdvertiserId: "advertiser-acme",
       AdvertiserName: "Acme",
@@ -83,6 +84,7 @@ const promotionsPage = {
       Uri: `/Mediapartners/${ACCOUNT_SID}/Promotions/promotion-acme-coupon`,
     },
     {
+      PromotionId: "promotion-bravo-deal",
       PromotionIds: "promotion-bravo-deal",
       AdvertiserId: "advertiser-bravo",
       AdvertiserName: "Bravo",
@@ -164,7 +166,7 @@ class PageTransport implements ImpactTransport {
                 PromotionFileId: CARRIER_FILE_ID,
                 Uri:
                   `/Mediapartners/${ACCOUNT_SID}/Promotions/${CARRIER_TERMINAL}?private=query`,
-                PromotionId: CARRIER_SINGULAR_ID_ONE,
+                PromotionId: { private: CARRIER_SINGULAR_ID_ONE },
                 Id: { private: CARRIER_OBJECT_VALUE },
               },
               {
@@ -173,7 +175,7 @@ class PageTransport implements ImpactTransport {
                 PromotionFileId: CARRIER_FILE_ID,
                 Uri:
                   `https://api.impact.com/Mediapartners/other-account/Promotions/${CARRIER_TERMINAL}#private`,
-                PromotionId: CARRIER_SINGULAR_ID_TWO,
+                PromotionId: [CARRIER_SINGULAR_ID_TWO],
                 Id: 42,
               },
             ],
@@ -915,9 +917,9 @@ test("successful preview exposes aggregate quarantine reasons without individual
     promotionIdSingular: {
       missing: 0,
       null: 0,
-      validOpaqueScalar: 2,
-      invalidShape: 0,
-      distinctValidOpaqueValues: 2,
+      validOpaqueScalar: 0,
+      invalidShape: 2,
+      distinctValidOpaqueValues: 0,
     },
     id: {
       missing: 0,
@@ -929,16 +931,16 @@ test("successful preview exposes aggregate quarantine reasons without individual
   });
   assert.deepEqual(promotions.promotionIdentityEquivalenceDiagnostics, {
     structurallyValidPromotionRecords: 2,
-    promotionIdAndRetrieveUriPresent: 2,
+    promotionIdAndRetrieveUriPresent: 0,
     exactPromotionIdEqualsUriTerminal: 0,
-    promotionIdDiffersFromUriTerminal: 2,
+    promotionIdDiffersFromUriTerminal: 0,
     promotionIdPresentWithoutRetrieveUri: 0,
-    retrieveUriPresentWithoutPromotionId: 0,
+    retrieveUriPresentWithoutPromotionId: 2,
     neitherPresent: 0,
-    distinctPromotionIds: 2,
+    distinctPromotionIds: 0,
     distinctRetrieveUriTerminalSegments: 1,
     promotionIdsMappingToMultipleUriTerminals: 0,
-    uriTerminalsMappingToMultiplePromotionIds: 1,
+    uriTerminalsMappingToMultiplePromotionIds: 0,
     duplicatePromotionIdRecords: 0,
   });
   assert.deepEqual(campaigns.quarantineReasonCounts, {

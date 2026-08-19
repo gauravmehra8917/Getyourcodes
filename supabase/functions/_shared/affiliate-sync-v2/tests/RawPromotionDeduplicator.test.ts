@@ -26,7 +26,7 @@ function promotion(input: {
     trackingUrl: null,
     startDate: null,
     endDate: null,
-    raw: input.raw ?? { PromotionIds: input.promotionId },
+    raw: input.raw ?? { PromotionId: input.promotionId },
     provenance: {
       stream: "promotions",
       fetchSequence: input.fetchSequence,
@@ -39,7 +39,7 @@ function promotion(input: {
   };
 }
 
-test("keeps unique promotions unchanged and removes duplicate PromotionIds", () => {
+test("keeps unique promotions unchanged and removes duplicate canonical PromotionIds", () => {
   const unique = [
     promotion({ promotionId: "A", fetchSequence: 1, recordIndex: 0 }),
     promotion({ promotionId: "B", fetchSequence: 1, recordIndex: 1 }),
@@ -136,6 +136,43 @@ test("reports identity conflicts without merging or repairing the retained recor
   assert.deepEqual(result.uniquePromotions[0], retained);
 });
 
+test("does not collapse different PromotionIds that share non-identity fields", () => {
+  const sharedRaw = {
+    PromotionFileId: "shared-file",
+    PromotionTitle: "Same title",
+    GenericRedemptionCode: "SAMECODE",
+    TrackingLink: "https://track.example/same",
+  };
+  const first = {
+    ...promotion({
+      promotionId: "promotion-one",
+      fetchSequence: 1,
+      recordIndex: 0,
+      raw: { ...sharedRaw, PromotionId: "promotion-one" },
+    }),
+    promotionTitle: "Same title",
+    genericRedemptionCode: "SAMECODE",
+    trackingUrl: "https://track.example/same",
+  };
+  const second = {
+    ...promotion({
+      promotionId: "promotion-two",
+      fetchSequence: 1,
+      recordIndex: 1,
+      raw: { ...sharedRaw, PromotionId: "promotion-two" },
+    }),
+    promotionTitle: "Same title",
+    genericRedemptionCode: "SAMECODE",
+    trackingUrl: "https://track.example/same",
+  };
+  const result = RawPromotionDeduplicator.deduplicate([first, second]);
+  assert.deepEqual(
+    result.uniquePromotions.map((entry) => entry.promotionId),
+    ["promotion-one", "promotion-two"],
+  );
+  assert.equal(result.stats.duplicateRecordsRemoved, 0);
+});
+
 test("bounds returned duplicate details without weakening complete deduplication or exact stats", () => {
   const input = [
     promotion({ promotionId: "A", fetchSequence: 1, recordIndex: 0 }),
@@ -161,11 +198,11 @@ test("bounds returned duplicate details without weakening complete deduplication
 test("does not mutate raw provider fields or leak raw secret-bearing fields into diagnostics", () => {
   const first = promotion({
     promotionId: "safe", fetchSequence: 1, recordIndex: 0,
-    raw: { PromotionIds: "safe", Authorization: "Basic secret", token: "opaque" },
+    raw: { PromotionId: "safe", Authorization: "Basic secret", token: "opaque" },
   });
   const duplicate = promotion({
     promotionId: "safe", fetchSequence: 2, recordIndex: 0,
-    raw: { PromotionIds: "safe", Authorization: "Basic other-secret", token: "other-opaque" },
+    raw: { PromotionId: "safe", Authorization: "Basic other-secret", token: "other-opaque" },
   });
   const input = [first, duplicate];
   const before = structuredClone(input);

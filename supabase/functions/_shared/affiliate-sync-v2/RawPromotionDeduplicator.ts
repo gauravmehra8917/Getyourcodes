@@ -68,7 +68,7 @@ function detailLimit(value: number | undefined): number {
 
 function assertAcceptedPromotion(promotion: RawImpactPromotionV2): asserts promotion is RawImpactPromotionV2 & { promotionId: string } {
   if (!promotion.promotionId) {
-    throw new Error("RawPromotionDeduplicator accepts only parsed promotions with PromotionIds");
+    throw new Error("RawPromotionDeduplicator accepts only parsed promotions with a canonical PromotionId");
   }
 }
 
@@ -92,7 +92,7 @@ function diagnosticOf(promotionId: string, entry: RetainedEntry): DuplicatePromo
 
 /**
  * Deduplicates parser-accepted Impact promotions by exact immutable
- * `PromotionIds`. A copied provenance-sorted view establishes the retention
+ * canonical `PromotionId`. A copied provenance-sorted view establishes the retention
  * order; input records and their raw payloads are never changed.
  */
 export class RawPromotionDeduplicator {

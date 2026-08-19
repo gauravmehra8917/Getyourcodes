@@ -76,6 +76,7 @@ export function toOpaqueProviderId(value: unknown): string | null {
 }
 
 export interface RawImpactPromotionV2 {
+  /** Exact opaque identity parsed only from Impact's top-level singular `PromotionId`. */
   promotionId: string | null;
   advertiserId: string | null;
   advertiserName: string | null;

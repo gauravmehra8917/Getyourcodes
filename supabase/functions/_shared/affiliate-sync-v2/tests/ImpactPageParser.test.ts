@@ -21,7 +21,7 @@ test("strictly parses Promotions and preserves distinct provider identities", ()
     "@uri": "/Mediapartners/2303074/Promotions?Page=2",
     "@nextpageuri": "/Mediapartners/2303074/Promotions?Page=3&Opaque=exact",
     Promotions: [{
-      PromotionIds: "  001-A_B  ",
+      PromotionId: "  001-A_B  ",
       AdvertiserId: "Advertiser-01",
       AdvertiserName: "Acme",
       CampaignId: "Campaign-09",
@@ -54,7 +54,7 @@ test("strictly parses Promotions and preserves distinct provider identities", ()
     startDate: "2026-01-01T00:00:00Z",
     endDate: "2026-02-01T00:00:00Z",
     raw: {
-      PromotionIds: "  001-A_B  ", AdvertiserId: "Advertiser-01", AdvertiserName: "Acme",
+      PromotionId: "  001-A_B  ", AdvertiserId: "Advertiser-01", AdvertiserName: "Acme",
       CampaignId: "Campaign-09", ProgramId: "Program-0007", PromotionTitle: "Save 20%",
       Description: "A direct provider description", GenericRedemptionCode: "SAVE20",
       TrackingLink: "https://track.example/promotion", StartDate: "2026-01-01T00:00:00Z",
@@ -145,7 +145,7 @@ test("preserves nonempty continuations and absent terminal continuations", () =>
 
 test("quarantines malformed and identity-less Promotions", () => {
   const parsed = ImpactPageParser.promotions(JSON.stringify({
-    Promotions: [null, { PromotionIds: "   " }, { PromotionIds: "valid" }],
+    Promotions: [null, { PromotionId: "   " }, { PromotionId: "valid" }],
   }), { provenance });
   assert.equal(parsed.ok, true);
   if (!parsed.ok) return;
@@ -161,10 +161,10 @@ test("classifies exact raw PromotionIds shapes before identity extraction", () =
     Promotions: [
       {},
       { PromotionIds: null },
-      { PromotionIds: "  exact-string-id  " },
+      { PromotionId: "  exact-string-id  ", PromotionIds: "  exact-string-id  " },
       { PromotionIds: "" },
       { PromotionIds: "  \t " },
-      { PromotionIds: 42.5 },
+      { PromotionId: 42.5, PromotionIds: 42.5 },
       { PromotionIds: ["array-value-must-not-leak"] },
       { PromotionIds: { nested: "object-value-must-not-leak" } },
       { PromotionIds: false },
@@ -201,7 +201,7 @@ test("classifies exact raw PromotionIds shapes before identity extraction", () =
 
 test("counts an extreme JSON number as raw number shape while preserving finite-only identity", () => {
   const parsed = ImpactPageParser.promotions(
-    '{"Promotions":[{"PromotionIds":1e400}]}',
+    '{"Promotions":[{"PromotionId":1e400,"PromotionIds":1e400}]}',
     { provenance },
   );
   assert.equal(parsed.ok, true);
@@ -302,7 +302,7 @@ test("counts bounded Uri shapes and promotion retrieval path cardinality without
   ]) assert.equal(serialized.includes(privateValue), false);
 });
 
-test("diagnostic carrier candidates never replace exact PromotionIds identity", () => {
+test("uses singular PromotionId even when plural PromotionIds is absent or conflicting", () => {
   const candidateOnly = {
     PromotionFileId: "file-candidate-private",
     Uri: "/Mediapartners/account-private/Promotions/terminal-private",
@@ -324,13 +324,10 @@ test("diagnostic carrier candidates never replace exact PromotionIds identity", 
   }), { provenance });
   assert.equal(parsed.ok, true);
   if (!parsed.ok) return;
-  assert.deepEqual(
-    parsed.quarantinedRecords.map((record) => record.reason),
-    ["missing_promotion_id"],
-  );
+  assert.deepEqual(parsed.quarantinedRecords, []);
   assert.deepEqual(
     parsed.records.map((record) => record.promotionId),
-    ["canonical-promotion-id"],
+    ["singular-candidate-private", "singular-accepted-private"],
   );
   assert.deepEqual(
     parsed.promotionIdentifierCarrierDiagnostics?.promotionIdSingular,
@@ -351,7 +348,53 @@ test("diagnostic carrier candidates never replace exact PromotionIds identity", 
   });
 });
 
-test("compares singular PromotionId and retrieval Uri terminal without accepting either as identity", () => {
+test("accepts only exact singular PromotionId opaque scalars without fallbacks", () => {
+  const parsed = ImpactPageParser.promotions(JSON.stringify({
+    Promotions: [
+      { PromotionId: "  promo-123  " },
+      { PromotionId: 123 },
+      { PromotionId: "   " },
+      { PromotionId: null },
+      { PromotionId: ["array-private"] },
+      { PromotionId: { private: "object-private" } },
+      { PromotionId: true },
+      { PromotionIds: "plural-only-private" },
+      { Uri: "/Mediapartners/x/Promotions/uri-only-private" },
+      { PromotionFileId: "file-only-private" },
+      { Id: "id-only-private" },
+      { PromotionId: "singular-no-plural" },
+      { PromotionId: "matching", PromotionIds: "matching" },
+      { PromotionId: "singular-wins", PromotionIds: "plural-must-not-win" },
+      { PromotionId: "uri-match", Uri: "/Mediapartners/x/Promotions/uri-match" },
+      { PromotionId: "uri-wins", Uri: "/Mediapartners/x/Promotions/different" },
+    ],
+  }), { provenance });
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  assert.deepEqual(parsed.records.map((record) => record.promotionId), [
+    "promo-123",
+    "123",
+    "singular-no-plural",
+    "matching",
+    "singular-wins",
+    "uri-match",
+    "uri-wins",
+  ]);
+  assert.deepEqual(
+    parsed.quarantinedRecords.map((record) => record.reason),
+    Array.from({ length: 9 }, () => "missing_promotion_id"),
+  );
+  assert.equal(
+    parsed.promotionIdentityEquivalenceDiagnostics?.exactPromotionIdEqualsUriTerminal,
+    1,
+  );
+  assert.equal(
+    parsed.promotionIdentityEquivalenceDiagnostics?.promotionIdDiffersFromUriTerminal,
+    1,
+  );
+});
+
+test("compares canonical PromotionId and retrieval Uri terminal without deriving identity from Uri", () => {
   const parsed = ImpactPageParser.promotions(JSON.stringify({
     Promotions: [
       { PromotionId: "123", Uri: "/Mediapartners/x/Promotions/123" },
@@ -383,10 +426,13 @@ test("compares singular PromotionId and retrieval Uri terminal without accepting
     uriTerminalsMappingToMultiplePromotionIds: 1,
     duplicatePromotionIdRecords: 1,
   });
-  assert.equal(parsed.records.length, 0);
+  assert.deepEqual(
+    parsed.records.map((record) => record.promotionId),
+    ["123", "123", "00123", "Case", "only-id-private", "nonpromotion-id-private"],
+  );
   assert.deepEqual(
     parsed.quarantinedRecords.map((record) => record.reason),
-    Array.from({ length: 8 }, () => "missing_promotion_id"),
+    Array.from({ length: 2 }, () => "missing_promotion_id"),
   );
   const serialized = JSON.stringify(
     parsed.promotionIdentityEquivalenceDiagnostics,

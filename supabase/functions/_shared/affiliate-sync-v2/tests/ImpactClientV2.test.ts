@@ -43,8 +43,8 @@ test("follows exact Promotion continuations without reconstructing page paramete
   const next = "/Mediapartners/2303074/Promotions?Page=2&PageSize=2&Sort=UpdatedDate&Opaque=retain-order";
   const expectedNext = `https://api.impact.com${next}`;
   const { instance, transport } = client([
-    { ...response(promotions([{ PromotionIds: "one" }], next)), expectedCredentialDisposition: "attach_if_same_origin" },
-    { ...response(promotions([{ PromotionIds: "two" }])), expectedUrl: expectedNext, expectedCredentialDisposition: "attach_if_same_origin" },
+    { ...response(promotions([{ PromotionId: "one" }], next)), expectedCredentialDisposition: "attach_if_same_origin" },
+    { ...response(promotions([{ PromotionId: "two" }])), expectedUrl: expectedNext, expectedCredentialDisposition: "attach_if_same_origin" },
   ]);
   const result = await instance.fetchPromotions(initial);
   assert.deepEqual(result.records.map((record) => record.promotionId), ["one", "two"]);
@@ -56,8 +56,8 @@ test("follows exact Promotion continuations without reconstructing page paramete
 
 test("omits host credentials for allowed cross-origin continuations", async () => {
   const { instance, transport } = client([
-    response(promotions([{ PromotionIds: "one" }], "https://api-us.impact.com/Promotions?Page=2")),
-    { ...response(promotions([{ PromotionIds: "two" }])), expectedCredentialDisposition: "omit" },
+    response(promotions([{ PromotionId: "one" }], "https://api-us.impact.com/Promotions?Page=2")),
+    { ...response(promotions([{ PromotionId: "two" }])), expectedCredentialDisposition: "omit" },
   ]);
   const result = await instance.fetchPromotions(initial);
   assert.equal(result.diagnostics.stopReason, "completed");
@@ -79,15 +79,15 @@ test("applies the identical continuation controls to Campaigns", async () => {
 });
 
 test("rejects unsafe continuations and detects a repeated continuation before refetching", async () => {
-  const unsafe = client([response(promotions([{ PromotionIds: "one" }], "http://api.impact.com/Promotions?Page=2"))]);
+  const unsafe = client([response(promotions([{ PromotionId: "one" }], "http://api.impact.com/Promotions?Page=2"))]);
   const unsafeResult = await unsafe.instance.fetchPromotions(initial);
   assert.equal(unsafeResult.diagnostics.stopReason, "invalid_continuation");
   assert.equal(unsafe.transport.requests.length, 1);
 
   const loopUrl = "/Mediapartners/2303074/Promotions?Page=2";
   const loop = client([
-    response(promotions([{ PromotionIds: "one" }], loopUrl)),
-    response(promotions([{ PromotionIds: "two" }], loopUrl)),
+    response(promotions([{ PromotionId: "one" }], loopUrl)),
+    response(promotions([{ PromotionId: "two" }], loopUrl)),
   ]);
   const loopResult = await loop.instance.fetchPromotions(initial);
   assert.equal(loopResult.diagnostics.stopReason, "continuation_loop");
@@ -97,7 +97,7 @@ test("rejects unsafe continuations and detects a repeated continuation before re
 test("honors Retry-After and retries retryable provider failures with deterministic backoff", async () => {
   const retryAfter = client([
     response({ error: "slow down" }, 429, 350),
-    response(promotions([{ PromotionIds: "one" }])),
+    response(promotions([{ PromotionId: "one" }])),
   ]);
   const retryAfterResult = await retryAfter.instance.fetchPromotions(initial);
   assert.equal(retryAfterResult.diagnostics.stopReason, "completed");
@@ -113,7 +113,7 @@ test("honors Retry-After and retries retryable provider failures with determinis
 
   const backoff = client([
     response({ error: "retry" }, 503),
-    response(promotions([{ PromotionIds: "one" }])),
+    response(promotions([{ PromotionId: "one" }])),
   ], { jitter: (delay) => delay + 7 });
   const backoffResult = await backoff.instance.fetchPromotions(initial);
   assert.equal(backoffResult.diagnostics.stopReason, "completed");
@@ -121,7 +121,7 @@ test("honors Retry-After and retries retryable provider failures with determinis
 
   const capped = client([
     response({ error: "retry" }, 503),
-    response(promotions([{ PromotionIds: "one" }])),
+    response(promotions([{ PromotionId: "one" }])),
   ], {
     jitter: (delay) => delay * 99,
     limits: { maxPages: 2, maxRecords: 20, maxResponseBytes: 10_000, maxAttempts: 2, baseBackoffMs: 100, maxBackoffMs: 250, maxRetryAfterMs: 100 },
@@ -153,7 +153,7 @@ test("preserves timeout, cancellation, and transport-error outcomes", async () =
 
   const controller = new AbortController();
   controller.abort();
-  const cancelled = client([response(promotions([{ PromotionIds: "not-requested" }]))]);
+  const cancelled = client([response(promotions([{ PromotionId: "not-requested" }]))]);
   const cancelledResult = await cancelled.instance.fetchPromotions(initial, controller.signal);
   assert.equal(cancelledResult.diagnostics.stopReason, "cancelled");
   assert.equal(cancelled.transport.requests.length, 0);
@@ -208,14 +208,14 @@ test("enforces client timeouts and propagates a caller abort to the transport si
 
 test("enforces page, record, and response-size limits without partial page acceptance", async () => {
   const pageLimited = client([
-    response(promotions([{ PromotionIds: "one" }], "/Mediapartners/2303074/Promotions?Page=2")),
+    response(promotions([{ PromotionId: "one" }], "/Mediapartners/2303074/Promotions?Page=2")),
   ], { limits: { maxPages: 1, maxRecords: 20, maxResponseBytes: 10_000, maxAttempts: 3, baseBackoffMs: 10, maxBackoffMs: 100, maxRetryAfterMs: 100 } });
   const pageLimitedResult = await pageLimited.instance.fetchPromotions(initial);
   assert.equal(pageLimitedResult.diagnostics.stopReason, "page_limit");
   assert.equal(pageLimited.transport.requests.length, 1);
 
   const recordLimited = client([
-    response(promotions([{ PromotionIds: "one" }, { PromotionIds: "two" }])),
+    response(promotions([{ PromotionId: "one" }, { PromotionId: "two" }])),
   ], { limits: { maxPages: 2, maxRecords: 1, maxResponseBytes: 10_000, maxAttempts: 3, baseBackoffMs: 10, maxBackoffMs: 100, maxRetryAfterMs: 100 } });
   const recordLimitedResult = await recordLimited.instance.fetchPromotions(initial);
   assert.equal(recordLimitedResult.diagnostics.stopReason, "record_limit");
@@ -223,7 +223,7 @@ test("enforces page, record, and response-size limits without partial page accep
   assert.equal(recordLimitedResult.diagnostics.pages[0]?.accepted, false);
 
   const oversized = client([
-    { result: { kind: "response", status: 200, bodyText: JSON.stringify(promotions([{ PromotionIds: "too-large" }])), retryAfterMs: null } },
+    { result: { kind: "response", status: 200, bodyText: JSON.stringify(promotions([{ PromotionId: "too-large" }])), retryAfterMs: null } },
   ], { limits: { maxPages: 2, maxRecords: 20, maxResponseBytes: 10, maxAttempts: 3, baseBackoffMs: 10, maxBackoffMs: 100, maxRetryAfterMs: 100 } });
   const oversizedResult = await oversized.instance.fetchPromotions(initial);
   assert.equal(oversizedResult.diagnostics.stopReason, "provider_error");
@@ -232,8 +232,8 @@ test("enforces page, record, and response-size limits without partial page accep
 
 test("keeps sanitized page provenance for accepted and quarantined records", async () => {
   const { instance } = client([
-    response(promotions([null, { PromotionIds: "one" }], "/Mediapartners/2303074/Promotions?Page=2&token=secret")),
-    response(promotions([{ PromotionIds: "two" }])),
+    response(promotions([null, { PromotionId: "one" }], "/Mediapartners/2303074/Promotions?Page=2&token=secret")),
+    response(promotions([{ PromotionId: "two" }])),
   ]);
   const result = await instance.fetchPromotions(initial);
   assert.deepEqual(result.records.map((record) => [record.promotionId, record.provenance.fetchSequence]), [["one", 1], ["two", 2]]);
@@ -252,7 +252,7 @@ test("aggregates closed quarantine reasons across Promotion pages without leakin
         PromotionTitle: "quarantined-title-secret",
         TrackingLink: "https://provider.example/quarantined-url-secret",
       },
-      { PromotionIds: "accepted-one" },
+      { PromotionId: "accepted-one", PromotionIds: "accepted-one" },
     ], next)),
     response({
       "@page": "2",
@@ -261,7 +261,7 @@ test("aggregates closed quarantine reasons across Promotion pages without leakin
       Promotions: [
         42,
         { PromotionIds: ["quarantined-id-secret"] },
-        { PromotionIds: "accepted-two" },
+        { PromotionId: "accepted-two", PromotionIds: "accepted-two" },
       ],
     }),
   ]);
@@ -351,8 +351,8 @@ test("aggregates identifier-carrier distinct cardinality across Promotion pages"
   assert.equal(result.diagnostics.stopReason, "completed");
   assert.equal(result.diagnostics.pagesFetched, 2);
   assert.equal(result.diagnostics.rawRecordCount, 4);
-  assert.equal(result.diagnostics.acceptedRecordCount, 2);
-  assert.equal(result.diagnostics.quarantinedRecordCount, 2);
+  assert.equal(result.diagnostics.acceptedRecordCount, 3);
+  assert.equal(result.diagnostics.quarantinedRecordCount, 1);
   assert.deepEqual(result.diagnostics.promotionIdentifierCarrierDiagnostics, {
     promotionFileId: {
       missing: 0,
@@ -387,7 +387,7 @@ test("aggregates identifier-carrier distinct cardinality across Promotion pages"
   });
   assert.deepEqual(
     result.records.map((record) => record.promotionId),
-    ["accepted-one", "accepted-two"],
+    ["singular-repeat-private", "singular-repeat-private", "singular-page-two-private"],
   );
   const publicDiagnostics = JSON.stringify(result.diagnostics);
   for (const privateValue of [
@@ -439,8 +439,8 @@ test("aggregates identity equivalence and mapping conflicts across Promotion pag
   assert.equal(result.diagnostics.stopReason, "completed");
   assert.equal(result.diagnostics.pagesFetched, 2);
   assert.equal(result.diagnostics.rawRecordCount, 5);
-  assert.equal(result.diagnostics.acceptedRecordCount, 0);
-  assert.equal(result.diagnostics.quarantinedRecordCount, 5);
+  assert.equal(result.diagnostics.acceptedRecordCount, 5);
+  assert.equal(result.diagnostics.quarantinedRecordCount, 0);
   assert.deepEqual(result.diagnostics.promotionIdentityEquivalenceDiagnostics, {
     structurallyValidPromotionRecords: 5,
     promotionIdAndRetrieveUriPresent: 5,
@@ -487,10 +487,7 @@ test("aggregates identity equivalence and mapping conflicts across Promotion pag
       distinctValidOpaqueValues: 0,
     },
   });
-  assert.deepEqual(
-    result.quarantinedRecords.map((record) => record.reason),
-    Array.from({ length: 5 }, () => "missing_promotion_id"),
-  );
+  assert.deepEqual(result.quarantinedRecords, []);
   const serialized = JSON.stringify(result.diagnostics);
   for (const privateValue of [
     "shared-private",
@@ -505,11 +502,11 @@ test("aggregates identity equivalence and mapping conflicts across Promotion pag
 test("completes when a later page has a metadata-proven null terminal continuation", async () => {
   const next = "/Mediapartners/2303074/Promotions?Page=2&cursor=opaque-provider-value";
   const { instance, transport } = client([
-    response(promotions([{ PromotionIds: "accepted-page-one" }], next)),
+    response(promotions([{ PromotionId: "accepted-page-one" }], next)),
     response({
       "@page": "2",
       "@numpages": "2",
-      Promotions: [{ PromotionIds: "accepted-page-two" }],
+      Promotions: [{ PromotionId: "accepted-page-two" }],
       "@nextpageuri": null,
     }),
   ]);
@@ -530,11 +527,11 @@ test("completes when a later page has a metadata-proven null terminal continuati
 test("retains prior accepted pages when a later non-terminal null continuation is malformed", async () => {
   const next = "/Mediapartners/2303074/Promotions?Page=2&cursor=opaque-provider-value";
   const { instance, transport } = client([
-    response(promotions([{ PromotionIds: "accepted-page-one" }], next)),
+    response(promotions([{ PromotionId: "accepted-page-one" }], next)),
     response({
       "@page": "2",
       "@numpages": "3",
-      Promotions: [{ PromotionIds: "unaccepted-page-two-secret" }],
+      Promotions: [{ PromotionId: "unaccepted-page-two-secret" }],
       "@nextpageuri": null,
     }),
   ]);

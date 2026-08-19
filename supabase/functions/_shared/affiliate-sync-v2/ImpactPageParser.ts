@@ -473,7 +473,7 @@ function promotionOf(
   provenance: ImpactRecordProvenanceV2,
 ): RawImpactPromotionV2 {
   return {
-    promotionId: toOpaqueProviderId(record.PromotionIds),
+    promotionId: toOpaqueProviderId(record.PromotionId),
     advertiserId: toOpaqueProviderId(record.AdvertiserId),
     advertiserName: optionalText(record.AdvertiserName),
     campaignId: toOpaqueProviderId(record.CampaignId),
