@@ -530,6 +530,90 @@ function validateFetchInput(input: AffiliateSyncPreviewInputV2): void {
       "PreviewPlanner identifier-carrier distinct counts exceed valid counts",
     );
   }
+  const equivalenceDiagnostics =
+    input.fetchDiagnostics.promotions.promotionIdentityEquivalenceDiagnostics;
+  if (!equivalenceDiagnostics) {
+    throw new Error(
+      "PreviewPlanner requires identity-equivalence diagnostics for Promotions",
+    );
+  }
+  if (
+    input.fetchDiagnostics.campaigns
+      .promotionIdentityEquivalenceDiagnostics !== undefined
+  ) {
+    throw new Error(
+      "PreviewPlanner forbids identity-equivalence diagnostics for Campaigns",
+    );
+  }
+  if (
+    Object.values(equivalenceDiagnostics).some((count) =>
+      !Number.isInteger(count) || count < 0
+    )
+  ) {
+    throw new Error(
+      "PreviewPlanner identity-equivalence counts must be non-negative integers",
+    );
+  }
+  if (
+    equivalenceDiagnostics.structurallyValidPromotionRecords !==
+      structurallyValidPromotions ||
+    equivalenceDiagnostics.promotionIdAndRetrieveUriPresent +
+        equivalenceDiagnostics.promotionIdPresentWithoutRetrieveUri +
+        equivalenceDiagnostics.retrieveUriPresentWithoutPromotionId +
+        equivalenceDiagnostics.neitherPresent !== structurallyValidPromotions
+  ) {
+    throw new Error(
+      "PreviewPlanner identity-equivalence presence counts do not reconcile",
+    );
+  }
+  if (
+    equivalenceDiagnostics.exactPromotionIdEqualsUriTerminal +
+      equivalenceDiagnostics.promotionIdDiffersFromUriTerminal !==
+      equivalenceDiagnostics.promotionIdAndRetrieveUriPresent
+  ) {
+    throw new Error(
+      "PreviewPlanner identity-equivalence comparison counts do not reconcile",
+    );
+  }
+  const promotionIdPresent =
+    equivalenceDiagnostics.promotionIdAndRetrieveUriPresent +
+    equivalenceDiagnostics.promotionIdPresentWithoutRetrieveUri;
+  const retrieveUriPresent =
+    equivalenceDiagnostics.promotionIdAndRetrieveUriPresent +
+    equivalenceDiagnostics.retrieveUriPresentWithoutPromotionId;
+  if (
+    promotionIdPresent !== carrierDiagnostics.promotionIdSingular.validOpaqueScalar ||
+    retrieveUriPresent !== carrierDiagnostics.uri.promotionRetrievePathShape ||
+    equivalenceDiagnostics.distinctPromotionIds !==
+      carrierDiagnostics.promotionIdSingular.distinctValidOpaqueValues ||
+    equivalenceDiagnostics.distinctRetrieveUriTerminalSegments !==
+      carrierDiagnostics.uri.distinctPromotionRetrieveTerminalSegments
+  ) {
+    throw new Error(
+      "PreviewPlanner identity-equivalence counts disagree with carrier diagnostics",
+    );
+  }
+  if (
+    equivalenceDiagnostics.distinctPromotionIds > promotionIdPresent ||
+    equivalenceDiagnostics.distinctRetrieveUriTerminalSegments >
+      retrieveUriPresent ||
+    equivalenceDiagnostics.promotionIdsMappingToMultipleUriTerminals >
+      equivalenceDiagnostics.distinctPromotionIds ||
+    equivalenceDiagnostics.uriTerminalsMappingToMultiplePromotionIds >
+      equivalenceDiagnostics.distinctRetrieveUriTerminalSegments
+  ) {
+    throw new Error(
+      "PreviewPlanner identity-equivalence distinct counts exceed valid counts",
+    );
+  }
+  if (
+    equivalenceDiagnostics.duplicatePromotionIdRecords !==
+      promotionIdPresent - equivalenceDiagnostics.distinctPromotionIds
+  ) {
+    throw new Error(
+      "PreviewPlanner identity-equivalence duplicate count does not reconcile",
+    );
+  }
   const expectedQuarantined =
     input.fetchDiagnostics.promotions.quarantinedRecordCount +
     input.fetchDiagnostics.campaigns.quarantinedRecordCount;

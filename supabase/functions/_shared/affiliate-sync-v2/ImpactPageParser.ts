@@ -2,6 +2,7 @@ import type {
   ImpactParseFailureReasonV2,
   ImpactPageProvenanceV2,
   ImpactPromotionIdentifierCarrierDiagnosticsV2,
+  ImpactPromotionIdentityEquivalenceDiagnosticsV2,
   ImpactPromotionIdShapeCountsV2,
   ImpactRecordProvenanceV2,
   QuarantinedImpactRecordV2,
@@ -38,6 +39,10 @@ export interface ParsedImpactPageV2<T> {
   promotionIdentifierCarrierDiagnostics: ImpactPromotionIdentifierCarrierDiagnosticsV2 | null;
   /** Internal-only exact values needed to aggregate distinct counts across pages. */
   promotionIdentifierCarrierDistinctValues: ImpactPromotionIdentifierCarrierDistinctValuesV2 | null;
+  /** Count-only comparison of singular PromotionId with retrieval-Uri terminal. */
+  promotionIdentityEquivalenceDiagnostics: ImpactPromotionIdentityEquivalenceDiagnosticsV2 | null;
+  /** Internal-only relations needed to aggregate mapping counts across pages. */
+  promotionIdentityEquivalenceRelations: ImpactPromotionIdentityEquivalenceRelationsV2 | null;
   pagination: ImpactPaginationMetadataV2;
   /**
    * Used only by the immediately following client continuation decision. It is
@@ -67,6 +72,20 @@ interface MutablePromotionIdentifierCarrierDistinctValuesV2 {
   promotionIdSingular: Set<string>;
   id: Set<string>;
   promotionRetrieveTerminalSegments: Set<string>;
+}
+
+export interface ImpactPromotionIdentityEquivalenceRelationsV2 {
+  promotionIds: ReadonlySet<string>;
+  retrieveUriTerminalSegments: ReadonlySet<string>;
+  promotionIdToUriTerminals: ReadonlyMap<string, ReadonlySet<string>>;
+  uriTerminalToPromotionIds: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
+interface MutablePromotionIdentityEquivalenceRelationsV2 {
+  promotionIds: Set<string>;
+  retrieveUriTerminalSegments: Set<string>;
+  promotionIdToUriTerminals: Map<string, Set<string>>;
+  uriTerminalToPromotionIds: Map<string, Set<string>>;
 }
 
 function isRecord(value: unknown): value is ImpactEnvelope {
@@ -124,29 +143,56 @@ function emptyPromotionIdentifierCarrierDistinctValues(): MutablePromotionIdenti
   };
 }
 
+function emptyPromotionIdentityEquivalenceDiagnostics(): ImpactPromotionIdentityEquivalenceDiagnosticsV2 {
+  return {
+    structurallyValidPromotionRecords: 0,
+    promotionIdAndRetrieveUriPresent: 0,
+    exactPromotionIdEqualsUriTerminal: 0,
+    promotionIdDiffersFromUriTerminal: 0,
+    promotionIdPresentWithoutRetrieveUri: 0,
+    retrieveUriPresentWithoutPromotionId: 0,
+    neitherPresent: 0,
+    distinctPromotionIds: 0,
+    distinctRetrieveUriTerminalSegments: 0,
+    promotionIdsMappingToMultipleUriTerminals: 0,
+    uriTerminalsMappingToMultiplePromotionIds: 0,
+    duplicatePromotionIdRecords: 0,
+  };
+}
+
+function emptyPromotionIdentityEquivalenceRelations(): MutablePromotionIdentityEquivalenceRelationsV2 {
+  return {
+    promotionIds: new Set<string>(),
+    retrieveUriTerminalSegments: new Set<string>(),
+    promotionIdToUriTerminals: new Map<string, Set<string>>(),
+    uriTerminalToPromotionIds: new Map<string, Set<string>>(),
+  };
+}
+
 function observeOpaqueScalarCarrier(
   record: ImpactEnvelope,
   property: "PromotionFileId" | "PromotionId" | "Id",
   diagnostics: ReturnType<typeof emptyOpaqueScalarCarrierDiagnostics>,
   distinctValues: Set<string>,
-): void {
+): string | null {
   if (!Object.prototype.hasOwnProperty.call(record, property)) {
     diagnostics.missing += 1;
-    return;
+    return null;
   }
   const value = record[property];
   if (value === null) {
     diagnostics.null += 1;
-    return;
+    return null;
   }
   const opaque = toOpaqueProviderId(value);
   if (opaque === null) {
     diagnostics.invalidShape += 1;
-    return;
+    return null;
   }
   diagnostics.validOpaqueScalar += 1;
   distinctValues.add(opaque);
   diagnostics.distinctValidOpaqueValues = distinctValues.size;
+  return opaque;
 }
 
 function promotionRetrieveTerminalSegment(value: string): string | null {
@@ -175,50 +221,124 @@ function observeUriCarrier(
   record: ImpactEnvelope,
   diagnostics: ImpactPromotionIdentifierCarrierDiagnosticsV2["uri"],
   distinctValues: MutablePromotionIdentifierCarrierDistinctValuesV2,
-): void {
+): string | null {
   if (!Object.prototype.hasOwnProperty.call(record, "Uri")) {
     diagnostics.missing += 1;
-    return;
+    return null;
   }
   const value = record.Uri;
   if (value === null) {
     diagnostics.null += 1;
-    return;
+    return null;
   }
   if (typeof value !== "string" || !value.trim()) {
     diagnostics.invalidShape += 1;
-    return;
+    return null;
   }
   diagnostics.nonemptyString += 1;
   distinctValues.uri.add(value);
   diagnostics.distinctNonemptyValues = distinctValues.uri.size;
   const terminal = promotionRetrieveTerminalSegment(value);
-  if (terminal === null) return;
+  if (terminal === null) return null;
   diagnostics.promotionRetrievePathShape += 1;
   distinctValues.promotionRetrieveTerminalSegments.add(terminal);
   diagnostics.distinctPromotionRetrieveTerminalSegments =
     distinctValues.promotionRetrieveTerminalSegments.size;
+  return terminal;
 }
 
 function observePromotionIdentifierCarriers(
   record: ImpactEnvelope,
   diagnostics: ImpactPromotionIdentifierCarrierDiagnosticsV2,
   distinctValues: MutablePromotionIdentifierCarrierDistinctValuesV2,
-): void {
+): { promotionId: string | null; retrieveUriTerminal: string | null } {
   observeOpaqueScalarCarrier(
     record,
     "PromotionFileId",
     diagnostics.promotionFileId,
     distinctValues.promotionFileId,
   );
-  observeUriCarrier(record, diagnostics.uri, distinctValues);
-  observeOpaqueScalarCarrier(
+  const retrieveUriTerminal = observeUriCarrier(
+    record,
+    diagnostics.uri,
+    distinctValues,
+  );
+  const promotionId = observeOpaqueScalarCarrier(
     record,
     "PromotionId",
     diagnostics.promotionIdSingular,
     distinctValues.promotionIdSingular,
   );
   observeOpaqueScalarCarrier(record, "Id", diagnostics.id, distinctValues.id);
+  return { promotionId, retrieveUriTerminal };
+}
+
+function addRelation(
+  relations: Map<string, Set<string>>,
+  key: string,
+  value: string,
+): boolean {
+  let values = relations.get(key);
+  if (!values) {
+    values = new Set<string>();
+    relations.set(key, values);
+  }
+  const priorSize = values.size;
+  values.add(value);
+  return priorSize === 1 && values.size === 2;
+}
+
+function observePromotionIdentityEquivalence(
+  promotionId: string | null,
+  retrieveUriTerminal: string | null,
+  diagnostics: ImpactPromotionIdentityEquivalenceDiagnosticsV2,
+  relations: MutablePromotionIdentityEquivalenceRelationsV2,
+): void {
+  diagnostics.structurallyValidPromotionRecords += 1;
+  if (promotionId !== null) {
+    if (relations.promotionIds.has(promotionId)) {
+      diagnostics.duplicatePromotionIdRecords += 1;
+    }
+    relations.promotionIds.add(promotionId);
+    diagnostics.distinctPromotionIds = relations.promotionIds.size;
+  }
+  if (retrieveUriTerminal !== null) {
+    relations.retrieveUriTerminalSegments.add(retrieveUriTerminal);
+    diagnostics.distinctRetrieveUriTerminalSegments =
+      relations.retrieveUriTerminalSegments.size;
+  }
+  if (promotionId !== null && retrieveUriTerminal !== null) {
+    diagnostics.promotionIdAndRetrieveUriPresent += 1;
+    if (promotionId === retrieveUriTerminal) {
+      diagnostics.exactPromotionIdEqualsUriTerminal += 1;
+    } else {
+      diagnostics.promotionIdDiffersFromUriTerminal += 1;
+    }
+    if (
+      addRelation(
+        relations.promotionIdToUriTerminals,
+        promotionId,
+        retrieveUriTerminal,
+      )
+    ) diagnostics.promotionIdsMappingToMultipleUriTerminals += 1;
+    if (
+      addRelation(
+        relations.uriTerminalToPromotionIds,
+        retrieveUriTerminal,
+        promotionId,
+      )
+    ) diagnostics.uriTerminalsMappingToMultiplePromotionIds += 1;
+    return;
+  }
+  if (promotionId !== null) {
+    diagnostics.promotionIdPresentWithoutRetrieveUri += 1;
+    return;
+  }
+  if (retrieveUriTerminal !== null) {
+    diagnostics.retrieveUriPresentWithoutPromotionId += 1;
+    return;
+  }
+  diagnostics.neitherPresent += 1;
 }
 
 function promotionIdShape(record: ImpactEnvelope): keyof ImpactPromotionIdShapeCountsV2 {
@@ -432,6 +552,8 @@ export class ImpactPageParser {
     const promotionIdShapeCounts = emptyPromotionIdShapeCounts();
     const promotionIdentifierCarrierDiagnostics = emptyPromotionIdentifierCarrierDiagnostics();
     const promotionIdentifierCarrierDistinctValues = emptyPromotionIdentifierCarrierDistinctValues();
+    const promotionIdentityEquivalenceDiagnostics = emptyPromotionIdentityEquivalenceDiagnostics();
+    const promotionIdentityEquivalenceRelations = emptyPromotionIdentityEquivalenceRelations();
     const records = parseRecords({
       stream: "promotions",
       records: parsed.records,
@@ -445,10 +567,16 @@ export class ImpactPageParser {
       missingIdentityReason: "missing_promotion_id",
       observeRecord: (record) => {
         promotionIdShapeCounts[promotionIdShape(record)] += 1;
-        observePromotionIdentifierCarriers(
+        const carriers = observePromotionIdentifierCarriers(
           record,
           promotionIdentifierCarrierDiagnostics,
           promotionIdentifierCarrierDistinctValues,
+        );
+        observePromotionIdentityEquivalence(
+          carriers.promotionId,
+          carriers.retrieveUriTerminal,
+          promotionIdentityEquivalenceDiagnostics,
+          promotionIdentityEquivalenceRelations,
         );
       },
     });
@@ -460,6 +588,8 @@ export class ImpactPageParser {
       promotionIdShapeCounts,
       promotionIdentifierCarrierDiagnostics,
       promotionIdentifierCarrierDistinctValues,
+      promotionIdentityEquivalenceDiagnostics,
+      promotionIdentityEquivalenceRelations,
       pagination,
       nextContinuationUri: continuation.nextContinuationUri,
     };
@@ -501,6 +631,8 @@ export class ImpactPageParser {
       promotionIdShapeCounts: null,
       promotionIdentifierCarrierDiagnostics: null,
       promotionIdentifierCarrierDistinctValues: null,
+      promotionIdentityEquivalenceDiagnostics: null,
+      promotionIdentityEquivalenceRelations: null,
       pagination,
       nextContinuationUri: continuation.nextContinuationUri,
     };

@@ -927,6 +927,20 @@ test("successful preview exposes aggregate quarantine reasons without individual
       distinctValidOpaqueValues: 1,
     },
   });
+  assert.deepEqual(promotions.promotionIdentityEquivalenceDiagnostics, {
+    structurallyValidPromotionRecords: 2,
+    promotionIdAndRetrieveUriPresent: 2,
+    exactPromotionIdEqualsUriTerminal: 0,
+    promotionIdDiffersFromUriTerminal: 2,
+    promotionIdPresentWithoutRetrieveUri: 0,
+    retrieveUriPresentWithoutPromotionId: 0,
+    neitherPresent: 0,
+    distinctPromotionIds: 2,
+    distinctRetrieveUriTerminalSegments: 1,
+    promotionIdsMappingToMultipleUriTerminals: 0,
+    uriTerminalsMappingToMultiplePromotionIds: 1,
+    duplicatePromotionIdRecords: 0,
+  });
   assert.deepEqual(campaigns.quarantineReasonCounts, {
     malformed_record: 0,
     missing_promotion_id: 0,
@@ -934,6 +948,7 @@ test("successful preview exposes aggregate quarantine reasons without individual
   });
   assert.equal("promotionIdShapeCounts" in campaigns, false);
   assert.equal("promotionIdentifierCarrierDiagnostics" in campaigns, false);
+  assert.equal("promotionIdentityEquivalenceDiagnostics" in campaigns, false);
   for (const stream of [promotions, campaigns]) {
     const counts = stream.quarantineReasonCounts as Record<string, number>;
     assert.equal(

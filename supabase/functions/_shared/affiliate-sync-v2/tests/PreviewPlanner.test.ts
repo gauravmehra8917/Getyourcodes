@@ -70,6 +70,20 @@ function streamDiagnostics(
     promotionIdSingular: { ...missingOpaqueCarrier },
     id: { ...missingOpaqueCarrier },
   };
+  const promotionIdentityEquivalenceDiagnostics = {
+    structurallyValidPromotionRecords: structurallyValidRecords,
+    promotionIdAndRetrieveUriPresent: 0,
+    exactPromotionIdEqualsUriTerminal: 0,
+    promotionIdDiffersFromUriTerminal: 0,
+    promotionIdPresentWithoutRetrieveUri: 0,
+    retrieveUriPresentWithoutPromotionId: 0,
+    neitherPresent: structurallyValidRecords,
+    distinctPromotionIds: 0,
+    distinctRetrieveUriTerminalSegments: 0,
+    promotionIdsMappingToMultipleUriTerminals: 0,
+    uriTerminalsMappingToMultiplePromotionIds: 0,
+    duplicatePromotionIdRecords: 0,
+  };
   return {
     stream,
     pagesFetched: acceptedRecords + quarantinedRecords.length > 0 ? 1 : 0,
@@ -78,7 +92,11 @@ function streamDiagnostics(
     quarantinedRecordCount: quarantinedRecords.length,
     quarantineReasonCounts,
     ...(stream === "promotions"
-      ? { promotionIdShapeCounts, promotionIdentifierCarrierDiagnostics }
+      ? {
+        promotionIdShapeCounts,
+        promotionIdentifierCarrierDiagnostics,
+        promotionIdentityEquivalenceDiagnostics,
+      }
       : {}),
     stopReason: "completed",
     parseFailureReason: null,
@@ -552,5 +570,64 @@ test("identifier-carrier aggregates must be Promotions-only, bounded, and reconc
   assert.throws(
     () => PreviewPlanner.plan(campaignCarrier),
     /forbids identifier-carrier diagnostics for Campaigns/,
+  );
+});
+
+test("identity-equivalence aggregates must be Promotions-only and reconcile", () => {
+  const negative = plannerInput({ promotions: [], campaigns: [] });
+  negative.fetchDiagnostics.promotions
+    .promotionIdentityEquivalenceDiagnostics!.exactPromotionIdEqualsUriTerminal = -1;
+  assert.throws(
+    () => PreviewPlanner.plan(negative),
+    /identity-equivalence counts must be non-negative integers/,
+  );
+
+  const presence = plannerInput({ promotions: [], campaigns: [] });
+  presence.fetchDiagnostics.promotions
+    .promotionIdentityEquivalenceDiagnostics!.neitherPresent = 1;
+  assert.throws(
+    () => PreviewPlanner.plan(presence),
+    /identity-equivalence presence counts do not reconcile/,
+  );
+
+  const comparison = plannerInput({ promotions: [], campaigns: [] });
+  comparison.fetchDiagnostics.promotions
+    .promotionIdentityEquivalenceDiagnostics!.exactPromotionIdEqualsUriTerminal = 1;
+  assert.throws(
+    () => PreviewPlanner.plan(comparison),
+    /identity-equivalence comparison counts do not reconcile/,
+  );
+
+  const carrierMismatch = plannerInput({
+    promotions: [healthyMultiBrandPromotions[0]!],
+    campaigns: [],
+  });
+  const equivalence = carrierMismatch.fetchDiagnostics.promotions
+    .promotionIdentityEquivalenceDiagnostics!;
+  equivalence.neitherPresent = 0;
+  equivalence.promotionIdPresentWithoutRetrieveUri = 1;
+  equivalence.distinctPromotionIds = 1;
+  assert.throws(
+    () => PreviewPlanner.plan(carrierMismatch),
+    /identity-equivalence counts disagree with carrier diagnostics/,
+  );
+
+  const duplicate = plannerInput({ promotions: [], campaigns: [] });
+  duplicate.fetchDiagnostics.promotions
+    .promotionIdentityEquivalenceDiagnostics!.duplicatePromotionIdRecords = 1;
+  assert.throws(
+    () => PreviewPlanner.plan(duplicate),
+    /identity-equivalence duplicate count does not reconcile/,
+  );
+
+  const campaignEquivalence = plannerInput({ promotions: [], campaigns: [] });
+  campaignEquivalence.fetchDiagnostics.campaigns
+    .promotionIdentityEquivalenceDiagnostics = structuredClone(
+      campaignEquivalence.fetchDiagnostics.promotions
+        .promotionIdentityEquivalenceDiagnostics!,
+    );
+  assert.throws(
+    () => PreviewPlanner.plan(campaignEquivalence),
+    /forbids identity-equivalence diagnostics for Campaigns/,
   );
 });

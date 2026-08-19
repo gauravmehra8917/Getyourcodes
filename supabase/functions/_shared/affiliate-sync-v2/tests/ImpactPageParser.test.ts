@@ -351,6 +351,120 @@ test("diagnostic carrier candidates never replace exact PromotionIds identity", 
   });
 });
 
+test("compares singular PromotionId and retrieval Uri terminal without accepting either as identity", () => {
+  const parsed = ImpactPageParser.promotions(JSON.stringify({
+    Promotions: [
+      { PromotionId: "123", Uri: "/Mediapartners/x/Promotions/123" },
+      { PromotionId: 123, Uri: "/Mediapartners/x/Promotions/123" },
+      { PromotionId: "00123", Uri: "/Mediapartners/x/Promotions/123" },
+      { PromotionId: "Case", Uri: "/Mediapartners/x/Promotions/case" },
+      { PromotionId: "only-id-private" },
+      { Uri: "/Mediapartners/x/Promotions/only-uri-private" },
+      {},
+      {
+        PromotionId: "nonpromotion-id-private",
+        Uri: "/Mediapartners/x/Campaigns/not-a-promotion-private",
+      },
+    ],
+  }), { provenance });
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  assert.deepEqual(parsed.promotionIdentityEquivalenceDiagnostics, {
+    structurallyValidPromotionRecords: 8,
+    promotionIdAndRetrieveUriPresent: 4,
+    exactPromotionIdEqualsUriTerminal: 2,
+    promotionIdDiffersFromUriTerminal: 2,
+    promotionIdPresentWithoutRetrieveUri: 2,
+    retrieveUriPresentWithoutPromotionId: 1,
+    neitherPresent: 1,
+    distinctPromotionIds: 5,
+    distinctRetrieveUriTerminalSegments: 3,
+    promotionIdsMappingToMultipleUriTerminals: 0,
+    uriTerminalsMappingToMultiplePromotionIds: 1,
+    duplicatePromotionIdRecords: 1,
+  });
+  assert.equal(parsed.records.length, 0);
+  assert.deepEqual(
+    parsed.quarantinedRecords.map((record) => record.reason),
+    Array.from({ length: 8 }, () => "missing_promotion_id"),
+  );
+  const serialized = JSON.stringify(
+    parsed.promotionIdentityEquivalenceDiagnostics,
+  );
+  for (const privateValue of [
+    "only-id-private",
+    "only-uri-private",
+    "nonpromotion-id-private",
+    "not-a-promotion-private",
+  ]) assert.equal(serialized.includes(privateValue), false);
+});
+
+test("uses exact encoded pathname code units without decoding equivalence", () => {
+  const parsed = ImpactPageParser.promotions(JSON.stringify({
+    Promotions: [
+      {
+        PromotionId: "encoded/value",
+        Uri: "/Mediapartners/x/Promotions/encoded%2Fvalue",
+      },
+      {
+        PromotionId: "encoded%2Fvalue",
+        Uri: "/Mediapartners/x/Promotions/encoded%2Fvalue",
+      },
+    ],
+  }), { provenance });
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  assert.equal(
+    parsed.promotionIdentityEquivalenceDiagnostics
+      ?.exactPromotionIdEqualsUriTerminal,
+    1,
+  );
+  assert.equal(
+    parsed.promotionIdentityEquivalenceDiagnostics
+      ?.promotionIdDiffersFromUriTerminal,
+    1,
+  );
+});
+
+test("counts directional mapping conflicts and repeated identical pairs exactly", () => {
+  const parsed = ImpactPageParser.promotions(JSON.stringify({
+    Promotions: [
+      { PromotionId: "fanout-private", Uri: "/Mediapartners/x/Promotions/a-private" },
+      { PromotionId: "fanout-private", Uri: "/Mediapartners/x/Promotions/b-private" },
+      { PromotionId: "fanout-private", Uri: "/Mediapartners/x/Promotions/a-private" },
+      { PromotionId: "left-private", Uri: "/Mediapartners/x/Promotions/shared-private" },
+      { PromotionId: "right-private", Uri: "/Mediapartners/x/Promotions/shared-private" },
+    ],
+  }), { provenance });
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  assert.deepEqual(parsed.promotionIdentityEquivalenceDiagnostics, {
+    structurallyValidPromotionRecords: 5,
+    promotionIdAndRetrieveUriPresent: 5,
+    exactPromotionIdEqualsUriTerminal: 0,
+    promotionIdDiffersFromUriTerminal: 5,
+    promotionIdPresentWithoutRetrieveUri: 0,
+    retrieveUriPresentWithoutPromotionId: 0,
+    neitherPresent: 0,
+    distinctPromotionIds: 3,
+    distinctRetrieveUriTerminalSegments: 3,
+    promotionIdsMappingToMultipleUriTerminals: 1,
+    uriTerminalsMappingToMultiplePromotionIds: 1,
+    duplicatePromotionIdRecords: 2,
+  });
+  const serialized = JSON.stringify(
+    parsed.promotionIdentityEquivalenceDiagnostics,
+  );
+  for (const privateValue of [
+    "fanout-private",
+    "a-private",
+    "b-private",
+    "left-private",
+    "right-private",
+    "shared-private",
+  ]) assert.equal(serialized.includes(privateValue), false);
+});
+
 test("strictly parses Campaigns and keeps supplied advertiser identity separate", () => {
   const parsed = ImpactPageParser.campaigns(JSON.stringify({
     "@page": 1,
@@ -367,6 +481,8 @@ test("strictly parses Campaigns and keeps supplied advertiser identity separate"
   assert.equal(parsed.promotionIdShapeCounts, null);
   assert.equal(parsed.promotionIdentifierCarrierDiagnostics, null);
   assert.equal(parsed.promotionIdentifierCarrierDistinctValues, null);
+  assert.equal(parsed.promotionIdentityEquivalenceDiagnostics, null);
+  assert.equal(parsed.promotionIdentityEquivalenceRelations, null);
   assert.deepEqual(parsed.records[0], {
     campaignId: "Campaign-001",
     advertiserId: "Advertiser-002",

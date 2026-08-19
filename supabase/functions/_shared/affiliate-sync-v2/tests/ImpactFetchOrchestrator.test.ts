@@ -125,6 +125,24 @@ test("fetch composition preserves both streams, exact continuation evidence, and
       },
     },
   );
+  assert.deepEqual(
+    result.fetchDiagnostics.promotions
+      .promotionIdentityEquivalenceDiagnostics,
+    {
+      structurallyValidPromotionRecords: 2,
+      promotionIdAndRetrieveUriPresent: 0,
+      exactPromotionIdEqualsUriTerminal: 0,
+      promotionIdDiffersFromUriTerminal: 0,
+      promotionIdPresentWithoutRetrieveUri: 0,
+      retrieveUriPresentWithoutPromotionId: 0,
+      neitherPresent: 2,
+      distinctPromotionIds: 0,
+      distinctRetrieveUriTerminalSegments: 0,
+      promotionIdsMappingToMultipleUriTerminals: 0,
+      uriTerminalsMappingToMultiplePromotionIds: 0,
+      duplicatePromotionIdRecords: 0,
+    },
+  );
   assert.deepEqual(result.fetchDiagnostics.campaigns.quarantineReasonCounts, {
     malformed_record: 1,
     missing_promotion_id: 0,
@@ -133,6 +151,11 @@ test("fetch composition preserves both streams, exact continuation evidence, and
   assert.equal("promotionIdShapeCounts" in result.fetchDiagnostics.campaigns, false);
   assert.equal(
     "promotionIdentifierCarrierDiagnostics" in
+      result.fetchDiagnostics.campaigns,
+    false,
+  );
+  assert.equal(
+    "promotionIdentityEquivalenceDiagnostics" in
       result.fetchDiagnostics.campaigns,
     false,
   );

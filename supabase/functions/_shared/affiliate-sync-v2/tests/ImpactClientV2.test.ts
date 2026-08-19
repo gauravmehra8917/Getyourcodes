@@ -402,6 +402,106 @@ test("aggregates identifier-carrier distinct cardinality across Promotion pages"
   ]) assert.equal(publicDiagnostics.includes(privateValue), false);
 });
 
+test("aggregates identity equivalence and mapping conflicts across Promotion pages", async () => {
+  const { instance } = client([
+    response(promotions([
+      {
+        PromotionId: "shared-private",
+        Uri: "/Mediapartners/account-private/Promotions/shared-private",
+      },
+      {
+        PromotionId: "fanout-private",
+        Uri: "/Mediapartners/account-private/Promotions/terminal-a-private",
+      },
+    ], "/Mediapartners/2303074/Promotions?Page=2")),
+    response({
+      "@page": "2",
+      "@numpages": "2",
+      "@nextpageuri": null,
+      Promotions: [
+        {
+          PromotionId: "shared-private",
+          Uri: "/Mediapartners/account-private/Promotions/shared-private",
+        },
+        {
+          PromotionId: "fanout-private",
+          Uri: "/Mediapartners/account-private/Promotions/terminal-b-private",
+        },
+        {
+          PromotionId: "other-private",
+          Uri: "/Mediapartners/account-private/Promotions/shared-private",
+        },
+      ],
+    }),
+  ]);
+
+  const result = await instance.fetchPromotions(initial);
+  assert.equal(result.diagnostics.stopReason, "completed");
+  assert.equal(result.diagnostics.pagesFetched, 2);
+  assert.equal(result.diagnostics.rawRecordCount, 5);
+  assert.equal(result.diagnostics.acceptedRecordCount, 0);
+  assert.equal(result.diagnostics.quarantinedRecordCount, 5);
+  assert.deepEqual(result.diagnostics.promotionIdentityEquivalenceDiagnostics, {
+    structurallyValidPromotionRecords: 5,
+    promotionIdAndRetrieveUriPresent: 5,
+    exactPromotionIdEqualsUriTerminal: 2,
+    promotionIdDiffersFromUriTerminal: 3,
+    promotionIdPresentWithoutRetrieveUri: 0,
+    retrieveUriPresentWithoutPromotionId: 0,
+    neitherPresent: 0,
+    distinctPromotionIds: 3,
+    distinctRetrieveUriTerminalSegments: 3,
+    promotionIdsMappingToMultipleUriTerminals: 1,
+    uriTerminalsMappingToMultiplePromotionIds: 1,
+    duplicatePromotionIdRecords: 2,
+  });
+  assert.deepEqual(result.diagnostics.promotionIdentifierCarrierDiagnostics, {
+    promotionFileId: {
+      missing: 5,
+      null: 0,
+      validOpaqueScalar: 0,
+      invalidShape: 0,
+      distinctValidOpaqueValues: 0,
+    },
+    uri: {
+      missing: 0,
+      null: 0,
+      nonemptyString: 5,
+      invalidShape: 0,
+      distinctNonemptyValues: 3,
+      promotionRetrievePathShape: 5,
+      distinctPromotionRetrieveTerminalSegments: 3,
+    },
+    promotionIdSingular: {
+      missing: 0,
+      null: 0,
+      validOpaqueScalar: 5,
+      invalidShape: 0,
+      distinctValidOpaqueValues: 3,
+    },
+    id: {
+      missing: 5,
+      null: 0,
+      validOpaqueScalar: 0,
+      invalidShape: 0,
+      distinctValidOpaqueValues: 0,
+    },
+  });
+  assert.deepEqual(
+    result.quarantinedRecords.map((record) => record.reason),
+    Array.from({ length: 5 }, () => "missing_promotion_id"),
+  );
+  const serialized = JSON.stringify(result.diagnostics);
+  for (const privateValue of [
+    "shared-private",
+    "fanout-private",
+    "terminal-a-private",
+    "terminal-b-private",
+    "other-private",
+    "account-private",
+  ]) assert.equal(serialized.includes(privateValue), false);
+});
+
 test("completes when a later page has a metadata-proven null terminal continuation", async () => {
   const next = "/Mediapartners/2303074/Promotions?Page=2&cursor=opaque-provider-value";
   const { instance, transport } = client([

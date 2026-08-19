@@ -91,6 +91,22 @@ export interface ImpactPromotionIdentifierCarrierDiagnosticsV2 {
   id: ImpactOpaqueScalarCarrierDiagnosticsV2;
 }
 
+/** Promotions-only count evidence comparing singular PromotionId with Uri. */
+export interface ImpactPromotionIdentityEquivalenceDiagnosticsV2 {
+  structurallyValidPromotionRecords: number;
+  promotionIdAndRetrieveUriPresent: number;
+  exactPromotionIdEqualsUriTerminal: number;
+  promotionIdDiffersFromUriTerminal: number;
+  promotionIdPresentWithoutRetrieveUri: number;
+  retrieveUriPresentWithoutPromotionId: number;
+  neitherPresent: number;
+  distinctPromotionIds: number;
+  distinctRetrieveUriTerminalSegments: number;
+  promotionIdsMappingToMultipleUriTerminals: number;
+  uriTerminalsMappingToMultiplePromotionIds: number;
+  duplicatePromotionIdRecords: number;
+}
+
 export interface QuarantinedImpactRecordV2 {
   stream: ImpactStream;
   reason: QuarantineReason;
@@ -162,6 +178,8 @@ export interface ImpactStreamFetchDiagnosticsV2 {
   promotionIdShapeCounts?: ImpactPromotionIdShapeCountsV2;
   /** Present only when `stream` is Promotions. Values are aggregate counts only. */
   promotionIdentifierCarrierDiagnostics?: ImpactPromotionIdentifierCarrierDiagnosticsV2;
+  /** Present only when `stream` is Promotions. Values are aggregate counts only. */
+  promotionIdentityEquivalenceDiagnostics?: ImpactPromotionIdentityEquivalenceDiagnosticsV2;
   stopReason: StreamStopReason | null;
   parseFailureReason: ImpactParseFailureReasonV2 | null;
   pageErrors: ImpactPageErrorV2[];

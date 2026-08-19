@@ -7,6 +7,7 @@ import type {
   ImpactPageFetchDiagnosticV2,
   ImpactPageProvenanceV2,
   ImpactPromotionIdentifierCarrierDiagnosticsV2,
+  ImpactPromotionIdentityEquivalenceDiagnosticsV2,
   ImpactPromotionIdShapeCountsV2,
   ImpactQuarantineReasonCountsV2,
   ImpactRetryDiagnosticV2,
@@ -24,6 +25,7 @@ import {
   ImpactPageParser,
   type ImpactPageParseResultV2,
   type ImpactPromotionIdentifierCarrierDistinctValuesV2,
+  type ImpactPromotionIdentityEquivalenceRelationsV2,
 } from "./ImpactPageParser.ts";
 import type { RawImpactCampaignV2, RawImpactPromotionV2 } from "./models.ts";
 
@@ -142,6 +144,39 @@ function emptyPromotionIdentifierCarrierDistinctValues(): MutablePromotionIdenti
   };
 }
 
+function emptyPromotionIdentityEquivalenceDiagnostics(): ImpactPromotionIdentityEquivalenceDiagnosticsV2 {
+  return {
+    structurallyValidPromotionRecords: 0,
+    promotionIdAndRetrieveUriPresent: 0,
+    exactPromotionIdEqualsUriTerminal: 0,
+    promotionIdDiffersFromUriTerminal: 0,
+    promotionIdPresentWithoutRetrieveUri: 0,
+    retrieveUriPresentWithoutPromotionId: 0,
+    neitherPresent: 0,
+    distinctPromotionIds: 0,
+    distinctRetrieveUriTerminalSegments: 0,
+    promotionIdsMappingToMultipleUriTerminals: 0,
+    uriTerminalsMappingToMultiplePromotionIds: 0,
+    duplicatePromotionIdRecords: 0,
+  };
+}
+
+interface MutablePromotionIdentityEquivalenceRelationsV2 {
+  promotionIds: Set<string>;
+  retrieveUriTerminalSegments: Set<string>;
+  promotionIdToUriTerminals: Map<string, Set<string>>;
+  uriTerminalToPromotionIds: Map<string, Set<string>>;
+}
+
+function emptyPromotionIdentityEquivalenceRelations(): MutablePromotionIdentityEquivalenceRelationsV2 {
+  return {
+    promotionIds: new Set<string>(),
+    retrieveUriTerminalSegments: new Set<string>(),
+    promotionIdToUriTerminals: new Map<string, Set<string>>(),
+    uriTerminalToPromotionIds: new Map<string, Set<string>>(),
+  };
+}
+
 function addQuarantineReasonCounts(
   counts: ImpactQuarantineReasonCountsV2,
   records: readonly QuarantinedImpactRecordV2[],
@@ -191,6 +226,71 @@ function addPromotionIdentifierCarrierDiagnostics(
     distinctValues.promotionRetrieveTerminalSegments.size;
 }
 
+function addRelationMap(
+  target: Map<string, Set<string>>,
+  source: ReadonlyMap<string, ReadonlySet<string>>,
+): void {
+  for (const [key, sourceValues] of source) {
+    let targetValues = target.get(key);
+    if (!targetValues) {
+      targetValues = new Set<string>();
+      target.set(key, targetValues);
+    }
+    addDistinctValues(targetValues, sourceValues);
+  }
+}
+
+function mappingConflictCount(relations: ReadonlyMap<string, ReadonlySet<string>>): number {
+  let count = 0;
+  for (const values of relations.values()) {
+    if (values.size > 1) count += 1;
+  }
+  return count;
+}
+
+function addPromotionIdentityEquivalenceDiagnostics(
+  counts: ImpactPromotionIdentityEquivalenceDiagnosticsV2,
+  pageCounts: ImpactPromotionIdentityEquivalenceDiagnosticsV2,
+  relations: MutablePromotionIdentityEquivalenceRelationsV2,
+  pageRelations: ImpactPromotionIdentityEquivalenceRelationsV2,
+): void {
+  for (const key of [
+    "structurallyValidPromotionRecords",
+    "promotionIdAndRetrieveUriPresent",
+    "exactPromotionIdEqualsUriTerminal",
+    "promotionIdDiffersFromUriTerminal",
+    "promotionIdPresentWithoutRetrieveUri",
+    "retrieveUriPresentWithoutPromotionId",
+    "neitherPresent",
+  ] as const) counts[key] += pageCounts[key];
+  addDistinctValues(relations.promotionIds, pageRelations.promotionIds);
+  addDistinctValues(
+    relations.retrieveUriTerminalSegments,
+    pageRelations.retrieveUriTerminalSegments,
+  );
+  addRelationMap(
+    relations.promotionIdToUriTerminals,
+    pageRelations.promotionIdToUriTerminals,
+  );
+  addRelationMap(
+    relations.uriTerminalToPromotionIds,
+    pageRelations.uriTerminalToPromotionIds,
+  );
+  counts.distinctPromotionIds = relations.promotionIds.size;
+  counts.distinctRetrieveUriTerminalSegments =
+    relations.retrieveUriTerminalSegments.size;
+  counts.promotionIdsMappingToMultipleUriTerminals = mappingConflictCount(
+    relations.promotionIdToUriTerminals,
+  );
+  counts.uriTerminalsMappingToMultiplePromotionIds = mappingConflictCount(
+    relations.uriTerminalToPromotionIds,
+  );
+  counts.duplicatePromotionIdRecords =
+    counts.promotionIdAndRetrieveUriPresent +
+    counts.promotionIdPresentWithoutRetrieveUri -
+    counts.distinctPromotionIds;
+}
+
 function emptyDiagnostics(stream: ImpactStream): ImpactStreamFetchDiagnosticsV2 {
   return {
     stream,
@@ -203,6 +303,7 @@ function emptyDiagnostics(stream: ImpactStream): ImpactStreamFetchDiagnosticsV2 
       ? {
         promotionIdShapeCounts: emptyPromotionIdShapeCounts(),
         promotionIdentifierCarrierDiagnostics: emptyPromotionIdentifierCarrierDiagnostics(),
+        promotionIdentityEquivalenceDiagnostics: emptyPromotionIdentityEquivalenceDiagnostics(),
       }
       : {}),
     stopReason: null,
@@ -387,6 +488,9 @@ export class ImpactClientV2 {
     const promotionIdentifierCarrierDistinctValues = stream === "promotions"
       ? emptyPromotionIdentifierCarrierDistinctValues()
       : null;
+    const promotionIdentityEquivalenceRelations = stream === "promotions"
+      ? emptyPromotionIdentityEquivalenceRelations()
+      : null;
     const records: StreamRecord[] = [];
     const quarantinedRecords: QuarantinedImpactRecordV2[] = [];
     const initial = validateImpactContinuation(initialUrl, this.options.continuationPolicy);
@@ -496,6 +600,19 @@ export class ImpactClientV2 {
           parsed.promotionIdentifierCarrierDiagnostics,
           promotionIdentifierCarrierDistinctValues,
           parsed.promotionIdentifierCarrierDistinctValues,
+        );
+      }
+      if (
+        diagnostics.promotionIdentityEquivalenceDiagnostics &&
+        parsed.promotionIdentityEquivalenceDiagnostics &&
+        promotionIdentityEquivalenceRelations &&
+        parsed.promotionIdentityEquivalenceRelations
+      ) {
+        addPromotionIdentityEquivalenceDiagnostics(
+          diagnostics.promotionIdentityEquivalenceDiagnostics,
+          parsed.promotionIdentityEquivalenceDiagnostics,
+          promotionIdentityEquivalenceRelations,
+          parsed.promotionIdentityEquivalenceRelations,
         );
       }
       const exceedsRecordLimit = records.length + parsed.records.length > this.options.limits.maxRecords;
