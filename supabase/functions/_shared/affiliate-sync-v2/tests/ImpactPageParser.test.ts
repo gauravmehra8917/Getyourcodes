@@ -80,6 +80,69 @@ test("rejects malformed Promotion pages without envelope fallbacks", () => {
   }
 });
 
+test("accepts empty continuations only on metadata-proven terminal pages", () => {
+  const cases = [
+    [
+      ImpactPageParser.promotions,
+      { "@page": "4", "@numpages": "4", "@nextpageuri": null, Promotions: [] },
+    ],
+    [
+      ImpactPageParser.campaigns,
+      { "@page": "17", "@numpages": "17", "@nextpageuri": "", Campaigns: [] },
+    ],
+    [
+      ImpactPageParser.promotions,
+      { "@page": "4", "@numpages": "4", "@nextpageuri": "   \t", Promotions: [] },
+    ],
+  ] as const;
+
+  for (const [parse, body] of cases) {
+    const parsed = parse(JSON.stringify(body), { provenance });
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) continue;
+    assert.equal(parsed.nextContinuationUri, null);
+  }
+});
+
+test("rejects empty continuations without valid terminal-page proof", () => {
+  const cases = [
+    { "@page": "3", "@numpages": "4", "@nextpageuri": null },
+    { "@numpages": "4", "@nextpageuri": null },
+    { "@page": "4", "@nextpageuri": null },
+    { "@page": "not-a-number", "@numpages": "4", "@nextpageuri": null },
+    { "@page": "4", "@numpages": "not-a-number", "@nextpageuri": null },
+    { "@page": "0", "@numpages": "0", "@nextpageuri": null },
+    { "@page": "1.5", "@numpages": "1.5", "@nextpageuri": null },
+    { "@page": "5", "@numpages": "4", "@nextpageuri": null },
+  ] as const;
+
+  for (const metadata of cases) {
+    const parsed = ImpactPageParser.promotions(JSON.stringify({ Promotions: [], ...metadata }), { provenance });
+    assert.deepEqual(parsed, {
+      ok: false,
+      code: "malformed_page",
+      reason: "invalid_nextpageuri",
+      detail: "Impact response @nextpageuri is not a nonempty string",
+    });
+  }
+});
+
+test("preserves nonempty continuations and absent terminal continuations", () => {
+  const exactContinuation = "/Mediapartners/2303074/Promotions?Page=5&Opaque=exact";
+  const nonempty = ImpactPageParser.promotions(JSON.stringify({
+    "@page": "4",
+    "@numpages": "4",
+    "@nextpageuri": exactContinuation,
+    Promotions: [],
+  }), { provenance });
+  assert.equal(nonempty.ok, true);
+  if (nonempty.ok) assert.equal(nonempty.nextContinuationUri, exactContinuation);
+
+  const absent = ImpactPageParser.promotions(JSON.stringify({ Promotions: [] }), { provenance });
+  assert.equal(absent.ok, true);
+  if (absent.ok) assert.equal(absent.nextContinuationUri, null);
+});
+
 test("quarantines malformed and identity-less Promotions", () => {
   const parsed = ImpactPageParser.promotions(JSON.stringify({
     Promotions: [null, { PromotionIds: "   " }, { PromotionIds: "valid" }],

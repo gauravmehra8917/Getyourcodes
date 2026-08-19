@@ -241,14 +241,40 @@ test("keeps sanitized page provenance for accepted and quarantined records", asy
   assert.equal(result.records[1]?.provenance.sanitizedSourceContinuationUrl?.includes("%5BREDACTED%5D"), true);
 });
 
-test("retains prior accepted pages and reports an invalid terminal continuation at fetch depth two", async () => {
+test("completes when a later page has a metadata-proven null terminal continuation", async () => {
   const next = "/Mediapartners/2303074/Promotions?Page=2&cursor=opaque-provider-value";
   const { instance, transport } = client([
     response(promotions([{ PromotionIds: "accepted-page-one" }], next)),
     response({
       "@page": "2",
+      "@numpages": "2",
+      Promotions: [{ PromotionIds: "accepted-page-two" }],
+      "@nextpageuri": null,
+    }),
+  ]);
+
+  const result = await instance.fetchPromotions(initial);
+  assert.equal(result.diagnostics.stopReason, "completed");
+  assert.equal(result.diagnostics.parseFailureReason, null);
+  assert.equal(result.diagnostics.pagesFetched, 2);
+  assert.deepEqual(result.records.map((record) => record.promotionId), ["accepted-page-one", "accepted-page-two"]);
+  assert.equal(result.diagnostics.rawRecordCount, 2);
+  assert.equal(result.diagnostics.acceptedRecordCount, 2);
+  assert.equal(result.diagnostics.pages[1]?.accepted, true);
+  assert.equal(transport.requests.length, 2);
+  assert.equal(JSON.stringify(result.diagnostics).includes("opaque-provider-value"), false);
+  assert.equal(JSON.stringify(result.diagnostics).includes("@nextpageuri"), false);
+});
+
+test("retains prior accepted pages when a later non-terminal null continuation is malformed", async () => {
+  const next = "/Mediapartners/2303074/Promotions?Page=2&cursor=opaque-provider-value";
+  const { instance, transport } = client([
+    response(promotions([{ PromotionIds: "accepted-page-one" }], next)),
+    response({
+      "@page": "2",
+      "@numpages": "3",
       Promotions: [{ PromotionIds: "unaccepted-page-two-secret" }],
-      "@nextpageuri": "",
+      "@nextpageuri": null,
     }),
   ]);
 

@@ -76,10 +76,41 @@ function paginationOf(envelope: ImpactEnvelope): ImpactPaginationMetadataV2 {
   };
 }
 
-function nextContinuationOf(envelope: ImpactEnvelope): string | null {
-  if (!("@nextpageuri" in envelope)) return null;
+type ImpactContinuationParseResultV2 =
+  | { ok: true; nextContinuationUri: string | null }
+  | { ok: false };
+
+function positiveInteger(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value > 0 ? value : null;
+  }
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function hasProvenTerminalPage(envelope: ImpactEnvelope): boolean {
+  const page = positiveInteger(envelope["@page"]);
+  const numPages = positiveInteger(envelope["@numpages"]);
+  return page !== null && numPages !== null && page === numPages;
+}
+
+function continuationOf(envelope: ImpactEnvelope): ImpactContinuationParseResultV2 {
+  if (!("@nextpageuri" in envelope)) return { ok: true, nextContinuationUri: null };
   const value = envelope["@nextpageuri"];
-  return typeof value === "string" ? value.trim() : null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed) return { ok: true, nextContinuationUri: trimmed };
+    return hasProvenTerminalPage(envelope)
+      ? { ok: true, nextContinuationUri: null }
+      : { ok: false };
+  }
+  if (value === null && hasProvenTerminalPage(envelope)) {
+    return { ok: true, nextContinuationUri: null };
+  }
+  return { ok: false };
 }
 
 function recordProvenance(
@@ -200,7 +231,8 @@ export class ImpactPageParser {
   ): ImpactPageParseResultV2<RawImpactPromotionV2> {
     const parsed = parseEnvelope(bodyText, "Promotions");
     if ("ok" in parsed) return parsed;
-    if ("@nextpageuri" in parsed.envelope && !nextContinuationOf(parsed.envelope)) {
+    const continuation = continuationOf(parsed.envelope);
+    if (!continuation.ok) {
       return {
         ok: false,
         code: "malformed_page",
@@ -227,7 +259,7 @@ export class ImpactPageParser {
       ...records,
       rawRecordCount: parsed.records.length,
       pagination,
-      nextContinuationUri: nextContinuationOf(parsed.envelope),
+      nextContinuationUri: continuation.nextContinuationUri,
     };
   }
 
@@ -237,7 +269,8 @@ export class ImpactPageParser {
   ): ImpactPageParseResultV2<RawImpactCampaignV2> {
     const parsed = parseEnvelope(bodyText, "Campaigns");
     if ("ok" in parsed) return parsed;
-    if ("@nextpageuri" in parsed.envelope && !nextContinuationOf(parsed.envelope)) {
+    const continuation = continuationOf(parsed.envelope);
+    if (!continuation.ok) {
       return {
         ok: false,
         code: "malformed_page",
@@ -264,7 +297,7 @@ export class ImpactPageParser {
       ...records,
       rawRecordCount: parsed.records.length,
       pagination,
-      nextContinuationUri: nextContinuationOf(parsed.envelope),
+      nextContinuationUri: continuation.nextContinuationUri,
     };
   }
 }
