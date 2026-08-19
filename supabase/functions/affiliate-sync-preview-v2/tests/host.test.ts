@@ -998,6 +998,8 @@ test("host transport attaches Basic auth only on approved same-origin requests",
   const observations: Array<
     {
       url: string;
+      accept: string | null;
+      irVersion: string | null;
       authorization: string | null;
       redirect: RequestRedirect | undefined;
     }
@@ -1008,6 +1010,8 @@ test("host transport attaches Basic auth only on approved same-origin requests",
     fetchImplementation: async (input, init) => {
       observations.push({
         url: String(input),
+        accept: new Headers(init?.headers).get("Accept"),
+        irVersion: new Headers(init?.headers).get("IR-Version"),
         authorization: new Headers(init?.headers).get("Authorization"),
         redirect: init?.redirect,
       });
@@ -1022,13 +1026,28 @@ test("host transport attaches Basic auth only on approved same-origin requests",
   });
   await transport.execute({
     method: "GET",
+    url: "https://api.impact.com/Promotions?Page=2&continuation=provider-owned",
+    credentialDisposition: "attach_if_same_origin",
+    redirect: "error",
+  });
+  await transport.execute({
+    method: "GET",
     url: "https://api-us.impact.com/Promotions",
     credentialDisposition: "omit",
     redirect: "error",
   });
-  assert.match(observations[0]!.authorization ?? "", /^Basic /);
+  assert.equal(observations[0]!.accept, "application/json");
+  assert.equal(observations[0]!.irVersion, "15");
+  assert.equal(observations[0]!.authorization, "Basic c2lkOnRva2Vu");
   assert.equal(observations[0]!.redirect, "error");
-  assert.equal(observations[1]!.authorization, null);
+  assert.equal(
+    observations[1]!.url,
+    "https://api.impact.com/Promotions?Page=2&continuation=provider-owned",
+  );
+  assert.equal(observations[1]!.irVersion, "15");
+  assert.equal(observations[1]!.authorization, "Basic c2lkOnRva2Vu");
+  assert.equal(observations[2]!.irVersion, "15");
+  assert.equal(observations[2]!.authorization, null);
   const mismatch = await transport.execute({
     method: "GET",
     url: "https://evil.example/Promotions",
@@ -1039,7 +1058,7 @@ test("host transport attaches Basic auth only on approved same-origin requests",
     kind: "transport_error",
     errorCode: "credential_origin_mismatch",
   });
-  assert.equal(observations.length, 2);
+  assert.equal(observations.length, 3);
 });
 
 test("host transport maps Retry-After, redirect policy, injected waits, aborts, and timeouts", async () => {

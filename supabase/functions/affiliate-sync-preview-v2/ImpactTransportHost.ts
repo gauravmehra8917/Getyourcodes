@@ -98,7 +98,10 @@ export class ImpactTransportHost implements ImpactTransport {
     } catch {
       return { kind: "transport_error", errorCode: "invalid_request_url" };
     }
-    const headers = new Headers({ Accept: "application/json" });
+    const headers = new Headers({
+      Accept: "application/json",
+      "IR-Version": "15",
+    });
     if (request.credentialDisposition === "attach_if_same_origin") {
       if (url.origin !== this.approvedCredentialOrigin) {
         return {
