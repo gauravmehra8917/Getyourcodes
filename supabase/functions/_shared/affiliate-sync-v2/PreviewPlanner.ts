@@ -437,6 +437,22 @@ function validateFetchInput(input: AffiliateSyncPreviewInputV2): void {
       throw new Error("PreviewPlanner quarantine reason counts do not reconcile");
     }
   }
+  const promotionShapeCounts = input.fetchDiagnostics.promotions.promotionIdShapeCounts;
+  if (!promotionShapeCounts) {
+    throw new Error("PreviewPlanner requires PromotionIds shape diagnostics for Promotions");
+  }
+  if (input.fetchDiagnostics.campaigns.promotionIdShapeCounts !== undefined) {
+    throw new Error("PreviewPlanner forbids PromotionIds shape diagnostics for Campaigns");
+  }
+  const shapeCounts = Object.values(promotionShapeCounts);
+  if (shapeCounts.some((count) => !Number.isInteger(count) || count < 0)) {
+    throw new Error("PreviewPlanner PromotionIds shape counts must be non-negative integers");
+  }
+  const structurallyValidPromotions = input.fetchDiagnostics.promotions.rawRecordCount -
+    input.fetchDiagnostics.promotions.quarantineReasonCounts.malformed_record;
+  if (shapeCounts.reduce((total, count) => total + count, 0) !== structurallyValidPromotions) {
+    throw new Error("PreviewPlanner PromotionIds shape counts do not reconcile");
+  }
   const expectedQuarantined =
     input.fetchDiagnostics.promotions.quarantinedRecordCount +
     input.fetchDiagnostics.campaigns.quarantinedRecordCount;

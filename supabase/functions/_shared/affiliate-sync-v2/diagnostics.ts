@@ -47,6 +47,19 @@ export interface ImpactQuarantineReasonCountsV2 {
   missing_campaign_id: number;
 }
 
+/** Aggregate raw shape of the exact PromotionIds property on Promotion objects. */
+export interface ImpactPromotionIdShapeCountsV2 {
+  missing: number;
+  null: number;
+  nonempty_string: number;
+  empty_or_whitespace_string: number;
+  number: number;
+  array: number;
+  object: number;
+  boolean: number;
+  other: number;
+}
+
 export interface QuarantinedImpactRecordV2 {
   stream: ImpactStream;
   reason: QuarantineReason;
@@ -114,6 +127,8 @@ export interface ImpactStreamFetchDiagnosticsV2 {
   acceptedRecordCount: number;
   quarantinedRecordCount: number;
   quarantineReasonCounts: ImpactQuarantineReasonCountsV2;
+  /** Present only when `stream` is Promotions. */
+  promotionIdShapeCounts?: ImpactPromotionIdShapeCountsV2;
   stopReason: StreamStopReason | null;
   parseFailureReason: ImpactParseFailureReasonV2 | null;
   pageErrors: ImpactPageErrorV2[];

@@ -6,6 +6,7 @@ import type {
   ImpactPageErrorV2,
   ImpactPageFetchDiagnosticV2,
   ImpactPageProvenanceV2,
+  ImpactPromotionIdShapeCountsV2,
   ImpactQuarantineReasonCountsV2,
   ImpactRetryDiagnosticV2,
   ImpactStream,
@@ -77,11 +78,34 @@ function emptyQuarantineReasonCounts(): ImpactQuarantineReasonCountsV2 {
   };
 }
 
+function emptyPromotionIdShapeCounts(): ImpactPromotionIdShapeCountsV2 {
+  return {
+    missing: 0,
+    null: 0,
+    nonempty_string: 0,
+    empty_or_whitespace_string: 0,
+    number: 0,
+    array: 0,
+    object: 0,
+    boolean: 0,
+    other: 0,
+  };
+}
+
 function addQuarantineReasonCounts(
   counts: ImpactQuarantineReasonCountsV2,
   records: readonly QuarantinedImpactRecordV2[],
 ): void {
   for (const record of records) counts[record.reason] += 1;
+}
+
+function addPromotionIdShapeCounts(
+  counts: ImpactPromotionIdShapeCountsV2,
+  pageCounts: ImpactPromotionIdShapeCountsV2,
+): void {
+  for (const shape of Object.keys(counts) as Array<keyof ImpactPromotionIdShapeCountsV2>) {
+    counts[shape] += pageCounts[shape];
+  }
 }
 
 function emptyDiagnostics(stream: ImpactStream): ImpactStreamFetchDiagnosticsV2 {
@@ -92,6 +116,7 @@ function emptyDiagnostics(stream: ImpactStream): ImpactStreamFetchDiagnosticsV2 
     acceptedRecordCount: 0,
     quarantinedRecordCount: 0,
     quarantineReasonCounts: emptyQuarantineReasonCounts(),
+    ...(stream === "promotions" ? { promotionIdShapeCounts: emptyPromotionIdShapeCounts() } : {}),
     stopReason: null,
     parseFailureReason: null,
     pageErrors: [],
@@ -366,6 +391,9 @@ export class ImpactClientV2 {
       quarantinedRecords.push(...parsed.quarantinedRecords);
       diagnostics.quarantinedRecordCount += parsed.quarantinedRecords.length;
       addQuarantineReasonCounts(diagnostics.quarantineReasonCounts, parsed.quarantinedRecords);
+      if (diagnostics.promotionIdShapeCounts && parsed.promotionIdShapeCounts) {
+        addPromotionIdShapeCounts(diagnostics.promotionIdShapeCounts, parsed.promotionIdShapeCounts);
+      }
       const exceedsRecordLimit = records.length + parsed.records.length > this.options.limits.maxRecords;
       diagnostics.pages.push(pageDiagnostic(
         provenance,

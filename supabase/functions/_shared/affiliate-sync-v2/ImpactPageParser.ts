@@ -1,6 +1,7 @@
 import type {
   ImpactParseFailureReasonV2,
   ImpactPageProvenanceV2,
+  ImpactPromotionIdShapeCountsV2,
   ImpactRecordProvenanceV2,
   QuarantinedImpactRecordV2,
 } from "./diagnostics.ts";
@@ -30,6 +31,8 @@ export interface ParsedImpactPageV2<T> {
   records: T[];
   quarantinedRecords: QuarantinedImpactRecordV2[];
   rawRecordCount: number;
+  /** Count-only raw PromotionIds shapes; null for Campaign pages. */
+  promotionIdShapeCounts: ImpactPromotionIdShapeCountsV2 | null;
   pagination: ImpactPaginationMetadataV2;
   /**
    * Used only by the immediately following client continuation decision. It is
@@ -47,6 +50,34 @@ export interface ImpactPageParserInputV2 {
 
 function isRecord(value: unknown): value is ImpactEnvelope {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function emptyPromotionIdShapeCounts(): ImpactPromotionIdShapeCountsV2 {
+  return {
+    missing: 0,
+    null: 0,
+    nonempty_string: 0,
+    empty_or_whitespace_string: 0,
+    number: 0,
+    array: 0,
+    object: 0,
+    boolean: 0,
+    other: 0,
+  };
+}
+
+function promotionIdShape(record: ImpactEnvelope): keyof ImpactPromotionIdShapeCountsV2 {
+  if (!Object.prototype.hasOwnProperty.call(record, "PromotionIds")) return "missing";
+  const value = record.PromotionIds;
+  if (value === null) return "null";
+  if (typeof value === "string") {
+    return value.trim() ? "nonempty_string" : "empty_or_whitespace_string";
+  }
+  if (typeof value === "number") return "number";
+  if (Array.isArray(value)) return "array";
+  if (typeof value === "object") return "object";
+  if (typeof value === "boolean") return "boolean";
+  return "other";
 }
 
 function optionalText(value: unknown): string | null {
@@ -205,6 +236,7 @@ function parseRecords<T>(input: {
   identity: (record: ImpactEnvelope, provenance: ImpactRecordProvenanceV2) => T;
   hasIdentity: (record: T) => boolean;
   missingIdentityReason: "missing_promotion_id" | "missing_campaign_id";
+  observeRecord?: (record: ImpactEnvelope) => void;
 }): { records: T[]; quarantinedRecords: QuarantinedImpactRecordV2[] } {
   const records: T[] = [];
   const quarantinedRecords: QuarantinedImpactRecordV2[] = [];
@@ -214,6 +246,7 @@ function parseRecords<T>(input: {
       quarantinedRecords.push({ stream: input.stream, reason: "malformed_record", provenance });
       return;
     }
+    input.observeRecord?.(value);
     const record = input.identity(value, provenance);
     if (!input.hasIdentity(record)) {
       quarantinedRecords.push({ stream: input.stream, reason: input.missingIdentityReason, provenance });
@@ -241,6 +274,7 @@ export class ImpactPageParser {
       };
     }
     const pagination = paginationOf(parsed.envelope);
+    const promotionIdShapeCounts = emptyPromotionIdShapeCounts();
     const records = parseRecords({
       stream: "promotions",
       records: parsed.records,
@@ -252,12 +286,16 @@ export class ImpactPageParser {
       identity: promotionOf,
       hasIdentity: (record) => record.promotionId !== null,
       missingIdentityReason: "missing_promotion_id",
+      observeRecord: (record) => {
+        promotionIdShapeCounts[promotionIdShape(record)] += 1;
+      },
     });
     return {
       ok: true,
       stream: "promotions",
       ...records,
       rawRecordCount: parsed.records.length,
+      promotionIdShapeCounts,
       pagination,
       nextContinuationUri: continuation.nextContinuationUri,
     };
@@ -296,6 +334,7 @@ export class ImpactPageParser {
       stream: "campaigns",
       ...records,
       rawRecordCount: parsed.records.length,
+      promotionIdShapeCounts: null,
       pagination,
       nextContinuationUri: continuation.nextContinuationUri,
     };

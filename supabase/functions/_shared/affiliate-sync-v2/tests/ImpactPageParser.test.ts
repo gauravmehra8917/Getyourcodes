@@ -156,6 +156,61 @@ test("quarantines malformed and identity-less Promotions", () => {
   ]);
 });
 
+test("classifies exact raw PromotionIds shapes before identity extraction", () => {
+  const parsed = ImpactPageParser.promotions(JSON.stringify({
+    Promotions: [
+      {},
+      { PromotionIds: null },
+      { PromotionIds: "  exact-string-id  " },
+      { PromotionIds: "" },
+      { PromotionIds: "  \t " },
+      { PromotionIds: 42.5 },
+      { PromotionIds: ["array-value-must-not-leak"] },
+      { PromotionIds: { nested: "object-value-must-not-leak" } },
+      { PromotionIds: false },
+      "malformed-record-value-must-not-leak",
+    ],
+  }), { provenance });
+
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  assert.deepEqual(parsed.promotionIdShapeCounts, {
+    missing: 1,
+    null: 1,
+    nonempty_string: 1,
+    empty_or_whitespace_string: 2,
+    number: 1,
+    array: 1,
+    object: 1,
+    boolean: 1,
+    other: 0,
+  });
+  assert.deepEqual(parsed.records.map((record) => record.promotionId), ["exact-string-id", "42.5"]);
+  assert.deepEqual(
+    parsed.quarantinedRecords.reduce<Record<string, number>>((counts, record) => {
+      counts[record.reason] = (counts[record.reason] ?? 0) + 1;
+      return counts;
+    }, {}),
+    { missing_promotion_id: 7, malformed_record: 1 },
+  );
+  assert.equal(
+    Object.values(parsed.promotionIdShapeCounts).reduce((total, count) => total + count, 0),
+    parsed.rawRecordCount - 1,
+  );
+});
+
+test("counts an extreme JSON number as raw number shape while preserving finite-only identity", () => {
+  const parsed = ImpactPageParser.promotions(
+    '{"Promotions":[{"PromotionIds":1e400}]}',
+    { provenance },
+  );
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  assert.equal(parsed.promotionIdShapeCounts?.number, 1);
+  assert.equal(parsed.records.length, 0);
+  assert.deepEqual(parsed.quarantinedRecords.map((record) => record.reason), ["missing_promotion_id"]);
+});
+
 test("strictly parses Campaigns and keeps supplied advertiser identity separate", () => {
   const parsed = ImpactPageParser.campaigns(JSON.stringify({
     "@page": 1,
@@ -169,6 +224,7 @@ test("strictly parses Campaigns and keeps supplied advertiser identity separate"
   }), { provenance: { ...provenance, stream: "campaigns" } });
   assert.equal(parsed.ok, true);
   if (!parsed.ok) return;
+  assert.equal(parsed.promotionIdShapeCounts, null);
   assert.deepEqual(parsed.records[0], {
     campaignId: "Campaign-001",
     advertiserId: "Advertiser-002",

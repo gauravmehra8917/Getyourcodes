@@ -306,6 +306,21 @@ test("final preview actions and store coverage reconcile without identity collap
       missing_promotion_id: 0,
       missing_campaign_id: 0,
     },
+    ...(name === "promotions"
+      ? {
+        promotionIdShapeCounts: {
+          missing: 0,
+          null: 0,
+          nonempty_string: count,
+          empty_or_whitespace_string: 0,
+          number: 0,
+          array: 0,
+          object: 0,
+          boolean: 0,
+          other: 0,
+        },
+      }
+      : {}),
     stopReason: "completed" as const,
     parseFailureReason: null,
     pageErrors: [],

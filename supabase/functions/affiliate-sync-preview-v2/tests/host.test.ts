@@ -869,11 +869,23 @@ test("successful preview exposes aggregate quarantine reasons without individual
     missing_promotion_id: 2,
     missing_campaign_id: 0,
   });
+  assert.deepEqual(promotions.promotionIdShapeCounts, {
+    missing: 0,
+    null: 0,
+    nonempty_string: 0,
+    empty_or_whitespace_string: 1,
+    number: 0,
+    array: 1,
+    object: 0,
+    boolean: 0,
+    other: 0,
+  });
   assert.deepEqual(campaigns.quarantineReasonCounts, {
     malformed_record: 0,
     missing_promotion_id: 0,
     missing_campaign_id: 1,
   });
+  assert.equal("promotionIdShapeCounts" in campaigns, false);
   for (const stream of [promotions, campaigns]) {
     const counts = stream.quarantineReasonCounts as Record<string, number>;
     assert.equal(

@@ -75,6 +75,7 @@ test("applies the identical continuation controls to Campaigns", async () => {
   ]);
   assert.equal(result.diagnostics.stopReason, "completed");
   assert.equal(transport.requests.length, 2);
+  assert.equal("promotionIdShapeCounts" in result.diagnostics, false);
 });
 
 test("rejects unsafe continuations and detects a repeated continuation before refetching", async () => {
@@ -275,9 +276,24 @@ test("aggregates closed quarantine reasons across Promotion pages without leakin
     missing_promotion_id: 2,
     missing_campaign_id: 0,
   });
+  assert.deepEqual(result.diagnostics.promotionIdShapeCounts, {
+    missing: 0,
+    null: 0,
+    nonempty_string: 2,
+    empty_or_whitespace_string: 1,
+    number: 0,
+    array: 1,
+    object: 0,
+    boolean: 0,
+    other: 0,
+  });
   assert.equal(
     Object.values(result.diagnostics.quarantineReasonCounts).reduce((total, count) => total + count, 0),
     result.diagnostics.quarantinedRecordCount,
+  );
+  assert.equal(
+    Object.values(result.diagnostics.promotionIdShapeCounts ?? {}).reduce((total, count) => total + count, 0),
+    result.diagnostics.rawRecordCount - result.diagnostics.quarantineReasonCounts.malformed_record,
   );
   assert.deepEqual(result.records.map((record) => record.promotionId), ["accepted-one", "accepted-two"]);
   const publicDiagnostics = JSON.stringify(result.diagnostics);

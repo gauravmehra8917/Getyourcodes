@@ -36,6 +36,17 @@ function streamDiagnostics(
     missing_promotion_id: quarantinedRecords.filter((entry) => entry.reason === "missing_promotion_id").length,
     missing_campaign_id: quarantinedRecords.filter((entry) => entry.reason === "missing_campaign_id").length,
   };
+  const promotionIdShapeCounts = {
+    missing: quarantinedRecords.filter((entry) => entry.reason === "missing_promotion_id").length,
+    null: 0,
+    nonempty_string: acceptedRecords,
+    empty_or_whitespace_string: 0,
+    number: 0,
+    array: 0,
+    object: 0,
+    boolean: 0,
+    other: 0,
+  };
   return {
     stream,
     pagesFetched: acceptedRecords + quarantinedRecords.length > 0 ? 1 : 0,
@@ -43,6 +54,7 @@ function streamDiagnostics(
     acceptedRecordCount: acceptedRecords,
     quarantinedRecordCount: quarantinedRecords.length,
     quarantineReasonCounts,
+    ...(stream === "promotions" ? { promotionIdShapeCounts } : {}),
     stopReason: "completed",
     parseFailureReason: null,
     pageErrors: [],
@@ -445,5 +457,38 @@ test("quarantine reason aggregates must be non-negative integers and reconcile",
   assert.throws(
     () => PreviewPlanner.plan(unreconciled),
     /quarantine reason counts do not reconcile/,
+  );
+});
+
+test("PromotionIds shape aggregates must be Promotions-only, non-negative, and reconciled", () => {
+  const negative = plannerInput({ promotions: [], campaigns: [] });
+  negative.fetchDiagnostics.promotions.promotionIdShapeCounts!.array = -1;
+  assert.throws(
+    () => PreviewPlanner.plan(negative),
+    /PromotionIds shape counts must be non-negative integers/,
+  );
+
+  const unreconciled = plannerInput({ promotions: [], campaigns: [] });
+  unreconciled.fetchDiagnostics.promotions.promotionIdShapeCounts!.missing = 1;
+  assert.throws(
+    () => PreviewPlanner.plan(unreconciled),
+    /PromotionIds shape counts do not reconcile/,
+  );
+
+  const campaignShape = plannerInput({ promotions: [], campaigns: [] });
+  campaignShape.fetchDiagnostics.campaigns.promotionIdShapeCounts = {
+    missing: 0,
+    null: 0,
+    nonempty_string: 0,
+    empty_or_whitespace_string: 0,
+    number: 0,
+    array: 0,
+    object: 0,
+    boolean: 0,
+    other: 0,
+  };
+  assert.throws(
+    () => PreviewPlanner.plan(campaignShape),
+    /forbids PromotionIds shape diagnostics for Campaigns/,
   );
 });
