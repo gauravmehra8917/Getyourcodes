@@ -12,3 +12,6 @@ verify_jwt = false
 [functions.affiliate-sync-preview-v2]
 # The isolated V2 host verifies the Bearer JWT explicitly before privileged reads.
 verify_jwt = false
+
+[functions.affiliate-sync-apply-v2]
+verify_jwt = false
