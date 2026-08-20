@@ -80,65 +80,6 @@ export type Database = {
         }
         Relationships: []
       }
-      affiliate_import_run_mutations_v2: {
-        Row: {
-          created_at: string
-          entity_id: string
-          entity_kind: string
-          expected_entity_id: string | null
-          id: string
-          instruction_ordinal: number
-          offer_kind: string | null
-          outcome: string
-          parent_entity_id: string | null
-          parent_provider_entity_id: string | null
-          planned_action: string
-          provider: string
-          provider_entity_id: string
-          run_id: string
-        }
-        Insert: {
-          created_at?: string
-          entity_id: string
-          entity_kind: string
-          expected_entity_id?: string | null
-          id?: string
-          instruction_ordinal: number
-          offer_kind?: string | null
-          outcome: string
-          parent_entity_id?: string | null
-          parent_provider_entity_id?: string | null
-          planned_action: string
-          provider: string
-          provider_entity_id: string
-          run_id: string
-        }
-        Update: {
-          created_at?: string
-          entity_id?: string
-          entity_kind?: string
-          expected_entity_id?: string | null
-          id?: string
-          instruction_ordinal?: number
-          offer_kind?: string | null
-          outcome?: string
-          parent_entity_id?: string | null
-          parent_provider_entity_id?: string | null
-          planned_action?: string
-          provider?: string
-          provider_entity_id?: string
-          run_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "affiliate_import_run_mutations_v2_run_fkey"
-            columns: ["run_id"]
-            isOneToOne: false
-            referencedRelation: "affiliate_import_runs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       affiliate_import_runs: {
         Row: {
           api_calls_used: number
@@ -152,12 +93,6 @@ export type Database = {
           integration_id: string
           new_provider_identities: number
           pages_crawled: number
-          persistence_contract_version: string | null
-          persistence_counts: Json | null
-          persistence_execution_status: string | null
-          plan_evaluated_at: string | null
-          plan_fingerprint: string | null
-          plan_fingerprint_algorithm: string | null
           policy_id: string | null
           policy_name: string | null
           preview: boolean
@@ -192,12 +127,6 @@ export type Database = {
           integration_id: string
           new_provider_identities?: number
           pages_crawled?: number
-          persistence_contract_version?: string | null
-          persistence_counts?: Json | null
-          persistence_execution_status?: string | null
-          plan_evaluated_at?: string | null
-          plan_fingerprint?: string | null
-          plan_fingerprint_algorithm?: string | null
           policy_id?: string | null
           policy_name?: string | null
           preview?: boolean
@@ -232,12 +161,6 @@ export type Database = {
           integration_id?: string
           new_provider_identities?: number
           pages_crawled?: number
-          persistence_contract_version?: string | null
-          persistence_counts?: Json | null
-          persistence_execution_status?: string | null
-          plan_evaluated_at?: string | null
-          plan_fingerprint?: string | null
-          plan_fingerprint_algorithm?: string | null
           policy_id?: string | null
           policy_name?: string | null
           preview?: boolean
@@ -1511,45 +1434,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      affiliate_sync_v2_has_exact_keys: {
-        Args: { _keys: string[]; _value: Json }
-        Returns: boolean
-      }
-      affiliate_sync_v2_is_canonical_provider_id: {
-        Args: { _value: string }
-        Returns: boolean
-      }
-      affiliate_sync_v2_is_iso_date: {
-        Args: { _value: string }
-        Returns: boolean
-      }
-      affiliate_sync_v2_is_nonnegative_integer: {
-        Args: { _value: Json }
-        Returns: boolean
-      }
-      affiliate_sync_v2_valid_expected_counts: {
-        Args: { _counts: Json }
-        Returns: boolean
-      }
-      affiliate_sync_v2_valid_persistence_counts: {
-        Args: { _counts: Json }
-        Returns: boolean
-      }
-      apply_affiliate_persistence_plan_v2: {
-        Args: {
-          _evaluation_timestamp: string
-          _expected_counts: Json
-          _integration_id: string
-          _offer_instructions: Json
-          _persistence_contract_version: string
-          _plan_fingerprint: string
-          _plan_fingerprint_algorithm: string
-          _provider: string
-          _store_instructions: Json
-          _triggered_by: string
-        }
-        Returns: Json
-      }
       get_top_ai_searches: {
         Args: { _limit?: number }
         Returns: {
