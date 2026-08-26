@@ -1,8 +1,8 @@
 import { createPrivilegedEdgeClient } from "../_shared/edge-supabase.ts";
-import { SupabasePreviewV2DataSource } from "../affiliate-sync-preview-v2/supabase-read-boundary.ts";
+import { SupabasePreviewV2DataSource } from "../_shared/affiliate-sync-v2-host/supabase-read-boundary.ts";
 import type {
   StoredIntegrationV2,
-} from "../affiliate-sync-preview-v2/types.ts";
+} from "../_shared/affiliate-sync-v2-host/types.ts";
 import {
   type CatalogPlanningContextV2,
   loadCatalogPlanningContextV2,
