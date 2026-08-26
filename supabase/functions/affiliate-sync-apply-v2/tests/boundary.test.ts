@@ -483,7 +483,7 @@ test("apply-v2 production imports are explicit, resolvable, and isolated from No
     const required of [
       "supabase/functions/affiliate-sync-apply-v2/handler.ts",
       "supabase/functions/affiliate-sync-apply-v2/supabase-persistence-boundary.ts",
-      "supabase/functions/affiliate-sync-preview-v2/supabase-read-boundary.ts",
+      "supabase/functions/_shared/affiliate-sync-v2-host/supabase-read-boundary.ts",
       "supabase/functions/_shared/affiliate-sync-v2/PersistencePlannerV2.ts",
       "supabase/functions/_shared/edge-supabase.ts",
     ]
