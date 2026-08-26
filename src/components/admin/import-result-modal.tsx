@@ -1,5 +1,14 @@
 import * as React from "react";
-import { X, Loader2, AlertTriangle, CheckCircle2, Download } from "lucide-react";
+import {
+  X,
+  Loader2,
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  ChevronDown,
+  ChevronRight,
+  ShieldCheck,
+} from "lucide-react";
 import type { ReportIssue, SyncRunReport } from "@/lib/sync-execution.functions";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -435,6 +444,298 @@ function IdentityDiagnosticsPanel({ diagnostics }: {
 }
 
 
+/* ------------------------------------------------------------------ *
+ * V2 read-only preview operator experience (frontend-only).
+ * Every value below is derived from the EXISTING report payload.
+ * Nothing here writes, persists, or calls an additional endpoint.
+ * ------------------------------------------------------------------ */
+
+const NOT_AVAILABLE = "Not available";
+
+function Metric({
+  label,
+  value,
+  tone,
+  hint,
+}: {
+  label: string;
+  value: number | string | null | undefined;
+  tone?: "ok" | "warn" | "bad";
+  hint?: string;
+}) {
+  const missing = value === null || value === undefined || value === "";
+  const toneClass =
+    tone === "ok" ? "text-emerald-700" : tone === "warn" ? "text-amber-700" : tone === "bad" ? "text-rose-700" : "text-slate-800";
+  return (
+    <div className="rounded border border-slate-200 bg-white px-3 py-2">
+      <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`text-lg font-semibold tabular-nums ${missing ? "text-slate-400" : toneClass}`}>
+        {missing ? NOT_AVAILABLE : value}
+      </div>
+      {hint && <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div>}
+    </div>
+  );
+}
+
+function MetricGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-5">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{children}</div>
+    </div>
+  );
+}
+
+function Collapsible({
+  title,
+  count,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  count?: number;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <div className="mb-4 rounded border border-slate-200 bg-white">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between px-4 py-2.5 text-left"
+      >
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+          {title}
+          {typeof count === "number" ? ` (${count})` : ""}
+        </span>
+        {open ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
+      </button>
+      {open && <div className="border-t border-slate-100 px-4 py-3">{children}</div>}
+    </div>
+  );
+}
+
+type PreviewState =
+  | "loading"
+  | "auth_failure"
+  | "network_failure"
+  | "provider_failure"
+  | "validation_failure"
+  | "completed_with_diagnostics"
+  | "completed"
+  | "idle";
+
+function classifyError(message: string): PreviewState {
+  const m = message.toLowerCase();
+  if (m.includes("unauthor") || m.includes("unauthenticated") || m.includes("forbidden") || m.includes("401") || m.includes("403"))
+    return "auth_failure";
+  if (m.includes("network") || m.includes("fetch failed") || m.includes("timeout") || m.includes("econn"))
+    return "network_failure";
+  if (m.includes("validation") || m.includes("invalid")) return "validation_failure";
+  return "provider_failure";
+}
+
+const STATE_TEXT: Record<PreviewState, { title: string; body: string; tone: "ok" | "warn" | "bad" | "idle" }> = {
+  idle: { title: "Idle", body: "No preview has been run yet.", tone: "idle" },
+  loading: { title: "Running read-only preview…", body: "Fetching provider data. Nothing is written.", tone: "idle" },
+  completed: { title: "Preview completed", body: "Read-only preview finished with no reported problems.", tone: "ok" },
+  completed_with_diagnostics: {
+    title: "Preview completed with diagnostics",
+    body: "The preview finished, but returned warnings, validation failures, or held records. Review the diagnostics below.",
+    tone: "warn",
+  },
+  auth_failure: {
+    title: "Authentication / authorization failure",
+    body: "The preview request was rejected before any provider call. Sign in again as an administrator and retry.",
+    tone: "bad",
+  },
+  provider_failure: {
+    title: "Provider failure",
+    body: "The affiliate provider rejected or failed the request. No data was written.",
+    tone: "bad",
+  },
+  validation_failure: {
+    title: "Validation failure",
+    body: "The provider responded, but the payload failed validation. No data was written.",
+    tone: "bad",
+  },
+  network_failure: {
+    title: "Network failure",
+    body: "The preview request could not complete. No data was written.",
+    tone: "bad",
+  },
+};
+
+function StatusBanner({ state, detail }: { state: PreviewState; detail?: string | null }) {
+  const meta = STATE_TEXT[state];
+  const cls =
+    meta.tone === "ok"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : meta.tone === "warn"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : meta.tone === "bad"
+          ? "border-rose-200 bg-rose-50 text-rose-800"
+          : "border-slate-200 bg-white text-slate-700";
+  const Icon = meta.tone === "ok" ? CheckCircle2 : meta.tone === "bad" ? AlertTriangle : meta.tone === "warn" ? AlertTriangle : Loader2;
+  return (
+    <div className={`mb-4 flex items-start gap-2 rounded border px-4 py-3 text-sm ${cls}`}>
+      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${state === "loading" ? "animate-spin" : ""}`} />
+      <div>
+        <div className="font-semibold">{meta.title}</div>
+        <div className="mt-0.5 text-[13px] opacity-90">{meta.body}</div>
+        {detail && <div className="mt-1 break-words font-mono text-[11px] opacity-90">{detail}</div>}
+      </div>
+    </div>
+  );
+}
+
+function ReadOnlyNotice() {
+  return (
+    <div className="mb-4 flex items-start gap-2 rounded border border-sky-200 bg-sky-50 px-4 py-3">
+      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
+      <div className="text-sm text-sky-900">
+        <div className="font-semibold">Affiliate Sync V2 — Read-only Preview</div>
+        <div className="mt-0.5 text-[13px]">
+          V2 Preview is read-only. No stores, offers, or import history are changed.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PersistencePanel() {
+  return (
+    <div className="mb-5 rounded border border-slate-200 bg-white px-4 py-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">V2 Production Persistence</span>
+        <span className="rounded bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">Not enabled</span>
+      </div>
+      <p className="mt-2 text-[13px] text-slate-600">
+        V2 Preview is available and read-only. Production persistence will remain disabled until the reviewed database
+        migration and write-path verification are completed.
+      </p>
+    </div>
+  );
+}
+
+/** Identity safety — derived strictly from values already present in the report. */
+function IdentitySafetyPanel({ report }: { report: SyncRunReport }) {
+  const d = report.identityDiagnostics;
+  const unresolved = d?.offersResolvingToUnassigned ?? null;
+  const conflicts = report.conflicts.length;
+  const duplicateRecords = report.identity.reduce((n, r) => n + r.duplicateRecords, 0);
+  const collapseDetected =
+    d != null &&
+    d.uniqueEffectiveStoreKeys > 0 &&
+    d.uniqueProviderAdvertiserIds > 1 &&
+    d.uniqueEffectiveStoreKeys === 1;
+
+  const hasRisk = collapseDetected || (unresolved ?? 0) > 0 || conflicts > 0;
+  if (!d && !conflicts) return null;
+
+  return (
+    <div
+      className={`mb-5 rounded border px-4 py-3 ${
+        collapseDetected ? "border-rose-300 bg-rose-50" : hasRisk ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        {hasRisk ? (
+          <AlertTriangle className={`h-4 w-4 ${collapseDetected ? "text-rose-700" : "text-amber-700"}`} />
+        ) : (
+          <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+        )}
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-700">Identity safety</span>
+      </div>
+      {collapseDetected && (
+        <p className="mt-2 text-sm font-semibold text-rose-800">
+          Identity collapse detected — {d!.uniqueProviderAdvertiserIds} provider advertisers resolved to a single effective
+          store key. Do not enable persistence until this is resolved.
+        </p>
+      )}
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Metric label="Identity collapse" value={d ? (collapseDetected ? "Detected" : "None") : null} tone={collapseDetected ? "bad" : "ok"} hint="Derived from resolution counts" />
+        <Metric label="Unresolved merchants" value={unresolved} tone={(unresolved ?? 0) > 0 ? "warn" : "ok"} hint="Offers resolving to unassigned" />
+        <Metric label="Provider identity conflicts" value={conflicts} tone={conflicts > 0 ? "warn" : "ok"} />
+        <Metric label="Duplicate records removed" value={duplicateRecords} />
+      </div>
+    </div>
+  );
+}
+
+function PreviewSummary({ report }: { report: SyncRunReport }) {
+  const o = report.orchestration;
+  const d = report.identityDiagnostics;
+  const pub = report.publishing;
+  const plan = report.planCounts;
+  const raw = report.rawPromotionDiagnostics;
+
+  const rawPromotions = raw ? raw.pages.reduce((n, p) => n + p.promotionCount, 0) : null;
+  const duplicateProviderIds = raw ? raw.duplicatePromotionProvenance.length : null;
+  const uniqueIdentities = report.identity.length
+    ? report.identity.reduce((n, r) => n + r.uniqueIdentities, 0)
+    : null;
+  const duplicateIdentities = report.identity.length
+    ? report.identity.reduce((n, r) => n + r.duplicateIdentities, 0)
+    : null;
+
+  return (
+    <>
+      <MetricGroup title="1 · Provider fetch">
+        <Metric label="Records fetched" value={o?.recordsFetched} />
+        <Metric label="Raw promotions observed" value={rawPromotions} />
+        <Metric label="Canonical (normalized)" value={report.progress?.recordsNormalized} />
+        <Metric label="Duplicate promotion IDs" value={duplicateProviderIds} tone={(duplicateProviderIds ?? 0) > 0 ? "warn" : undefined} />
+        <Metric label="Pages crawled" value={o?.pagesCrawled} />
+        <Metric label="API calls used" value={o?.apiCallsUsed} />
+        <Metric label="Strategy" value={o?.strategy.replaceAll("_", " ")} />
+        <Metric label="Stop reason" value={o?.stopReason ?? null} />
+      </MetricGroup>
+
+      <MetricGroup title="2 · Identity">
+        <Metric label="Unique identities" value={uniqueIdentities} />
+        <Metric label="Duplicate identities" value={duplicateIdentities} />
+        <Metric label="Duplicate records removed" value={report.identity.length ? report.identity.reduce((n, r) => n + r.duplicateRecords, 0) : null} />
+        <Metric label="New provider identities" value={o?.newProviderIdentitiesDiscovered} />
+      </MetricGroup>
+
+      <MetricGroup title="3 · Merchant resolution">
+        <Metric label="Distinct advertiser IDs" value={d?.uniqueProviderAdvertiserIds} />
+        <Metric label="Distinct provider store keys" value={d?.uniqueEffectiveStoreKeys} />
+        <Metric label="Resolved offers" value={d ? d.totalNormalizedCoupons + d.totalNormalizedDeals - d.offersResolvingToUnassigned : null} tone="ok" />
+        <Metric label="Unresolved offers" value={d?.offersResolvingToUnassigned} tone={(d?.offersResolvingToUnassigned ?? 0) > 0 ? "warn" : undefined} />
+      </MetricGroup>
+
+      <MetricGroup title="4 · Offer normalization">
+        <Metric label="Coupons" value={d?.totalNormalizedCoupons} />
+        <Metric label="Deals" value={d?.totalNormalizedDeals} />
+        <Metric label="Eligible offers" value={pub ? pub.couponsFetched + pub.dealsFetched : null} />
+        <Metric label="Held by policy" value={pub ? pub.couponsHeld + pub.dealsHeld : null} tone={pub && pub.couponsHeld + pub.dealsHeld > 0 ? "warn" : undefined} />
+      </MetricGroup>
+
+      <MetricGroup title={`5 · Publishing policy${pub ? ` — ${pub.policyName}${pub.applied ? "" : " (disabled)"}` : ""}`}>
+        <Metric label="Selected coupons" value={pub?.couponsPublished} tone="ok" />
+        <Metric label="Selected deals" value={pub?.dealsPublished} tone="ok" />
+        <Metric label="Total selected" value={pub ? pub.couponsPublished + pub.dealsPublished : null} tone="ok" />
+        <Metric label="Qualified stores" value={report.lifecycle?.storesQualified ?? pub?.storesCovered} />
+      </MetricGroup>
+
+      <MetricGroup title="6 · Preview plan">
+        <Metric label="New store candidates" value={plan?.storesToCreate} />
+        <Metric label="Existing stores" value={plan?.storesToUpdate} />
+        <Metric label="Offer creates" value={plan ? plan.couponsToCreate + plan.dealsToCreate : null} />
+        <Metric label="Existing offers" value={plan ? plan.couponsToUpdate + plan.dealsToUpdate : null} />
+        <Metric label="Skipped" value={plan?.skipped} />
+        <Metric label="Held" value={pub ? pub.couponsHeld + pub.dealsHeld : null} />
+        <Metric label="Unresolved" value={d?.offersResolvingToUnassigned} />
+        <Metric label="Duration" value={`${report.durationMs}ms`} />
+      </MetricGroup>
+    </>
+  );
+}
+
 export function ImportResultModal({
   title,
   running,
@@ -461,65 +762,171 @@ export function ImportResultModal({
     URL.revokeObjectURL(url);
   };
 
-  const p = report?.planCounts;
   const s = report?.statistics;
+  const isPreview = report ? report.preview : true;
+
+  const hasDiagnostics = !!report && (
+    report.validationErrors.length > 0 ||
+    report.skipped.length > 0 ||
+    report.conflicts.length > 0 ||
+    report.syncErrors.length > 0 ||
+    report.syncWarnings.length > 0 ||
+    report.messages.length > 0 ||
+    (report.publishing ? report.publishing.couponsHeld + report.publishing.dealsHeld > 0 : false)
+  );
+
+  const state: PreviewState = running
+    ? "loading"
+    : error
+      ? classifyError(error)
+      : report
+        ? report.error
+          ? classifyError(report.error)
+          : hasDiagnostics
+            ? "completed_with_diagnostics"
+            : "completed"
+        : "idle";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
       <div className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-lg bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-          <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+            {isPreview && <p className="text-[11px] text-slate-500">Affiliate Sync V2 · Read-only Preview</p>}
+          </div>
           <button onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-slate-100">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="flex-1 overflow-auto bg-slate-50 px-5 py-4">
-          {running && (
-            <div className="flex items-center gap-2 py-10 text-sm text-slate-600">
-              <Loader2 className="h-4 w-4 animate-spin" /> Running…
-            </div>
-          )}
+          {isPreview && <ReadOnlyNotice />}
 
-          {!running && error && (
-            <div className="rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
-          )}
+          <StatusBanner state={state} detail={error ?? report?.error ?? null} />
 
           {!running && report && (
             <>
-              {report.error ? (
-                <div className="mb-4 flex items-start gap-2 rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {report.error}
+              <IdentitySafetyPanel report={report} />
+
+              <PreviewSummary report={report} />
+
+              {isPreview && <PersistencePanel />}
+
+              <Collapsible title="Diagnostics">
+                {report.messages.length > 0 || report.syncWarnings.length > 0 ? (
+                  <ul className="mb-3 list-disc space-y-1 pl-5 text-xs text-amber-800">
+                    {[...report.syncWarnings, ...report.messages].slice(0, 25).map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                ) : null}
+
+                {report.syncErrors.length > 0 && (
+                  <ul className="mb-3 list-disc space-y-1 pl-5 text-xs text-rose-700">
+                    {report.syncErrors.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                )}
+
+                {report.publishing && report.publishing.holdReasons.length > 0 && (
+                  <div className="mb-3">
+                    <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Hold reasons</div>
+                    <div className="rounded border border-slate-200 bg-white px-3">
+                      {report.publishing.holdReasons.map((r) => (
+                        <Row key={r.reason} label={r.reason} value={r.count} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {report.validationErrors.length > 0 && (
+                  <div className="mb-4">
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Failure breakdown</div>
+                    <Breakdown issues={report.validationErrors} />
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Failed records ({report.validationErrors.length})
+                    </span>
+                    {(report.validationErrors.length > 0 || report.skipped.length > 0) && (
+                      <button
+                        onClick={downloadCsv}
+                        className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        <Download className="h-3.5 w-3.5" /> Export CSV
+                      </button>
+                    )}
+                  </div>
+                  <IssueTable issues={report.validationErrors} emptyText="No validation failures." />
                 </div>
-              ) : (
-                <div className="mb-4 flex items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4" />
-                  {report.preview ? "Preview completed — nothing was written." : "Import committed."}
-                </div>
+
+                {report.conflicts.length > 0 && (
+                  <div className="mb-4">
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Duplicate provider identities ({report.conflicts.length})
+                    </div>
+                    <DuplicateTable issues={report.conflicts} provider={report.provider} />
+                  </div>
+                )}
+
+                {report.skipped.length > 0 && (
+                  <div className="mb-4">
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Skipped records ({report.skipped.length})
+                    </div>
+                    <IssueTable issues={report.skipped} emptyText="" />
+                  </div>
+                )}
+
+                {s && (
+                  <Section title="Validation totals">
+                    <Row label="Records Validated" value={s.validated} />
+                    <Row label="Validation Errors" value={s.validationFailures} />
+                    <Row label="Duplicate Records" value={s.duplicates} />
+                    <Row label="Created (planned)" value={s.created} />
+                    <Row label="Updated (planned)" value={s.updated} />
+                  </Section>
+                )}
+
+                {report.progress && (
+                  <Section title="Sync progress">
+                    <Row label="Current Entity" value={report.progress.currentEntity ?? "—"} />
+                    <Row label="Current Page" value={report.progress.currentPage} />
+                    <Row label="Records Fetched" value={report.progress.recordsFetched} />
+                    <Row label="Status" value={report.progress.status} />
+                  </Section>
+                )}
+              </Collapsible>
+
+              <Collapsible title="Identity summary & merchant resolution detail">
+                <IdentitySummaryTable rows={report.identity} />
+                {report.preview && report.identityDiagnostics && (
+                  <IdentityDiagnosticsPanel diagnostics={report.identityDiagnostics} />
+                )}
+              </Collapsible>
+
+              {report.publishing && (
+                <Collapsible title="Publishing policy detail">
+                  <PublishingSummaryPanel summary={report.publishing} />
+                </Collapsible>
               )}
 
-              {report.orchestration && (
-                <Section title="Import orchestration">
-                  <Row label="Strategy" value={report.orchestration.strategy.replaceAll("_", " ")} />
-                  <Row label="Pages crawled" value={report.orchestration.pagesCrawled} />
-                  <Row label="API calls used" value={report.orchestration.apiCallsUsed} />
-                  <Row label="Records fetched" value={report.orchestration.recordsFetched} />
-                  <Row label="New provider identities" value={report.orchestration.newProviderIdentitiesDiscovered} />
-                  <Row label="Existing provider identities" value={report.orchestration.existingProviderIdentitiesEncountered} />
-                  <Row label="Stop reason" value={report.orchestration.stopReason ?? "—"} />
-                  <Row label="Execution duration" value={`${report.durationMs}ms`} />
-                </Section>
+              {report.lifecycle && (
+                <Collapsible title="Store lifecycle detail">
+                  <LifecyclePanel summary={report.lifecycle} rows={report.lifecycleDiagnostics} />
+                </Collapsible>
               )}
 
-              <IdentitySummaryTable rows={report.identity} />
-
-              {report.preview && report.identityDiagnostics && (
-                <IdentityDiagnosticsPanel diagnostics={report.identityDiagnostics} />
+              {report.presentation.length > 0 && (
+                <Collapsible title="Presentation & SEO preview" count={report.presentation.length}>
+                  <PresentationTable rows={report.presentation} />
+                </Collapsible>
               )}
-
-              {report.publishing && <PublishingSummaryPanel summary={report.publishing} />}
-
-              {report.lifecycle && <LifecyclePanel summary={report.lifecycle} rows={report.lifecycleDiagnostics} />}
 
               {report.logos && (
                 <Section title="Merchant logos">
@@ -546,101 +953,8 @@ export function ImportResultModal({
                     label="Offers with description"
                     value={`${report.coverage.offersWithDescription} / ${report.coverage.offers}`}
                   />
-                  <Row
-                    label="Offers with terms"
-                    value={`${report.coverage.offersWithTerms} / ${report.coverage.offers}`}
-                  />
+                  <Row label="Offers with terms" value={`${report.coverage.offersWithTerms} / ${report.coverage.offers}`} />
                 </Section>
-              )}
-
-              {report.presentation.length > 0 && <PresentationTable rows={report.presentation} />}
-
-
-
-
-              {p && (
-                <Section title="Plan">
-                  <Row label="Stores to Create" value={p.storesToCreate} />
-                  <Row label="Stores to Update" value={p.storesToUpdate} />
-                  <Row label="Coupons to Create" value={p.couponsToCreate} />
-                  <Row label="Coupons to Update" value={p.couponsToUpdate} />
-                  <Row label="Deals to Create" value={p.dealsToCreate} />
-                  <Row label="Deals to Update" value={p.dealsToUpdate} />
-                  <Row label="Categories to Create" value={p.categoriesToCreate} />
-                  <Row label="Categories to Update" value={p.categoriesToUpdate} />
-                  <Row label="Records Skipped" value={p.skipped} />
-                </Section>
-              )}
-
-              {s && (
-                <Section title="Validation">
-                  <Row label="Records Validated" value={s.validated} />
-                  <Row label="Validation Errors" value={s.validationFailures} />
-                  <Row label="Duplicate Records" value={s.duplicates} />
-                  <Row label="Created" value={s.created} />
-                  <Row label="Updated" value={s.updated} />
-                </Section>
-              )}
-
-              {report.validationErrors.length > 0 && (
-                <div className="mb-5">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Failure breakdown
-                  </div>
-                  <Breakdown issues={report.validationErrors} />
-                </div>
-              )}
-
-              <div className="mb-5">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Failed records ({report.validationErrors.length})
-                  </span>
-                  {(report.validationErrors.length > 0 || report.skipped.length > 0) && (
-                    <button
-                      onClick={downloadCsv}
-                      className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                    >
-                      <Download className="h-3.5 w-3.5" /> Export CSV
-                    </button>
-                  )}
-                </div>
-                <IssueTable issues={report.validationErrors} emptyText="No validation failures." />
-              </div>
-
-              {report.conflicts.length > 0 && (
-                <div className="mb-5">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Duplicate provider identities ({report.conflicts.length})
-                  </div>
-                  <DuplicateTable issues={report.conflicts} provider={report.provider} />
-                </div>
-              )}
-
-              {report.skipped.length > 0 && (
-                <div className="mb-5">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Skipped records ({report.skipped.length})
-                  </div>
-                  <IssueTable issues={report.skipped} emptyText="" />
-                </div>
-              )}
-
-              {report.progress && (
-                <Section title="Sync progress">
-                  <Row label="Current Entity" value={report.progress.currentEntity ?? "—"} />
-                  <Row label="Current Page" value={report.progress.currentPage} />
-                  <Row label="Records Processed" value={report.progress.recordsFetched} />
-                  <Row label="Status" value={report.progress.status} />
-                </Section>
-              )}
-
-              {report.syncErrors.length > 0 && (
-                <ul className="mb-4 list-disc space-y-1 pl-5 text-sm text-rose-700">
-                  {report.syncErrors.map((m, i) => (
-                    <li key={i}>{m}</li>
-                  ))}
-                </ul>
               )}
             </>
           )}

@@ -1037,7 +1037,12 @@ function DetailsDrawer({
                     <div><span className="text-slate-400">Created</span> {r.records_created}</div>
                     <div><span className="text-slate-400">Updated</span> {r.records_updated}</div>
                     <div><span className="text-slate-400">Skipped</span> {r.records_skipped}</div>
-                    <div><span className="text-slate-400">Published</span> {Math.max(0, r.records_created + r.records_updated)}</div>
+                    <div>
+                      <span className="text-slate-400">Published</span>{" "}
+                      {typeof (r as { records_published?: number }).records_published === "number"
+                        ? (r as { records_published?: number }).records_published
+                        : <span className="text-slate-400">Not available</span>}
+                    </div>
                     <div><span className="text-slate-400">Held</span> <span className="text-amber-700">{r.records_held ?? 0}</span></div>
                     <div><span className="text-slate-400">Policy</span> {r.policy_name ?? "—"}</div>
                     {r.statistics?.lifecycle && (
