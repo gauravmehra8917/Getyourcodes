@@ -8,10 +8,10 @@ import {
   HostConfigurationError,
   parseImpactHostCredentials,
   resolveImpactHostConfig,
-} from "../affiliate-sync-preview-v2/impact-configuration.ts";
+} from "../_shared/affiliate-sync-v2-host/impact-configuration.ts";
 import type {
   StoredPublishingPolicyV2,
-} from "../affiliate-sync-preview-v2/types.ts";
+} from "../_shared/affiliate-sync-v2-host/types.ts";
 import {
   persistenceRpcArgs,
   type PreparedPersistenceExecutionV2,
