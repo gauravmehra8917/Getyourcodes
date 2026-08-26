@@ -1,5 +1,14 @@
 import * as React from "react";
-import { X, Loader2, AlertTriangle, CheckCircle2, Download } from "lucide-react";
+import {
+  X,
+  Loader2,
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  ChevronDown,
+  ChevronRight,
+  ShieldCheck,
+} from "lucide-react";
 import type { ReportIssue, SyncRunReport } from "@/lib/sync-execution.functions";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
