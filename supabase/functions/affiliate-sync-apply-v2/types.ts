@@ -12,7 +12,7 @@ import type {
 import type {
   ImpactHostCredentialsV2,
   StoredIntegrationV2,
-} from "../affiliate-sync-preview-v2/types.ts";
+} from "../_shared/affiliate-sync-v2-host/types.ts";
 import type { CatalogPlanningContextV2 } from "./catalog-planning-context.ts";
 import type {
   PreparedPersistenceExecutionV2,
