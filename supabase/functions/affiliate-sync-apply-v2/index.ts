@@ -7,7 +7,7 @@ import {
 } from "../_shared/affiliate-sync-v2/index.ts";
 import { createAuthenticatedEdgeClient } from "../_shared/edge-supabase.ts";
 import { decryptCredentialsWebCrypto } from "../_shared/integration-crypto.ts";
-import { ImpactTransportHost } from "../affiliate-sync-preview-v2/ImpactTransportHost.ts";
+import { ImpactTransportHost } from "../_shared/affiliate-sync-v2-host/ImpactTransportHost.ts";
 import { createAffiliateSyncApplyV2Handler } from "./handler.ts";
 import { preparePersistenceExecution } from "./persistence-execution.ts";
 import { SupabaseApplyV2DataSource } from "./supabase-persistence-boundary.ts";
