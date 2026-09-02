@@ -1,1 +1,1 @@
-export * from "../../../supabase/functions/_shared/affiliate-sync-core/sync/SyncRunReport";
+export * from "../../../supabase/functions/_shared/affiliate-sync-v2/sync/SyncRunReport";
