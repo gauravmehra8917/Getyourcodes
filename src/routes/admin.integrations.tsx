@@ -5,8 +5,27 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
-  Plug, Plus, Pencil, Zap, Power, Trash2, Loader2, Search, X, ChevronLeft, ChevronRight,
-  ShieldCheck, Database, Activity, History, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, DownloadCloud, Eye,
+  Plug,
+  Plus,
+  Pencil,
+  Zap,
+  Power,
+  Trash2,
+  Loader2,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+  Database,
+  Activity,
+  History,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  RefreshCw,
+  DownloadCloud,
+  Eye,
   Image as ImageIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
@@ -27,10 +46,7 @@ import {
 
 export const Route = createFileRoute("/admin/integrations")({
   head: () => ({
-    meta: [
-      { title: "API Integrations — Getyourcodes Admin" },
-      { name: "robots", content: "noindex,nofollow" },
-    ],
+    meta: [{ title: "API Integrations — Getyourcodes Admin" }, { name: "robots", content: "noindex,nofollow" }],
   }),
   component: IntegrationsPage,
 });
@@ -108,8 +124,19 @@ function IntegrationsPage() {
   const [editing, setEditing] = useState<IntegrationRecord | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<IntegrationRecord | null>(null);
   const [drawer, setDrawer] = useState<{ rec: IntegrationRecord; tab: "overview" | "history" | "audit" } | null>(null);
-  const [testModal, setTestModal] = useState<{ rec: IntegrationRecord; running: boolean; result: TestResult | null; error?: string } | null>(null);
-  const [importModal, setImportModal] = useState<{ rec: IntegrationRecord; preview: boolean; running: boolean; report: SyncRunReport | null; error?: string } | null>(null);
+  const [testModal, setTestModal] = useState<{
+    rec: IntegrationRecord;
+    running: boolean;
+    result: TestResult | null;
+    error?: string;
+  } | null>(null);
+  const [importModal, setImportModal] = useState<{
+    rec: IntegrationRecord;
+    preview: boolean;
+    running: boolean;
+    report: SyncRunReport | null;
+    error?: string;
+  } | null>(null);
 
   const [search, setSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("all");
@@ -128,7 +155,6 @@ function IntegrationsPage() {
     mutationFn: (rec: { id: string; provider_type: string }) =>
       logoFn({ data: { provider: rec.provider_type, integrationId: rec.id } }) as Promise<LogoSyncReport>,
     onSuccess: (r: LogoSyncReport) =>
-
       toast.success(
         `Logos synced — ${r.downloaded} downloaded, ${r.skipped} already cached${r.failed ? `, ${r.failed} failed` : ""}`,
       ),
@@ -197,7 +223,8 @@ function IntegrationsPage() {
       .then((report) => {
         setImportModal({ rec, preview, running: false, report });
         if (report.error) toast.error(report.error);
-        else if (report.validationErrors.length) toast.warning(`${report.validationErrors.length} record(s) failed validation`);
+        else if (report.validationErrors.length)
+          toast.warning(`${report.validationErrors.length} record(s) failed validation`);
         else toast.success(preview ? "Preview completed" : "Import completed");
       })
       .catch((err) => {
@@ -221,7 +248,8 @@ function IntegrationsPage() {
     const q = search.trim().toLowerCase();
     let rows = integrations.filter((r) => {
       if (q) {
-        const hay = `${r.integration_name} ${r.provider_name} ${PROVIDER_TYPE_LABEL[r.provider_type] ?? r.provider_type}`.toLowerCase();
+        const hay =
+          `${r.integration_name} ${r.provider_name} ${PROVIDER_TYPE_LABEL[r.provider_type] ?? r.provider_type}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       if (providerFilter !== "all" && r.provider_type !== providerFilter) return false;
@@ -257,12 +285,21 @@ function IntegrationsPage() {
     setPage(1);
   };
 
-  const openCreate = () => { setEditing(null); setWizardOpen(true); };
-  const openEdit = (rec: IntegrationRecord) => { setEditing(rec); setWizardOpen(true); };
+  const openCreate = () => {
+    setEditing(null);
+    setWizardOpen(true);
+  };
+  const openEdit = (rec: IntegrationRecord) => {
+    setEditing(rec);
+    setWizardOpen(true);
+  };
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir("asc"); }
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
   };
 
   const lastSuccess = useMemo(() => {
@@ -287,7 +324,7 @@ function IntegrationsPage() {
   return (
     <div>
       <PageHeader
-        title="API Integrations"
+        title="API Integration"
         action={
           <button
             onClick={openCreate}
@@ -317,7 +354,10 @@ function IntegrationsPage() {
           <input
             aria-label="Search integrations"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             placeholder="Search by name, provider, or type…"
             className="w-full rounded border border-slate-200 py-2 pl-8 pr-3 text-sm focus:border-slate-400 focus:outline-none"
           />
@@ -325,18 +365,26 @@ function IntegrationsPage() {
         <select
           aria-label="Filter by provider type"
           value={providerFilter}
-          onChange={(e) => { setProviderFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setProviderFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded border border-slate-200 bg-white px-2 py-2 text-sm"
         >
           <option value="all">All Providers</option>
           {Object.entries(PROVIDER_TYPE_LABEL).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
+            <option key={k} value={k}>
+              {v}
+            </option>
           ))}
         </select>
         <select
           aria-label="Filter by status"
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded border border-slate-200 bg-white px-2 py-2 text-sm"
         >
           <option value="all">All Statuses</option>
@@ -379,9 +427,7 @@ function IntegrationsPage() {
 
       {isLoading && <SkeletonGrid />}
 
-      {!isLoading && !hasAny && (
-        <EmptyState onCreate={openCreate} />
-      )}
+      {!isLoading && !hasAny && <EmptyState onCreate={openCreate} />}
 
       {!isLoading && hasAny && filteredSorted.length === 0 && (
         <div className="mb-8 flex flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
@@ -390,7 +436,10 @@ function IntegrationsPage() {
           </div>
           <h3 className="text-base font-semibold text-slate-800">No matching integrations found</h3>
           <p className="mt-1 text-sm text-slate-500">Try adjusting your search or filters.</p>
-          <button onClick={clearFilters} className="mt-4 rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">
+          <button
+            onClick={clearFilters}
+            className="mt-4 rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
+          >
             Clear Filters
           </button>
         </div>
@@ -420,7 +469,8 @@ function IntegrationsPage() {
 
           <div className="mt-6 flex items-center justify-between text-sm text-slate-600">
             <span>
-              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredSorted.length)} of {filteredSorted.length}
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredSorted.length)} of{" "}
+              {filteredSorted.length}
             </span>
             <div className="flex items-center gap-1">
               <button
@@ -431,7 +481,9 @@ function IntegrationsPage() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="px-2">Page {page} of {totalPages}</span>
+              <span className="px-2">
+                Page {page} of {totalPages}
+              </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
@@ -446,11 +498,7 @@ function IntegrationsPage() {
       )}
 
       {/* System Health */}
-      <SystemHealth
-        total={summary.total}
-        lastSuccess={lastSuccess}
-        lastFailed={lastFailed}
-      />
+      <SystemHealth total={summary.total} lastSuccess={lastSuccess} lastFailed={lastFailed} />
 
       {wizardOpen && (
         <IntegrationWizard
@@ -477,8 +525,16 @@ function IntegrationsPage() {
           rec={drawer.rec}
           initialTab={drawer.tab}
           onClose={() => setDrawer(null)}
-          onTest={() => { const r = drawer.rec; setDrawer(null); runTest(r); }}
-          onEdit={() => { const r = drawer.rec; setDrawer(null); openEdit(r); }}
+          onTest={() => {
+            const r = drawer.rec;
+            setDrawer(null);
+            runTest(r);
+          }}
+          onEdit={() => {
+            const r = drawer.rec;
+            setDrawer(null);
+            openEdit(r);
+          }}
         />
       )}
 
@@ -515,12 +571,18 @@ function effectiveStatus(r: IntegrationRecord): string {
 
 function sortVal(r: IntegrationRecord, key: SortKey): string | number | null {
   switch (key) {
-    case "integration_name": return r.integration_name?.toLowerCase() ?? "";
-    case "provider_name": return r.provider_name?.toLowerCase() ?? "";
-    case "created_at": return r.created_at ?? null;
-    case "updated_at": return r.updated_at ?? null;
-    case "last_tested_at": return r.last_tested_at ?? null;
-    case "status": return effectiveStatus(r);
+    case "integration_name":
+      return r.integration_name?.toLowerCase() ?? "";
+    case "provider_name":
+      return r.provider_name?.toLowerCase() ?? "";
+    case "created_at":
+      return r.created_at ?? null;
+    case "updated_at":
+      return r.updated_at ?? null;
+    case "last_tested_at":
+      return r.last_tested_at ?? null;
+    case "status":
+      return effectiveStatus(r);
   }
 }
 
@@ -534,7 +596,15 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function SummaryCard({ label, value, tone }: { label: string; value: number; tone: "slate" | "emerald" | "amber" | "rose" | "slate-dark" }) {
+function SummaryCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "slate" | "emerald" | "amber" | "rose" | "slate-dark";
+}) {
   const tones: Record<string, string> = {
     slate: "border-slate-200 bg-white",
     emerald: "border-emerald-200 bg-emerald-50",
@@ -594,8 +664,18 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 }
 
 function IntegrationCard({
-  rec, testing, onOpen, onEdit, onTest, onToggle, onDelete, onHistory, onPreviewImport, onRunImport,
-  syncingLogos, onSyncLogos,
+  rec,
+  testing,
+  onOpen,
+  onEdit,
+  onTest,
+  onToggle,
+  onDelete,
+  onHistory,
+  onPreviewImport,
+  onRunImport,
+  syncingLogos,
+  onSyncLogos,
 }: {
   rec: IntegrationRecord;
   testing: boolean;
@@ -625,8 +705,12 @@ function IntegrationCard({
           <Plug className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <div className="truncate text-xs font-medium uppercase tracking-wider text-slate-500">{rec.provider_name}</div>
-          <div className="truncate text-sm font-semibold text-slate-800 hover:text-slate-900">{rec.integration_name}</div>
+          <div className="truncate text-xs font-medium uppercase tracking-wider text-slate-500">
+            {rec.provider_name}
+          </div>
+          <div className="truncate text-sm font-semibold text-slate-800 hover:text-slate-900">
+            {rec.integration_name}
+          </div>
         </div>
       </button>
 
@@ -644,7 +728,9 @@ function IntegrationCard({
       </dl>
 
       <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-        <ActionBtn icon={<Pencil className="h-3.5 w-3.5" />} onClick={onEdit}>Edit</ActionBtn>
+        <ActionBtn icon={<Pencil className="h-3.5 w-3.5" />} onClick={onEdit}>
+          Edit
+        </ActionBtn>
         <ActionBtn
           icon={testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
           onClick={onTest}
@@ -659,8 +745,12 @@ function IntegrationCard({
         >
           {rec.is_enabled ? "Disable" : "Enable"}
         </ActionBtn>
-        <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewImport}>Preview Import</ActionBtn>
-        <ActionBtn icon={<DownloadCloud className="h-3.5 w-3.5" />} onClick={onRunImport}>Run Import</ActionBtn>
+        <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewImport}>
+          Preview Import
+        </ActionBtn>
+        <ActionBtn icon={<DownloadCloud className="h-3.5 w-3.5" />} onClick={onRunImport}>
+          Run Import
+        </ActionBtn>
         <ActionBtn
           icon={syncingLogos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
           onClick={onSyncLogos}
@@ -669,15 +759,24 @@ function IntegrationCard({
         >
           {syncingLogos ? "Syncing logos…" : "Sync Logos"}
         </ActionBtn>
-        <ActionBtn icon={<History className="h-3.5 w-3.5" />} onClick={onHistory}>History</ActionBtn>
-        <ActionBtn icon={<Trash2 className="h-3.5 w-3.5" />} tone="danger" onClick={onDelete}>Delete</ActionBtn>
+        <ActionBtn icon={<History className="h-3.5 w-3.5" />} onClick={onHistory}>
+          History
+        </ActionBtn>
+        <ActionBtn icon={<Trash2 className="h-3.5 w-3.5" />} tone="danger" onClick={onDelete}>
+          Delete
+        </ActionBtn>
       </div>
     </div>
   );
 }
 
 function ActionBtn({
-  icon, children, tone, disabled, onClick, title,
+  icon,
+  children,
+  tone,
+  disabled,
+  onClick,
+  title,
 }: {
   icon: React.ReactNode;
   children: React.ReactNode;
@@ -710,15 +809,31 @@ function ActionBtn({
 
 function ConfirmDelete({ name, onCancel, onConfirm }: { name: string; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <div role="alertdialog" aria-modal="true" className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4" onClick={onCancel}>
+    <div
+      role="alertdialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
+      onClick={onCancel}
+    >
       <div className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h4 className="text-base font-semibold text-slate-800">Delete integration?</h4>
         <p className="mt-1 text-sm text-slate-600">
-          This will permanently remove <span className="font-medium">{name}</span> and its stored credentials. This action cannot be undone.
+          This will permanently remove <span className="font-medium">{name}</span> and its stored credentials. This
+          action cannot be undone.
         </p>
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onCancel} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Cancel</button>
-          <button onClick={onConfirm} className="rounded bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700">Delete</button>
+          <button
+            onClick={onCancel}
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="rounded bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700"
+          >
+            Delete
+          </button>
         </div>
       </div>
     </div>
@@ -726,7 +841,12 @@ function ConfirmDelete({ name, onCancel, onConfirm }: { name: string; onCancel: 
 }
 
 function TestResultModal({
-  rec, running, result, error, onClose, onRetry,
+  rec,
+  running,
+  result,
+  error,
+  onClose,
+  onRetry,
 }: {
   rec: IntegrationRecord;
   running: boolean;
@@ -737,15 +857,38 @@ function TestResultModal({
 }) {
   const ok = result?.status === "connected";
   const warn = result?.status === "warning";
-  const headerColor = running ? "bg-slate-50 text-slate-700" : ok ? "bg-emerald-50 text-emerald-700" : warn ? "bg-orange-50 text-orange-700" : "bg-rose-50 text-rose-700";
-  const headline = running ? "Testing connection…" : ok ? "✅ Connection Successful" : warn ? "⚠️ Connection Warning" : "❌ Connection Failed";
+  const headerColor = running
+    ? "bg-slate-50 text-slate-700"
+    : ok
+      ? "bg-emerald-50 text-emerald-700"
+      : warn
+        ? "bg-orange-50 text-orange-700"
+        : "bg-rose-50 text-rose-700";
+  const headline = running
+    ? "Testing connection…"
+    : ok
+      ? "✅ Connection Successful"
+      : warn
+        ? "⚠️ Connection Warning"
+        : "❌ Connection Failed";
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Test result" className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4" onClick={onClose}>
-      <div className="w-full max-w-md overflow-hidden rounded-md bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Test result"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-md bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={`flex items-center justify-between px-5 py-3 ${headerColor}`}>
           <div className="text-sm font-semibold">{headline}</div>
-          <button onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-white/40"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-white/40">
+            <X className="h-4 w-4" />
+          </button>
         </div>
         <div className="space-y-2 px-5 py-4 text-sm">
           <div className="flex items-center justify-between border-b border-slate-100 py-1.5">
@@ -762,24 +905,37 @@ function TestResultModal({
           )}
           {!running && result && (
             <>
-              <Row label="Status"><StatusBadge status={result.status} /></Row>
+              <Row label="Status">
+                <StatusBadge status={result.status} />
+              </Row>
               <Row label="HTTP Status">{result.http_status ?? "—"}</Row>
               <Row label="Authentication">{authLabel(result.auth_status)}</Row>
               <Row label="Response Time">{result.latency_ms} ms</Row>
               <Row label="Environment">{result.environment}</Row>
               <Row label="Timestamp">{new Date(result.tested_at).toLocaleString()}</Row>
               {result.message && (
-                <div className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">{result.message}</div>
+                <div className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
+                  {result.message}
+                </div>
               )}
               {result.debug && <DebugInformation debug={result.debug} />}
             </>
           )}
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
-          <button onClick={onRetry} disabled={running} className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+          <button
+            onClick={onRetry}
+            disabled={running}
+            className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
             <RefreshCw className="h-3.5 w-3.5" /> Retry
           </button>
-          <button onClick={onClose} className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900">Close</button>
+          <button
+            onClick={onClose}
+            className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>
@@ -848,15 +1004,23 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function authLabel(s: string) {
   switch (s) {
-    case "valid": return "Valid";
-    case "invalid": return "Invalid Token";
-    case "not_configured": return "Not Configured";
-    default: return "Unknown";
+    case "valid":
+      return "Valid";
+    case "invalid":
+      return "Invalid Token";
+    case "not_configured":
+      return "Not Configured";
+    default:
+      return "Unknown";
   }
 }
 
 function DetailsDrawer({
-  rec, initialTab, onClose, onTest, onEdit,
+  rec,
+  initialTab,
+  onClose,
+  onTest,
+  onEdit,
 }: {
   rec: IntegrationRecord;
   initialTab: "overview" | "history" | "audit" | "imports";
@@ -903,7 +1067,9 @@ function DetailsDrawer({
   });
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
@@ -912,13 +1078,21 @@ function DetailsDrawer({
   const endpoints = (rec.endpoint_configuration as Record<string, string> | null) ?? {};
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={`Integration details ${rec.integration_name}`} className="fixed inset-0 z-[60] flex justify-end bg-slate-900/50" onClick={onClose}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Integration details ${rec.integration_name}`}
+      className="fixed inset-0 z-[60] flex justify-end bg-slate-900/50"
+      onClick={onClose}
+    >
       <div className="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
           <div className="min-w-0">
             <div className="text-xs font-medium uppercase tracking-wider text-slate-500">{rec.provider_name}</div>
             <h3 className="truncate text-lg font-semibold text-slate-800">{rec.integration_name}</h3>
-            <div className="mt-1"><StatusBadge status={status} /></div>
+            <div className="mt-1">
+              <StatusBadge status={status} />
+            </div>
           </div>
           <button onClick={onClose} aria-label="Close drawer" className="rounded p-1 text-slate-500 hover:bg-slate-100">
             <X className="h-5 w-5" />
@@ -955,9 +1129,11 @@ function DetailsDrawer({
                 <KV k="API Version" v={rec.api_version || "—"} />
                 <KV k="Timeout" v={`${rec.timeout_seconds}s`} />
                 <KV k="Retry Attempts" v={String(rec.retry_attempts)} />
-                {Object.entries(endpoints).filter(([, v]) => v).map(([k, v]) => (
-                  <KV key={k} k={`Endpoint · ${k}`} v={v} />
-                ))}
+                {Object.entries(endpoints)
+                  .filter(([, v]) => v)
+                  .map(([k, v]) => (
+                    <KV key={k} k={`Endpoint · ${k}`} v={v} />
+                  ))}
               </Section>
               <Section title="Publishing Policy">
                 <select
@@ -991,7 +1167,9 @@ function DetailsDrawer({
                 ) : (
                   <div className="text-slate-500">No credentials on file.</div>
                 )}
-                <p className="mt-2 rounded bg-slate-50 px-2 py-1 text-xs text-slate-500">Secrets are stored encrypted and never displayed in full.</p>
+                <p className="mt-2 rounded bg-slate-50 px-2 py-1 text-xs text-slate-500">
+                  Secrets are stored encrypted and never displayed in full.
+                </p>
               </Section>
             </div>
           )}
@@ -1000,7 +1178,9 @@ function DetailsDrawer({
             <div className="space-y-2 text-sm">
               {historyQ.isLoading && <div className="text-slate-500">Loading history…</div>}
               {historyQ.data && historyQ.data.length === 0 && (
-                <div className="rounded border border-dashed border-slate-200 p-6 text-center text-slate-500">No tests recorded yet.</div>
+                <div className="rounded border border-dashed border-slate-200 p-6 text-center text-slate-500">
+                  No tests recorded yet.
+                </div>
               )}
               {historyQ.data?.map((h: any) => (
                 <div key={h.id} className="rounded border border-slate-200 p-3">
@@ -1009,9 +1189,15 @@ function DetailsDrawer({
                     <span className="text-xs text-slate-500">{new Date(h.created_at).toLocaleString()}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs text-slate-600">
-                    <div><span className="text-slate-400">HTTP</span> {h.http_status ?? "—"}</div>
-                    <div><span className="text-slate-400">Latency</span> {h.latency_ms ?? "—"} ms</div>
-                    <div><span className="text-slate-400">Auth</span> {authLabel(h.auth_status)}</div>
+                    <div>
+                      <span className="text-slate-400">HTTP</span> {h.http_status ?? "—"}
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Latency</span> {h.latency_ms ?? "—"} ms
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Auth</span> {authLabel(h.auth_status)}
+                    </div>
                   </div>
                   {h.message && <div className="mt-1 text-xs text-slate-500">{h.message}</div>}
                 </div>
@@ -1023,33 +1209,58 @@ function DetailsDrawer({
             <div className="space-y-2 text-sm">
               {importsQ.isLoading && <div className="text-slate-500">Loading import history…</div>}
               {importsQ.data && importsQ.data.length === 0 && (
-                <div className="rounded border border-dashed border-slate-200 p-6 text-center text-slate-500">No imports recorded yet.</div>
+                <div className="rounded border border-dashed border-slate-200 p-6 text-center text-slate-500">
+                  No imports recorded yet.
+                </div>
               )}
               {importsQ.data?.map((r) => (
                 <div key={r.id} className="rounded border border-slate-200 p-3">
                   <div className="mb-1 flex items-center justify-between">
-                    <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${r.success ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                    <span
+                      className={`rounded px-2 py-0.5 text-[11px] font-semibold ${r.success ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
+                    >
                       {r.preview ? "Preview" : "Import"} · {r.success ? "Success" : "Failed"}
                     </span>
                     <span className="text-xs text-slate-500">{new Date(r.started_at).toLocaleString()}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs text-slate-600">
-                    <div><span className="text-slate-400">Created</span> {r.records_created}</div>
-                    <div><span className="text-slate-400">Updated</span> {r.records_updated}</div>
-                    <div><span className="text-slate-400">Skipped</span> {r.records_skipped}</div>
+                    <div>
+                      <span className="text-slate-400">Created</span> {r.records_created}
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Updated</span> {r.records_updated}
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Skipped</span> {r.records_skipped}
+                    </div>
                     <div>
                       <span className="text-slate-400">Published</span>{" "}
-                      {typeof (r as { records_published?: number }).records_published === "number"
-                        ? (r as { records_published?: number }).records_published
-                        : <span className="text-slate-400">Not available</span>}
+                      {typeof (r as { records_published?: number }).records_published === "number" ? (
+                        (r as { records_published?: number }).records_published
+                      ) : (
+                        <span className="text-slate-400">Not available</span>
+                      )}
                     </div>
-                    <div><span className="text-slate-400">Held</span> <span className="text-amber-700">{r.records_held ?? 0}</span></div>
-                    <div><span className="text-slate-400">Policy</span> {r.policy_name ?? "—"}</div>
+                    <div>
+                      <span className="text-slate-400">Held</span>{" "}
+                      <span className="text-amber-700">{r.records_held ?? 0}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Policy</span> {r.policy_name ?? "—"}
+                    </div>
                     {r.statistics?.lifecycle && (
                       <>
-                        <div><span className="text-slate-400">Stores held</span> {r.statistics.lifecycle.storesHeld}</div>
-                        <div><span className="text-slate-400">Lifecycle hidden</span> {r.statistics.lifecycle.storesToLifecycleHide}</div>
-                        <div><span className="text-slate-400">Republished</span> {r.statistics.lifecycle.storesToLifecycleRepublish}</div>
+                        <div>
+                          <span className="text-slate-400">Stores held</span> {r.statistics.lifecycle.storesHeld}
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Lifecycle hidden</span>{" "}
+                          {r.statistics.lifecycle.storesToLifecycleHide}
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Republished</span>{" "}
+                          {r.statistics.lifecycle.storesToLifecycleRepublish}
+                        </div>
                       </>
                     )}
                   </div>
@@ -1063,12 +1274,16 @@ function DetailsDrawer({
             <div className="space-y-2 text-sm">
               {auditQ.isLoading && <div className="text-slate-500">Loading audit log…</div>}
               {auditQ.data && auditQ.data.length === 0 && (
-                <div className="rounded border border-dashed border-slate-200 p-6 text-center text-slate-500">No audit events yet.</div>
+                <div className="rounded border border-dashed border-slate-200 p-6 text-center text-slate-500">
+                  No audit events yet.
+                </div>
               )}
               {auditQ.data?.map((a: any) => (
                 <div key={a.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
                   <div>
-                    <div className="text-sm font-medium capitalize text-slate-800">{a.action} · {a.entity.replace("affiliate_", "")}</div>
+                    <div className="text-sm font-medium capitalize text-slate-800">
+                      {a.action} · {a.entity.replace("affiliate_", "")}
+                    </div>
                     <div className="text-xs text-slate-500">{a.meta?.description ?? ""}</div>
                   </div>
                   <span className="text-xs text-slate-500">{new Date(a.created_at).toLocaleString()}</span>
@@ -1079,10 +1294,16 @@ function DetailsDrawer({
         </div>
 
         <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-          <button onClick={onEdit} className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <button
+            onClick={onEdit}
+            className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
             <Pencil className="h-3.5 w-3.5" /> Edit
           </button>
-          <button onClick={onTest} className="inline-flex items-center gap-1 rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900">
+          <button
+            onClick={onTest}
+            className="inline-flex items-center gap-1 rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900"
+          >
             <Zap className="h-3.5 w-3.5" /> Test Connection
           </button>
         </div>
@@ -1104,12 +1325,22 @@ function KV({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-start justify-between gap-3 border-b border-slate-100 py-1.5 last:border-b-0">
       <span className="text-xs text-slate-500">{k}</span>
-      <span className="max-w-[60%] truncate text-right text-xs font-medium text-slate-700" title={v}>{v}</span>
+      <span className="max-w-[60%] truncate text-right text-xs font-medium text-slate-700" title={v}>
+        {v}
+      </span>
     </div>
   );
 }
 
-function SystemHealth({ total, lastSuccess, lastFailed }: { total: number; lastSuccess: string | null; lastFailed: string | null }) {
+function SystemHealth({
+  total,
+  lastSuccess,
+  lastFailed,
+}: {
+  total: number;
+  lastSuccess: string | null;
+  lastFailed: string | null;
+}) {
   return (
     <div className="mt-8 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
@@ -1118,21 +1349,56 @@ function SystemHealth({ total, lastSuccess, lastFailed }: { total: number; lastS
       </div>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-3">
         <HealthItem icon={<Plug className="h-3.5 w-3.5" />} label="Total Integrations" value={String(total)} />
-        <HealthItem icon={<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />} label="Credential Storage" value="Healthy" tone="ok" />
-        <HealthItem icon={<Database className="h-3.5 w-3.5 text-emerald-600" />} label="Database" value="Healthy" tone="ok" />
-        <HealthItem icon={<Activity className="h-3.5 w-3.5" />} label="Last Successful Test" value={fmtLastTested(lastSuccess)} />
-        <HealthItem icon={<Activity className="h-3.5 w-3.5" />} label="Last Failed Test" value={fmtLastTested(lastFailed)} />
-        <HealthItem icon={<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />} label="Security" value="Encrypted (AES-256-GCM)" tone="ok" />
+        <HealthItem
+          icon={<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}
+          label="Credential Storage"
+          value="Healthy"
+          tone="ok"
+        />
+        <HealthItem
+          icon={<Database className="h-3.5 w-3.5 text-emerald-600" />}
+          label="Database"
+          value="Healthy"
+          tone="ok"
+        />
+        <HealthItem
+          icon={<Activity className="h-3.5 w-3.5" />}
+          label="Last Successful Test"
+          value={fmtLastTested(lastSuccess)}
+        />
+        <HealthItem
+          icon={<Activity className="h-3.5 w-3.5" />}
+          label="Last Failed Test"
+          value={fmtLastTested(lastFailed)}
+        />
+        <HealthItem
+          icon={<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}
+          label="Security"
+          value="Encrypted (AES-256-GCM)"
+          tone="ok"
+        />
         <HealthItem icon={<Activity className="h-3.5 w-3.5" />} label="Module Version" value="v1.0.0" />
       </dl>
     </div>
   );
 }
 
-function HealthItem({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone?: "ok" }) {
+function HealthItem({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone?: "ok";
+}) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <dt className="flex items-center gap-1.5 text-slate-500">{icon} {label}</dt>
+      <dt className="flex items-center gap-1.5 text-slate-500">
+        {icon} {label}
+      </dt>
       <dd className={`font-medium ${tone === "ok" ? "text-emerald-700" : "text-slate-700"}`}>{value}</dd>
     </div>
   );
