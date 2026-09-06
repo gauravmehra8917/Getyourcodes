@@ -443,7 +443,7 @@ test("validates the narrow method and request contract", async () => {
   assert.equal(notPreview.status, 400);
 });
 
-test("allows only normalized SITE_URL and exact A8B localhost origins", async () => {
+test("allows only normalized SITE_URL, exact project previews, and exact A8B localhost origins", async () => {
   for (
     const siteUrl of [
       "https://getyourcodes.com",
@@ -464,6 +464,8 @@ test("allows only normalized SITE_URL and exact A8B localhost origins", async ()
 
   for (
     const origin of [
+      "https://preview--dealio-dash.lovable.app",
+      "https://id-preview--039ee3ad-3ac4-45eb-84ef-ab28307d72ac.lovable.app",
       "http://localhost:8080",
       "http://127.0.0.1:8080",
       "http://[::1]:8080",
@@ -475,6 +477,7 @@ test("allows only normalized SITE_URL and exact A8B localhost origins", async ()
     );
     assert.equal(response.status, 204);
     assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+    assert.notEqual(response.headers.get("Access-Control-Allow-Origin"), "*");
     assert.equal(
       response.headers.get("Access-Control-Allow-Headers"),
       "authorization, apikey, content-type, x-client-info",
@@ -509,6 +512,10 @@ test("rejects unapproved and deceptive CORS origins", async () => {
       "https://localhost:8080",
       "http://localhost:8080.evil.example",
       "https://getyourcodes.com.evil.example",
+      "https://evil-preview.lovable.app",
+      "https://preview--another-project.lovable.app",
+      "https://dealio-dash.lovable.app.evil.example",
+      "https://example.com",
       "https://id-preview--project.lovable.app",
       "https://arbitrary.lovable.app",
     ]
@@ -516,6 +523,7 @@ test("rejects unapproved and deceptive CORS origins", async () => {
     const response = await handler(preflightRequest(origin));
     assert.equal(response.status, 204);
     assert.equal(response.headers.get("Access-Control-Allow-Origin"), "null");
+    assert.notEqual(response.headers.get("Access-Control-Allow-Origin"), "*");
   }
 });
 
@@ -529,23 +537,27 @@ test("approved POST success and error responses retain the exact CORS origin", a
     previewRequest(
       undefined,
       "Bearer verified-jwt",
-      "https://getyourcodes.com",
+      "https://preview--dealio-dash.lovable.app",
     ),
   );
   assert.equal(success.status, 200);
   assert.equal(
     success.headers.get("Access-Control-Allow-Origin"),
-    "https://getyourcodes.com",
+    "https://preview--dealio-dash.lovable.app",
   );
 
   const errorFixture = dependencies({ siteUrl: "https://getyourcodes.com" });
   const error = await createAffiliateSyncPreviewV2Handler(errorFixture.deps)(
-    previewRequest(undefined, "", "http://localhost:8080"),
+    previewRequest(
+      undefined,
+      "",
+      "https://id-preview--039ee3ad-3ac4-45eb-84ef-ab28307d72ac.lovable.app",
+    ),
   );
   assert.equal(error.status, 401);
   assert.equal(
     error.headers.get("Access-Control-Allow-Origin"),
-    "http://localhost:8080",
+    "https://id-preview--039ee3ad-3ac4-45eb-84ef-ab28307d72ac.lovable.app",
   );
   assert.equal(error.headers.get("Vary"), "Origin");
 });

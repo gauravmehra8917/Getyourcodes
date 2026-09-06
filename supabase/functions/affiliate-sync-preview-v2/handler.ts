@@ -27,6 +27,10 @@ const LOCAL_A8B_CORS_ORIGINS = new Set([
   "http://127.0.0.1:8080",
   "http://[::1]:8080",
 ]);
+const PROJECT_PREVIEW_CORS_ORIGINS = new Set([
+  "https://preview--dealio-dash.lovable.app",
+  "https://id-preview--039ee3ad-3ac4-45eb-84ef-ab28307d72ac.lovable.app",
+]);
 
 const ERROR_MESSAGES: Record<PreviewV2ErrorCode, string> = {
   method_not_allowed: "This endpoint accepts POST requests only.",
@@ -57,10 +61,12 @@ function corsHeaders(
       siteOrigin = null;
     }
   }
-  const allowedOrigin =
-    origin && (origin === siteOrigin || LOCAL_A8B_CORS_ORIGINS.has(origin))
-      ? origin
-      : "null";
+  const allowedOrigin = origin &&
+      (origin === siteOrigin ||
+        LOCAL_A8B_CORS_ORIGINS.has(origin) ||
+        PROJECT_PREVIEW_CORS_ORIGINS.has(origin))
+    ? origin
+    : "null";
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": allowedOrigin,
