@@ -445,7 +445,7 @@ function IdentityDiagnosticsPanel({ diagnostics }: {
 
 
 /* ------------------------------------------------------------------ *
- * V2 read-only preview operator experience (frontend-only).
+ * Legacy SyncRunReport operator experience.
  * Every value below is derived from the EXISTING report payload.
  * Nothing here writes, persists, or calls an additional endpoint.
  * ------------------------------------------------------------------ */
@@ -596,26 +596,11 @@ function ReadOnlyNotice() {
     <div className="mb-4 flex items-start gap-2 rounded border border-sky-200 bg-sky-50 px-4 py-3">
       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
       <div className="text-sm text-sky-900">
-        <div className="font-semibold">Affiliate Sync V2 — Read-only Preview</div>
+        <div className="font-semibold">Legacy Affiliate Sync V1 Preview</div>
         <div className="mt-0.5 text-[13px]">
-          V2 Preview is read-only. No stores, offers, or import history are changed.
+          This legacy preview is read-only. No stores, offers, or import history are changed.
         </div>
       </div>
-    </div>
-  );
-}
-
-function PersistencePanel() {
-  return (
-    <div className="mb-5 rounded border border-slate-200 bg-white px-4 py-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">V2 Production Persistence</span>
-        <span className="rounded bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">Not enabled</span>
-      </div>
-      <p className="mt-2 text-[13px] text-slate-600">
-        V2 Preview is available and read-only. Production persistence will remain disabled until the reviewed database
-        migration and write-path verification are completed.
-      </p>
     </div>
   );
 }
@@ -738,6 +723,7 @@ function PreviewSummary({ report }: { report: SyncRunReport }) {
 
 export function ImportResultModal({
   title,
+  preview,
   running,
   report,
   error,
@@ -745,6 +731,7 @@ export function ImportResultModal({
   onRetry,
 }: {
   title: string;
+  preview: boolean;
   running: boolean;
   report: SyncRunReport | null;
   error?: string;
@@ -763,7 +750,7 @@ export function ImportResultModal({
   };
 
   const s = report?.statistics;
-  const isPreview = report ? report.preview : true;
+  const isPreview = report ? report.preview : preview;
 
   const hasDiagnostics = !!report && (
     report.validationErrors.length > 0 ||
@@ -793,7 +780,7 @@ export function ImportResultModal({
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
-            {isPreview && <p className="text-[11px] text-slate-500">Affiliate Sync V2 · Read-only Preview</p>}
+            {isPreview && <p className="text-[11px] text-slate-500">Legacy Affiliate Sync V1 Preview</p>}
           </div>
           <button onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-slate-100">
             <X className="h-4 w-4" />
@@ -810,8 +797,6 @@ export function ImportResultModal({
               <IdentitySafetyPanel report={report} />
 
               <PreviewSummary report={report} />
-
-              {isPreview && <PersistencePanel />}
 
               <Collapsible title="Diagnostics">
                 {report.messages.length > 0 || report.syncWarnings.length > 0 ? (

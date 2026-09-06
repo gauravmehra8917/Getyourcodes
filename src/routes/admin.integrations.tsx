@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { createClientOnlyFn, useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   Plug,
@@ -30,7 +30,12 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { ImportResultModal } from "@/components/admin/import-result-modal";
+import { V2PreviewResultModal } from "@/components/admin/v2-preview-result-modal";
 import { runProviderSync, getImportHistory, type SyncRunReport } from "@/lib/sync-execution.functions";
+import {
+  getAdminV2PreviewOperatorStatus,
+  type AdminV2PreviewHostResponse,
+} from "@/lib/affiliate-sync-v2-preview";
 import { listPublishingPolicies, setIntegrationPolicy } from "@/lib/publishing-policies.functions";
 import { syncStoreLogos, type LogoSyncReport } from "@/lib/presentation.functions";
 import { IntegrationWizard, type IntegrationRecord as WizardRecord } from "@/components/admin/integration-wizard";
@@ -95,6 +100,11 @@ const PROVIDER_TYPE_LABEL: Record<string, string> = {
   custom_rest_api: "Custom API",
 };
 
+const previewAffiliateSyncV2 = createClientOnlyFn(async (integrationId: string) => {
+  const client = await import("@/lib/affiliate-sync-v2-preview.client");
+  return client.previewAffiliateSyncV2(integrationId);
+});
+
 const STATUS_META: Record<string, { label: string; dot: string; badge: string }> = {
   connected: { label: "Connected", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
   never_tested: { label: "Never Tested", dot: "bg-amber-400", badge: "bg-amber-100 text-amber-700" },
@@ -130,11 +140,16 @@ function IntegrationsPage() {
     result: TestResult | null;
     error?: string;
   } | null>(null);
-  const [importModal, setImportModal] = useState<{
+  const [legacyImportModal, setLegacyImportModal] = useState<{
     rec: IntegrationRecord;
-    preview: boolean;
     running: boolean;
     report: SyncRunReport | null;
+    error?: string;
+  } | null>(null);
+  const [v2PreviewModal, setV2PreviewModal] = useState<{
+    rec: IntegrationRecord;
+    running: boolean;
+    response: AdminV2PreviewHostResponse | null;
     error?: string;
   } | null>(null);
 
@@ -149,7 +164,7 @@ function IntegrationsPage() {
   const toggleFn = useServerFn(toggleIntegration);
   const deleteFn = useServerFn(deleteIntegration);
   const testFn = useServerFn(testIntegration);
-  const syncFn = useServerFn(runProviderSync);
+  const legacySyncFn = useServerFn(runProviderSync);
   const logoFn = useServerFn(syncStoreLogos);
   const logoMutation = useMutation({
     mutationFn: (rec: { id: string; provider_type: string }) =>
@@ -217,19 +232,36 @@ function IntegrationsPage() {
     });
   };
 
-  const runImportFlow = (rec: IntegrationRecord, preview: boolean) => {
-    setImportModal({ rec, preview, running: true, report: null });
-    (syncFn({ data: { integrationId: rec.id, preview } }) as Promise<SyncRunReport>)
+  const runLegacyImport = (rec: IntegrationRecord) => {
+    setLegacyImportModal({ rec, running: true, report: null });
+    (legacySyncFn({ data: { integrationId: rec.id, preview: false } }) as Promise<SyncRunReport>)
       .then((report) => {
-        setImportModal({ rec, preview, running: false, report });
+        setLegacyImportModal({ rec, running: false, report });
         if (report.error) toast.error(report.error);
         else if (report.validationErrors.length)
           toast.warning(`${report.validationErrors.length} record(s) failed validation`);
-        else toast.success(preview ? "Preview completed" : "Import completed");
+        else toast.success("Legacy import completed");
       })
       .catch((err) => {
         const msg = err instanceof Error ? err.message : "Import failed";
-        setImportModal({ rec, preview, running: false, report: null, error: msg });
+        setLegacyImportModal({ rec, running: false, report: null, error: msg });
+        toast.error(msg);
+      });
+  };
+
+  const runV2Preview = (rec: IntegrationRecord) => {
+    setV2PreviewModal({ rec, running: true, response: null });
+    previewAffiliateSyncV2(rec.id)
+      .then((response) => {
+        setV2PreviewModal({ rec, running: false, response });
+        const status = getAdminV2PreviewOperatorStatus(response.preview);
+        if (status.severity === "blocker") toast.error(status.title);
+        else if (status.severity === "diagnostics") toast.warning(status.title);
+        else toast.success(status.title);
+      })
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "V2 preview failed";
+        setV2PreviewModal({ rec, running: false, response: null, error: msg });
         toast.error(msg);
       });
   };
@@ -459,8 +491,8 @@ function IntegrationsPage() {
                 onToggle={() => toggleMutation.mutate({ id: rec.id, enabled: !rec.is_enabled })}
                 onDelete={() => setConfirmDelete(rec)}
                 onHistory={() => setDrawer({ rec, tab: "audit" })}
-                onPreviewImport={() => runImportFlow(rec, true)}
-                onRunImport={() => runImportFlow(rec, false)}
+                onPreviewV2={() => runV2Preview(rec)}
+                onLegacyImport={() => runLegacyImport(rec)}
                 syncingLogos={logoMutation.isPending && logoMutation.variables?.id === rec.id}
                 onSyncLogos={() => logoMutation.mutate(rec)}
               />
@@ -538,14 +570,26 @@ function IntegrationsPage() {
         />
       )}
 
-      {importModal && (
+      {legacyImportModal && (
         <ImportResultModal
-          title={`${importModal.preview ? "Preview Import" : "Run Import"} — ${importModal.rec.integration_name}`}
-          running={importModal.running}
-          report={importModal.report}
-          error={importModal.error}
-          onClose={() => setImportModal(null)}
-          onRetry={() => runImportFlow(importModal.rec, importModal.preview)}
+          title={`Legacy Import (V1) — ${legacyImportModal.rec.integration_name}`}
+          preview={false}
+          running={legacyImportModal.running}
+          report={legacyImportModal.report}
+          error={legacyImportModal.error}
+          onClose={() => setLegacyImportModal(null)}
+          onRetry={() => runLegacyImport(legacyImportModal.rec)}
+        />
+      )}
+
+      {v2PreviewModal && (
+        <V2PreviewResultModal
+          title={`V2 Preview — ${v2PreviewModal.rec.integration_name}`}
+          running={v2PreviewModal.running}
+          response={v2PreviewModal.response}
+          error={v2PreviewModal.error}
+          onClose={() => setV2PreviewModal(null)}
+          onRetry={() => runV2Preview(v2PreviewModal.rec)}
         />
       )}
 
@@ -672,8 +716,8 @@ function IntegrationCard({
   onToggle,
   onDelete,
   onHistory,
-  onPreviewImport,
-  onRunImport,
+  onPreviewV2,
+  onLegacyImport,
   syncingLogos,
   onSyncLogos,
 }: {
@@ -685,8 +729,8 @@ function IntegrationCard({
   onToggle: () => void;
   onDelete: () => void;
   onHistory: () => void;
-  onPreviewImport: () => void;
-  onRunImport: () => void;
+  onPreviewV2: () => void;
+  onLegacyImport: () => void;
   syncingLogos: boolean;
   onSyncLogos: () => void;
 }) {
@@ -745,11 +789,11 @@ function IntegrationCard({
         >
           {rec.is_enabled ? "Disable" : "Enable"}
         </ActionBtn>
-        <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewImport}>
-          Preview Import
+        <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewV2}>
+          V2 Preview
         </ActionBtn>
-        <ActionBtn icon={<DownloadCloud className="h-3.5 w-3.5" />} onClick={onRunImport}>
-          Run Import
+        <ActionBtn icon={<DownloadCloud className="h-3.5 w-3.5" />} onClick={onLegacyImport}>
+          Legacy Import (V1)
         </ActionBtn>
         <ActionBtn
           icon={syncingLogos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
