@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.affiliate-sync-apply-v2]
 verify_jwt = false
+
+[functions.affiliate-sync-source-audit-v2]
+verify_jwt = false
