@@ -28,29 +28,65 @@ function positiveInteger(value: unknown): number | null {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function terminalPageProven(envelope: ImpactEnvelopeV2): boolean {
-  const page = positiveInteger(envelope["@page"]);
-  const pageCount = positiveInteger(envelope["@numpages"]);
+function pageCountMetadata(envelope: ImpactEnvelopeV2): {
+  pagePresent: boolean;
+  pageCountPresent: boolean;
+  page: number | null;
+  pageCount: number | null;
+} {
+  return {
+    pagePresent: "@page" in envelope,
+    pageCountPresent: "@numpages" in envelope,
+    page: positiveInteger(envelope["@page"]),
+    pageCount: positiveInteger(envelope["@numpages"]),
+  };
+}
+
+function terminalPageProven(
+  metadata: ReturnType<typeof pageCountMetadata>,
+): boolean {
+  const { page, pageCount } = metadata;
   return page !== null && pageCount !== null && page === pageCount;
 }
 
+function impossiblePageMetadata(
+  metadata: ReturnType<typeof pageCountMetadata>,
+): boolean {
+  const { page, pageCount } = metadata;
+  return page !== null && pageCount !== null && page > pageCount;
+}
+
+function absentContinuationIsTerminal(
+  metadata: ReturnType<typeof pageCountMetadata>,
+): boolean {
+  if (!metadata.pagePresent || !metadata.pageCountPresent) return true;
+  return terminalPageProven(metadata);
+}
+
 /**
- * Keeps Impact's continuation opaque. Blank/null is terminal only when the
- * provider's positive page metadata proves this is the final page.
+ * Keeps Impact's continuation opaque. A missing continuation is terminal only
+ * when available page-count metadata does not prove that pages remain. A
+ * blank/null continuation still requires positive final-page proof.
  */
 export function impactContinuationV2(
   envelope: ImpactEnvelopeV2,
 ): { ok: true; value: string | null } | { ok: false } {
-  if (!("@nextpageuri" in envelope)) return { ok: true, value: null };
+  const metadata = pageCountMetadata(envelope);
+  if (impossiblePageMetadata(metadata)) return { ok: false };
+  if (!("@nextpageuri" in envelope)) {
+    return absentContinuationIsTerminal(metadata)
+      ? { ok: true, value: null }
+      : { ok: false };
+  }
   const value = envelope["@nextpageuri"];
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (trimmed) return { ok: true, value: trimmed };
-    return terminalPageProven(envelope)
+    return terminalPageProven(metadata)
       ? { ok: true, value: null }
       : { ok: false };
   }
-  if (value === null && terminalPageProven(envelope)) {
+  if (value === null && terminalPageProven(metadata)) {
     return { ok: true, value: null };
   }
   return { ok: false };

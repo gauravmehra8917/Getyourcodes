@@ -12,6 +12,7 @@ import type {
   AffiliateSyncAdsPreviewDiagnosticsV2,
   ImpactAdsFetchDiagnosticsV2,
   ImpactAdsFetchStopReasonV2,
+  RawAdDeduplicationDiagnosticsV2,
 } from "./ads-diagnostics.ts";
 import { AdsOfferQualification } from "./AdsOfferQualification.ts";
 import { AdsPublishingSelection } from "./AdsPublishingSelection.ts";
@@ -252,6 +253,7 @@ function sameSet(
 function identityIntegrity(input: {
   fetched: readonly RawImpactAdV2[];
   unique: readonly RawImpactAdV2[];
+  deduplication: RawAdDeduplicationDiagnosticsV2;
   resolution: ReturnType<typeof ImpactAdMerchantResolver.resolve>;
   normalized: ReturnType<typeof ImpactAdOfferNormalizer.normalize>;
   matched: ReturnType<typeof AdsStoreMatcher.match>;
@@ -285,7 +287,20 @@ function identityIntegrity(input: {
   const qualificationKeys = storeKeySet(
     input.selection.stores.map((store) => store.store.providerStoreKey),
   );
-  const adIdentitySafe = sameSet(uniqueIds, normalizedIds) &&
+  const deduplicationIdentitySafe =
+    input.deduplication.acceptedInputRecords === input.fetched.length &&
+    input.deduplication.uniqueUsableAds === input.unique.length &&
+    input.deduplication.conflictedAdIdentitiesExcluded ===
+      input.deduplication.identitiesWithConflictingProviderFields &&
+    input.deduplication.duplicatedAdIdentities >=
+      input.deduplication.identitiesWithConflictingProviderFields &&
+    input.deduplication.acceptedInputRecords ===
+      fetchedIds.size + input.deduplication.duplicateRecordsRemoved &&
+    fetchedIds.size ===
+      uniqueIds.size + input.deduplication.conflictedAdIdentitiesExcluded &&
+    [...uniqueIds].every((id) => fetchedIds.has(id));
+  const adIdentitySafe = deduplicationIdentitySafe &&
+    sameSet(uniqueIds, normalizedIds) &&
     sameSet(uniqueIds, dispositionIds) &&
     input.unique.length === uniqueIds.size &&
     input.normalized.offers.length === uniqueIds.size &&
@@ -389,6 +404,7 @@ export class AdsPreviewPlanner {
     const identity = identityIntegrity({
       fetched: input.adsFetch.records,
       unique: deduplicated.uniqueAds,
+      deduplication: deduplicated.diagnostics,
       resolution,
       normalized,
       matched,

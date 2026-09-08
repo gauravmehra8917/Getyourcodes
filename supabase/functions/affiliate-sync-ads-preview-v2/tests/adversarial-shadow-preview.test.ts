@@ -282,10 +282,11 @@ test("177 Campaigns and 800 Ads retain exact identities through aggregate previe
 
   assert.deepEqual(preview.deduplication, {
     acceptedInputRecords: AD_COUNT,
-    uniqueAds: AD_COUNT,
+    uniqueUsableAds: AD_COUNT,
     duplicateRecordsRemoved: 0,
     duplicatedAdIdentities: 0,
     identitiesWithConflictingProviderFields: 0,
+    conflictedAdIdentitiesExcluded: 0,
   });
   assert.equal(preview.campaignIndex.indexedCampaigns, CAMPAIGN_COUNT);
   assert.equal(preview.merchantIdentity.adsEvaluated, AD_COUNT);

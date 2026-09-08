@@ -210,7 +210,7 @@ test("17 exact Ads under one DealId remain 17 source-neutral offers", () => {
   const result = plan({ campaigns: [campaign("Campaign-A")], ads });
   assert.equal(result.complete, true);
   if (!result.complete) return;
-  assert.equal(result.preview.deduplication.uniqueAds, 17);
+  assert.equal(result.preview.deduplication.uniqueUsableAds, 17);
   assert.equal(result.preview.normalization.normalizedOffers, 17);
   assert.deepEqual(result.preview.dealCardinality, {
     adsWithDealId: 17,
@@ -244,7 +244,11 @@ test("duplicate AdIds are removed before normalization without DealId collapse",
   assert.equal(result.complete, true);
   if (!result.complete) return;
   assert.equal(result.preview.deduplication.duplicateRecordsRemoved, 1);
-  assert.equal(result.preview.deduplication.uniqueAds, 2);
+  assert.equal(result.preview.deduplication.uniqueUsableAds, 2);
+  assert.equal(
+    result.preview.deduplication.conflictedAdIdentitiesExcluded,
+    0,
+  );
   assert.equal(result.preview.normalization.normalizedOffers, 2);
 });
 
@@ -410,38 +414,78 @@ test("a settled total minimum can fail before classification-dependent dimension
   assert.equal(result.preview.policy.policyFailWithSelectedAds, 1);
 });
 
-test("conflicting duplicates retain the first exact Ad occurrence deterministically", () => {
-  const first = ad({
-    id: "Ad-shared",
-    campaignId: "Campaign-first",
-    advertiserId: "Advertiser-first",
-    recordIndex: 0,
-  });
-  const duplicate = ad({
-    id: "Ad-shared",
-    campaignId: "Campaign-second",
-    advertiserId: "Advertiser-second",
-    recordIndex: 0,
-  });
-  duplicate.provenance.fetchSequence = 2;
-  const result = plan({
-    campaigns: [
-      campaign("Campaign-first", "Advertiser-first", 0),
-      campaign("Campaign-second", "Advertiser-second", 1),
-    ],
-    ads: [duplicate, first],
-  });
-  assert.equal(result.complete, true);
-  if (!result.complete) return;
-  assert.equal(result.preview.deduplication.uniqueAds, 1);
-  assert.equal(result.preview.deduplication.duplicateRecordsRemoved, 1);
-  assert.equal(
-    result.preview.deduplication.identitiesWithConflictingProviderFields,
-    1,
-  );
-  assert.equal(result.preview.merchantIdentity.resolvedByCampaignId, 1);
-  assert.equal(result.preview.normalization.normalizedStores, 1);
-  assert.equal(result.preview.selection.selectedAdsTotal, 1);
+test("each conflicting duplicate provider field excludes the exact Ad identity", () => {
+  const cases = [
+    {
+      field: "CampaignId",
+      duplicate: { campaignId: "Campaign-B" },
+    },
+    {
+      field: "AdvertiserId",
+      duplicate: { advertiserId: "Advertiser-B" },
+    },
+    { field: "DealId", duplicate: { dealId: "Deal-B" } },
+    { field: "codeClass", duplicate: { codeBearing: true } },
+  ] as const;
+
+  for (const { field, duplicate: override } of cases) {
+    const privateAdId = `PRIVATE-CONFLICT-${field}`;
+    const first = ad({
+      id: privateAdId,
+      campaignId: "Campaign-A",
+      advertiserId: "Advertiser-A",
+      dealId: "Deal-A",
+      codeBearing: false,
+      recordIndex: 0,
+    });
+    const conflicting = ad({
+      id: privateAdId,
+      campaignId: "Campaign-A",
+      advertiserId: "Advertiser-A",
+      dealId: "Deal-A",
+      codeBearing: false,
+      recordIndex: 0,
+      ...override,
+    });
+    conflicting.provenance.fetchSequence = 2;
+
+    const result = plan({
+      campaigns: [
+        campaign("Campaign-A", "Advertiser-A", 0),
+        campaign("Campaign-B", "Advertiser-A", 1),
+      ],
+      ads: [conflicting, first],
+    });
+    assert.equal(result.complete, true, field);
+    if (!result.complete) continue;
+    assert.deepEqual(result.preview.deduplication, {
+      acceptedInputRecords: 2,
+      uniqueUsableAds: 0,
+      duplicateRecordsRemoved: 1,
+      duplicatedAdIdentities: 1,
+      identitiesWithConflictingProviderFields: 1,
+      conflictedAdIdentitiesExcluded: 1,
+    }, field);
+    assert.equal(result.preview.merchantIdentity.adsEvaluated, 0, field);
+    assert.equal(result.preview.normalization.normalizedOffers, 0, field);
+    assert.equal(result.preview.selection.selectedAdsTotal, 0, field);
+    assert.equal(
+      result.preview.identityIntegrity.distinctAdIdsAfterFetch,
+      1,
+      field,
+    );
+    assert.equal(
+      result.preview.identityIntegrity.distinctAdIdsAfterDeduplication,
+      0,
+      field,
+    );
+    assert.equal(
+      result.preview.identityIntegrity.identityCollapseDetected,
+      false,
+      field,
+    );
+    assert.equal(JSON.stringify(result).includes(privateAdId), false, field);
+  }
 });
 
 test("Campaign and Ads incomplete results block planning without partial output", () => {

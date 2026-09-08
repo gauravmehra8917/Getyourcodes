@@ -38,7 +38,6 @@ export class RawAdDeduplicator {
         compareAds(left.ad, right.ad) || left.inputIndex - right.inputIndex
       );
     const retainedByAdId = new Map<string, RetainedAdV2>();
-    const uniqueAds: RawImpactAdV2[] = [];
     let duplicateRecordsRemoved = 0;
 
     for (const { ad } of ordered) {
@@ -53,7 +52,6 @@ export class RawAdDeduplicator {
           occurrences: 1,
           conflicting: false,
         });
-        uniqueAds.push(ad);
         continue;
       }
       duplicateRecordsRemoved += 1;
@@ -64,16 +62,21 @@ export class RawAdDeduplicator {
     const duplicated = [...retainedByAdId.values()].filter(
       (entry) => entry.occurrences > 1,
     );
+    const conflictedAdIdentitiesExcluded = duplicated.filter(
+      (entry) => entry.conflicting,
+    ).length;
+    const uniqueAds = [...retainedByAdId.values()]
+      .filter((entry) => !entry.conflicting)
+      .map((entry) => entry.ad);
     return {
       uniqueAds,
       diagnostics: {
         acceptedInputRecords: acceptedAds.length,
-        uniqueAds: uniqueAds.length,
+        uniqueUsableAds: uniqueAds.length,
         duplicateRecordsRemoved,
         duplicatedAdIdentities: duplicated.length,
-        identitiesWithConflictingProviderFields: duplicated.filter(
-          (entry) => entry.conflicting,
-        ).length,
+        identitiesWithConflictingProviderFields: conflictedAdIdentitiesExcluded,
+        conflictedAdIdentitiesExcluded,
       },
     };
   }

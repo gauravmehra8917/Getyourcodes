@@ -131,10 +131,11 @@ export interface ImpactAdsFetchDiagnosticsV2 {
 
 export interface RawAdDeduplicationDiagnosticsV2 {
   acceptedInputRecords: number;
-  uniqueAds: number;
+  uniqueUsableAds: number;
   duplicateRecordsRemoved: number;
   duplicatedAdIdentities: number;
   identitiesWithConflictingProviderFields: number;
+  conflictedAdIdentitiesExcluded: number;
 }
 
 export interface AdsCampaignIndexDiagnosticsV2 {

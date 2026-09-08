@@ -6,6 +6,12 @@ function parseAds(value: unknown) {
   return ImpactAdsPageParser.parse(JSON.stringify(value), { fetchSequence: 2 });
 }
 
+function parseCampaigns(value: unknown) {
+  return ImpactAdsCampaignPageParser.parse(JSON.stringify(value), {
+    fetchSequence: 2,
+  });
+}
+
 test("Ads parser preserves exact Ad identity and discards both code values", () => {
   const result = parseAds({
     "@page": "2",
@@ -150,38 +156,88 @@ test("Ads parser accepts only the exact root collection", () => {
   }
 });
 
-test("continuation stays exact and blank/null requires proven terminal metadata", () => {
+test("continuation stays exact and rejects impossible positive page metadata", () => {
   const exact = "https://api.impact.com/next?Cursor=opaque%2Fvalue&Page=2";
   const exactResult = parseAds({ Ads: [], "@nextpageuri": exact });
   assert.equal(exactResult.ok, true);
   if (exactResult.ok) assert.equal(exactResult.nextContinuationUri, exact);
 
-  for (const value of [null, "", "  "]) {
-    const terminal = parseAds({
+  const terminalWithContinuation = parseAds({
+    Ads: [],
+    "@page": "8",
+    "@numpages": "8",
+    "@nextpageuri": exact,
+  });
+  assert.equal(terminalWithContinuation.ok, true);
+  if (terminalWithContinuation.ok) {
+    assert.equal(terminalWithContinuation.nextContinuationUri, exact);
+  }
+
+  assert.deepEqual(
+    parseAds({
       Ads: [],
-      "@page": "4",
-      "@numpages": "4",
-      "@nextpageuri": value,
-    });
-    assert.equal(terminal.ok, true);
-    if (terminal.ok) assert.equal(terminal.nextContinuationUri, null);
+      "@page": "9",
+      "@numpages": "8",
+      "@nextpageuri": exact,
+    }),
+    { ok: false, reason: "invalid_nextpageuri" },
+  );
+});
+
+test("Ads and Campaigns require continuation when valid page metadata proves pages remain", () => {
+  const streams = [
+    {
+      name: "Ads",
+      parse: (metadata: Record<string, unknown>) =>
+        parseAds({ Ads: [], ...metadata }),
+    },
+    {
+      name: "Campaigns",
+      parse: (metadata: Record<string, unknown>) =>
+        parseCampaigns({ Campaigns: [], ...metadata }),
+    },
+  ];
+
+  for (const stream of streams) {
+    for (const next of [undefined, null, "", "  "]) {
+      const metadata: Record<string, unknown> = {
+        "@page": "8",
+        "@numpages": "8",
+      };
+      if (next !== undefined) metadata["@nextpageuri"] = next;
+      const result = stream.parse(metadata);
+      assert.equal(result.ok, true, `${stream.name}: terminal ${String(next)}`);
+      if (result.ok) assert.equal(result.nextContinuationUri, null);
+    }
+
+    for (const next of [undefined, null, "", "  "]) {
+      const metadata: Record<string, unknown> = {
+        "@page": "1",
+        "@numpages": "8",
+      };
+      if (next !== undefined) metadata["@nextpageuri"] = next;
+      assert.deepEqual(stream.parse(metadata), {
+        ok: false,
+        reason: "invalid_nextpageuri",
+      }, `${stream.name}: nonterminal ${String(next)}`);
+    }
+
+    assert.deepEqual(
+      stream.parse({
+        "@page": "9",
+        "@numpages": "8",
+      }),
+      {
+        ok: false,
+        reason: "invalid_nextpageuri",
+      },
+      `${stream.name}: impossible page metadata`,
+    );
+
+    const unavailable = stream.parse({});
+    assert.equal(unavailable.ok, true, `${stream.name}: metadata unavailable`);
+    if (unavailable.ok) assert.equal(unavailable.nextContinuationUri, null);
   }
-  for (
-    const value of [
-      { Ads: [], "@page": "3", "@numpages": "4", "@nextpageuri": null },
-      { Ads: [], "@numpages": "4", "@nextpageuri": null },
-      { Ads: [], "@page": "x", "@numpages": "x", "@nextpageuri": "" },
-      { Ads: [], "@page": "5", "@numpages": "4", "@nextpageuri": null },
-    ]
-  ) {
-    assert.deepEqual(parseAds(value), {
-      ok: false,
-      reason: "invalid_nextpageuri",
-    });
-  }
-  const absent = parseAds({ Ads: [] });
-  assert.equal(absent.ok, true);
-  if (absent.ok) assert.equal(absent.nextContinuationUri, null);
 });
 
 test("dedicated Campaign parser accepts exact IDs and quarantines incomplete rows", () => {

@@ -87,6 +87,15 @@ function adsClient(transport: ImpactAdsTransportV2, override = {}) {
   });
 }
 
+function campaignsClient(transport: ImpactAdsTransportV2, override = {}) {
+  return new ImpactAdsCampaignClient({
+    transport,
+    continuationPolicy: POLICY,
+    requestTimeoutMs: 5_000,
+    limits: limits(override),
+  });
+}
+
 test("Ads fetch follows the exact continuation and preserves request credentials policy", async () => {
   const next =
     `${ORIGIN}/Mediapartners/${SID}/Ads?Cursor=opaque%2Fvalue&Page=2`;
@@ -159,6 +168,72 @@ test("unapproved/repeated continuation and malformed page fail closed", async ()
   const result = await adsClient(malformed).fetch(ADS);
   assert.equal(result.diagnostics.stopReason, "malformed_page");
   assert.equal(result.diagnostics.parseFailureReason, "missing_collection");
+});
+
+test("Ads and Campaign fetches fail closed when page metadata proves a continuation is missing", async () => {
+  const cases = [
+    {
+      stream: "ads",
+      endpoint: ADS,
+      body: { Ads: [], "@page": "1", "@numpages": "8" },
+    },
+    {
+      stream: "campaigns",
+      endpoint: CAMPAIGNS,
+      body: { Campaigns: [], "@page": "1", "@numpages": "8" },
+    },
+  ] as const;
+
+  for (const fixture of cases) {
+    const transport = new FakeTransport(() => response(fixture.body));
+    const result = fixture.stream === "ads"
+      ? await adsClient(transport).fetch(fixture.endpoint)
+      : await campaignsClient(transport).fetch(fixture.endpoint);
+    assert.equal(result.diagnostics.complete, false, fixture.stream);
+    assert.equal(
+      result.diagnostics.stopReason,
+      "malformed_page",
+      fixture.stream,
+    );
+    assert.equal(
+      result.diagnostics.parseFailureReason,
+      "invalid_nextpageuri",
+      fixture.stream,
+    );
+    assert.equal(result.diagnostics.pagesFetched, 1, fixture.stream);
+    assert.equal(transport.requests.length, 1, fixture.stream);
+  }
+});
+
+test("Ads and Campaign fetches complete on a final page without continuation", async () => {
+  const cases = [
+    {
+      stream: "ads",
+      endpoint: ADS,
+      body: { Ads: [{ Id: "Ad-1" }], "@page": "8", "@numpages": "8" },
+    },
+    {
+      stream: "campaigns",
+      endpoint: CAMPAIGNS,
+      body: {
+        Campaigns: [{ CampaignId: "Campaign-1" }],
+        "@page": "8",
+        "@numpages": "8",
+      },
+    },
+  ] as const;
+
+  for (const fixture of cases) {
+    const transport = new FakeTransport(() => response(fixture.body));
+    const result = fixture.stream === "ads"
+      ? await adsClient(transport).fetch(fixture.endpoint)
+      : await campaignsClient(transport).fetch(fixture.endpoint);
+    assert.equal(result.diagnostics.complete, true, fixture.stream);
+    assert.equal(result.diagnostics.stopReason, "completed", fixture.stream);
+    assert.equal(result.diagnostics.parseFailureReason, null, fixture.stream);
+    assert.equal(result.records.length, 1, fixture.stream);
+    assert.equal(transport.requests.length, 1, fixture.stream);
+  }
 });
 
 test("page, record and physical request limits have exact incomplete reasons", async () => {
@@ -308,7 +383,7 @@ test("retry, timeout and caller cancellation remain bounded closed outcomes", as
   assert.equal(JSON.stringify(cancelledResult).includes("private"), false);
 });
 
-test("duplicate exact AdIds fetched on separate pages deduplicate once and retain conflicts", async () => {
+test("conflicting exact AdIds fetched on separate pages are excluded", async () => {
   const next = `${ORIGIN}/Mediapartners/${SID}/Ads?Page=2`;
   const transport = new FakeTransport((_request, sequence) =>
     response(
@@ -325,14 +400,14 @@ test("duplicate exact AdIds fetched on separate pages deduplicate once and retai
   const fetched = await adsClient(transport).fetch(ADS);
   assert.equal(fetched.records.length, 2);
   const deduplicated = RawAdDeduplicator.deduplicate(fetched.records);
-  assert.equal(deduplicated.uniqueAds.length, 1);
-  assert.equal(deduplicated.uniqueAds[0]?.campaignId, "Campaign-first");
+  assert.equal(deduplicated.uniqueAds.length, 0);
   assert.deepEqual(deduplicated.diagnostics, {
     acceptedInputRecords: 2,
-    uniqueAds: 1,
+    uniqueUsableAds: 0,
     duplicateRecordsRemoved: 1,
     duplicatedAdIdentities: 1,
     identitiesWithConflictingProviderFields: 1,
+    conflictedAdIdentitiesExcluded: 1,
   });
 });
 
