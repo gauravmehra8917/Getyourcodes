@@ -18,3 +18,6 @@ verify_jwt = false
 
 [functions.affiliate-sync-source-audit-v2]
 verify_jwt = false
+
+[functions.affiliate-sync-ads-preview-v2]
+verify_jwt = false
