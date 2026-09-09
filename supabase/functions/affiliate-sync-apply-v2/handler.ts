@@ -438,7 +438,9 @@ interface LedgerEvidence extends CreatedEvidence {
   plannedAction: "create" | "noop_existing";
   outcome: "created" | "noop_existing";
   provider: "impact";
+  providerEntityNamespace: "campaign" | "promotion";
   expectedEntityId: string | null;
+  parentProviderEntityNamespace: "campaign" | null;
   parentProviderEntityId: string | null;
   parentEntityId: string | null;
   offerKind: "coupon" | "deal" | null;
@@ -481,9 +483,11 @@ function validSuccessEvidence(
         "plannedAction",
         "outcome",
         "provider",
+        "providerEntityNamespace",
         "providerEntityId",
         "entityId",
         "expectedEntityId",
+        "parentProviderEntityNamespace",
         "parentProviderEntityId",
         "parentEntityId",
         "offerKind",
@@ -493,6 +497,8 @@ function validSuccessEvidence(
       ordinals.has(entry.instructionOrdinal) ||
       (entry.outcome !== "created" && entry.outcome !== "noop_existing") ||
       entry.provider !== "impact" ||
+      (entry.providerEntityNamespace !== "campaign" &&
+        entry.providerEntityNamespace !== "promotion") ||
       !canonicalProviderId(entry.providerEntityId) ||
       !validUuid(entry.entityId)
     ) return false;
@@ -509,6 +515,8 @@ function validSuccessEvidence(
       entry.entityKind !== (isStore ? "store" : "offer") ||
       entry.plannedAction !== instruction.action ||
       entry.provider !== instruction.provider ||
+      entry.providerEntityNamespace !==
+        instruction.providerEntityNamespace ||
       entry.providerEntityId !== instruction.providerEntityId ||
       (instruction.action === "noop_existing" &&
         entry.outcome !== "noop_existing") ||
@@ -528,26 +536,38 @@ function validSuccessEvidence(
     const providerIds = isStore ? storeProviderIds : offerProviderIds;
     const entityIds = isStore ? storeEntityIds : offerEntityIds;
     if (
-      providerIds.has(entry.providerEntityId) || entityIds.has(entityIdKey)
+      providerIds.has(
+        `${entry.providerEntityNamespace}\u0000${entry.providerEntityId}`,
+      ) || entityIds.has(entityIdKey)
     ) return false;
-    providerIds.add(entry.providerEntityId);
+    providerIds.add(
+      `${entry.providerEntityNamespace}\u0000${entry.providerEntityId}`,
+    );
     entityIds.add(entityIdKey);
 
     if (storeInstruction) {
       if (
+        entry.providerEntityNamespace !== "campaign" ||
+        entry.parentProviderEntityNamespace !== null ||
         entry.parentProviderEntityId !== null ||
         entry.parentEntityId !== null || entry.offerKind !== null
       ) return false;
-      storeEntitiesByProvider.set(entry.providerEntityId, entry.entityId);
+      storeEntitiesByProvider.set(
+        `${entry.providerEntityNamespace}\u0000${entry.providerEntityId}`,
+        entry.entityId,
+      );
     } else {
       if (
+        entry.providerEntityNamespace !== "promotion" ||
+        entry.parentProviderEntityNamespace !==
+          offerInstruction!.parentProviderEntityNamespace ||
         entry.parentProviderEntityId !==
           offerInstruction!.parentProviderEntityId ||
         !validUuid(entry.parentEntityId) ||
         entry.offerKind !== offerInstruction!.kind
       ) return false;
       const parentEntityId = storeEntitiesByProvider.get(
-        offerInstruction!.parentProviderEntityId,
+        `${offerInstruction!.parentProviderEntityNamespace}\u0000${offerInstruction!.parentProviderEntityId}`,
       );
       if (
         parentEntityId === undefined ||
@@ -566,9 +586,14 @@ function validSuccessEvidence(
       plannedAction: entry.plannedAction as "create" | "noop_existing",
       outcome: entry.outcome,
       provider: "impact",
+      providerEntityNamespace: entry.providerEntityNamespace as
+        | "campaign"
+        | "promotion",
       providerEntityId: entry.providerEntityId,
       entityId: entry.entityId,
       expectedEntityId: entry.expectedEntityId as string | null,
+      parentProviderEntityNamespace:
+        entry.parentProviderEntityNamespace as "campaign" | null,
       parentProviderEntityId: entry.parentProviderEntityId as string | null,
       parentEntityId: entry.parentEntityId as string | null,
       offerKind: entry.offerKind as "coupon" | "deal" | null,

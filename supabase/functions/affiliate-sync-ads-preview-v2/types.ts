@@ -27,6 +27,7 @@ export interface StoredAdsPublishingPolicyRowV2 {
 
 export interface AdsCatalogStoreIdentityRowV2 {
   id: unknown;
+  providerEntityNamespace: unknown;
   providerEntityId: unknown;
 }
 

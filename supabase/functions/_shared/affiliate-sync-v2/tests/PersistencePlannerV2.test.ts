@@ -315,7 +315,12 @@ test("E: an exact existing offer is a no-op and never authorizes an update", () 
       offers: [{ id: "offer-existing", promotionId: "coupon-a" }],
     },
   }), context({
-    knownOfferKinds: [{ offerId: "offer-existing", promotionId: "coupon-a", kind: "coupon" }],
+    knownOfferKinds: [{
+      offerId: "offer-existing",
+      providerEntityNamespace: "promotion",
+      promotionId: "coupon-a",
+      kind: "coupon",
+    }],
   }));
   assert.equal(result.status, "ready");
   assert.equal(result.offerInstructions[0]?.action, "noop_existing");
@@ -439,7 +444,12 @@ test("K: an existing offer kind conflict blocks without reclassification", () =>
       offers: [{ id: "offer-existing", promotionId: "promotion-a" }],
     },
   }), context({
-    knownOfferKinds: [{ offerId: "offer-existing", promotionId: "promotion-a", kind: "deal" }],
+    knownOfferKinds: [{
+      offerId: "offer-existing",
+      providerEntityNamespace: "promotion",
+      promotionId: "promotion-a",
+      kind: "deal",
+    }],
   }));
   assert.equal(result.status, "blocked");
   assert.ok(result.blockers.some((entry) => entry.reason === "offer_kind_conflict"));
@@ -512,7 +522,7 @@ test("Q/R/S: canonical material changes with exact identities and contains the f
   assert.notEqual(base.canonicalPlanMaterialString, changedPromotion.canonicalPlanMaterialString);
   assert.notEqual(base.canonicalPlanMaterialString, changedCampaign.canonicalPlanMaterialString);
   assert.equal(base.canonicalPlanMaterial.persistenceContractVersion, PERSISTENCE_CONTRACT_VERSION_V2);
-  assert.match(base.canonicalPlanMaterialString, /v2-a9b-1/);
+  assert.match(base.canonicalPlanMaterialString, /v2-a9b-2/);
 });
 
 test("T: an unsupported provider returns no writable instructions", () => {
@@ -668,5 +678,49 @@ test("output invariant validation rejects tampered counts", () => {
   assert.throws(
     () => validatePersistencePlanV2(tampered),
     /persistence_plan_count_mismatch/,
+  );
+});
+
+test("output invariant validation rejects namespace reinterpretation", () => {
+  const result = plan(preview({
+    stores: [simpleStore()],
+    offers: [{
+      promotionId: "promotion-a",
+      campaignId: "campaign-a",
+      kind: "deal",
+    }],
+  }));
+
+  const tamperedStore = structuredClone(result);
+  Reflect.set(
+    tamperedStore.storeInstructions[0]!,
+    "providerEntityNamespace",
+    "legacy",
+  );
+  assert.throws(
+    () => validatePersistencePlanV2(tamperedStore),
+    /persistence_plan_store_provider_identity/,
+  );
+
+  const tamperedOffer = structuredClone(result);
+  Reflect.set(
+    tamperedOffer.offerInstructions[0]!,
+    "providerEntityNamespace",
+    "ad",
+  );
+  assert.throws(
+    () => validatePersistencePlanV2(tamperedOffer),
+    /persistence_plan_offer_provider_identity/,
+  );
+
+  const tamperedParent = structuredClone(result);
+  Reflect.set(
+    tamperedParent.offerInstructions[0]!,
+    "parentProviderEntityNamespace",
+    "legacy",
+  );
+  assert.throws(
+    () => validatePersistencePlanV2(tamperedParent),
+    /persistence_plan_offer_parent_identity/,
   );
 });

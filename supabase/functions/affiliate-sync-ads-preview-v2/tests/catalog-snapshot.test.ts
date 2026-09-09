@@ -7,9 +7,21 @@ import {
 
 test("catalog mapping preserves exact Campaign identities and duplicate ambiguity evidence", () => {
   const snapshot = mapExistingAdsCatalogSnapshotV2([
-    { id: "store-a", providerEntityId: "Campaign-A" },
-    { id: "store-b", providerEntityId: "Campaign-A" },
-    { id: "store-c", providerEntityId: "campaign-a" },
+    {
+      id: "store-a",
+      providerEntityNamespace: "campaign",
+      providerEntityId: "Campaign-A",
+    },
+    {
+      id: "store-b",
+      providerEntityNamespace: "campaign",
+      providerEntityId: "Campaign-A",
+    },
+    {
+      id: "store-c",
+      providerEntityNamespace: "campaign",
+      providerEntityId: "campaign-a",
+    },
   ]);
   assert.deepEqual(snapshot, {
     stores: [
@@ -44,10 +56,26 @@ test("catalog mapping preserves exact Campaign identities and duplicate ambiguit
 test("catalog mapping fails closed instead of trimming or dropping malformed rows", () => {
   for (
     const row of [
-      { id: " store-a", providerEntityId: "campaign-a" },
-      { id: "store-a", providerEntityId: " campaign-a" },
-      { id: "store-a", providerEntityId: "" },
-      { id: null, providerEntityId: "campaign-a" },
+      {
+        id: " store-a",
+        providerEntityNamespace: "campaign",
+        providerEntityId: "campaign-a",
+      },
+      {
+        id: "store-a",
+        providerEntityNamespace: "campaign",
+        providerEntityId: " campaign-a",
+      },
+      {
+        id: "store-a",
+        providerEntityNamespace: "campaign",
+        providerEntityId: "",
+      },
+      {
+        id: null,
+        providerEntityNamespace: "campaign",
+        providerEntityId: "campaign-a",
+      },
     ]
   ) {
     assert.throws(() => mapExistingAdsCatalogSnapshotV2([row]));

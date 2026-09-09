@@ -216,6 +216,7 @@ function storeRow(ordinal: number): FakeCatalogRow {
     id: catalogUuid("stores", ordinal),
     slug: `store-${ordinal}`,
     provider: "impact",
+    provider_entity_namespace: "campaign",
     provider_entity_id: `campaign-${ordinal}`,
   };
 }
@@ -224,6 +225,7 @@ function offerRow(ordinal: number): FakeCatalogRow {
   return {
     id: catalogUuid("coupons", ordinal),
     provider: "impact",
+    provider_entity_namespace: "promotion",
     provider_entity_id: `promotion-${ordinal}`,
     coupon_type: ordinal % 2 === 0 ? "code" : "deal",
   };
@@ -280,16 +282,19 @@ function assertKeysetTrace(
   if (table === "stores") {
     assert.equal(
       tableRequests[0]?.columns,
-      "id,slug,provider,provider_entity_id",
+      "id,slug,provider,provider_entity_namespace,provider_entity_id",
     );
     assert.deepEqual(tableRequests[0]?.equals, []);
     assert.deepEqual(tableRequests[0]?.nots, []);
   } else {
     assert.equal(
       tableRequests[0]?.columns,
-      "id,provider_entity_id,coupon_type",
+      "id,provider_entity_namespace,provider_entity_id,coupon_type",
     );
-    assert.deepEqual(tableRequests[0]?.equals, [["provider", "impact"]]);
+    assert.deepEqual(tableRequests[0]?.equals, [
+      ["provider", "impact"],
+      ["provider_entity_namespace", "promotion"],
+    ]);
     assert.deepEqual(tableRequests[0]?.nots, [[
       "provider_entity_id",
       "is",
@@ -617,45 +622,53 @@ test("catalog planning mapping preserves every exact slug, kind, and duplicate i
         id: "store-a",
         slug: "same-slug",
         provider: "impact",
+        providerEntityNamespace: "campaign",
         providerEntityId: "campaign-a",
       },
       {
         id: "store-b",
         slug: "same-slug",
         provider: "impact",
+        providerEntityNamespace: "campaign",
         providerEntityId: "campaign-a",
       },
       {
         id: "store-c",
         slug: "case-sensitive-provider",
         provider: "Impact",
+        providerEntityNamespace: "campaign",
         providerEntityId: "campaign-c",
       },
       {
         id: "store-d",
         slug: "invalid-provider-identity",
         provider: "impact",
+        providerEntityNamespace: "campaign",
         providerEntityId: " campaign-d ",
       },
     ],
     [
       {
         id: "offer-a",
+        providerEntityNamespace: "promotion",
         providerEntityId: "promotion-a",
         couponType: "code",
       },
       {
         id: "offer-b",
+        providerEntityNamespace: "promotion",
         providerEntityId: "promotion-a",
         couponType: "deal",
       },
       {
         id: "offer-c",
+        providerEntityNamespace: "promotion",
         providerEntityId: "promotion-c",
         couponType: "deal",
       },
       {
         id: "offer-without-identity",
+        providerEntityNamespace: null,
         providerEntityId: null,
         couponType: "not-evaluated",
       },
@@ -719,9 +732,24 @@ test("catalog planning mapping preserves every exact slug, kind, and duplicate i
       },
     ],
     knownOfferKinds: [
-      { offerId: "offer-a", promotionId: "promotion-a", kind: "coupon" },
-      { offerId: "offer-b", promotionId: "promotion-a", kind: "deal" },
-      { offerId: "offer-c", promotionId: "promotion-c", kind: "deal" },
+      {
+        offerId: "offer-a",
+        providerEntityNamespace: "promotion",
+        promotionId: "promotion-a",
+        kind: "coupon",
+      },
+      {
+        offerId: "offer-b",
+        providerEntityNamespace: "promotion",
+        promotionId: "promotion-a",
+        kind: "deal",
+      },
+      {
+        offerId: "offer-c",
+        providerEntityNamespace: "promotion",
+        promotionId: "promotion-c",
+        kind: "deal",
+      },
     ],
   });
 });
@@ -733,6 +761,7 @@ test("catalog planning mapping rejects malformed exact evidence", () => {
         id: " store-a ",
         slug: "store-a",
         provider: "impact",
+        providerEntityNamespace: "campaign",
         providerEntityId: "campaign-a",
       }], []),
     /catalog_store_id_invalid/,
@@ -743,6 +772,7 @@ test("catalog planning mapping rejects malformed exact evidence", () => {
         id: "store-a",
         slug: "",
         provider: "impact",
+        providerEntityNamespace: "campaign",
         providerEntityId: "campaign-a",
       }], []),
     /catalog_store_slug_invalid/,
@@ -751,6 +781,7 @@ test("catalog planning mapping rejects malformed exact evidence", () => {
     () =>
       mapCatalogPlanningContextV2([], [{
         id: " offer-a ",
+        providerEntityNamespace: null,
         providerEntityId: null,
         couponType: "code",
       }]),
@@ -760,6 +791,7 @@ test("catalog planning mapping rejects malformed exact evidence", () => {
     () =>
       mapCatalogPlanningContextV2([], [{
         id: "offer-a",
+        providerEntityNamespace: "promotion",
         providerEntityId: "promotion-a",
         couponType: "coupon",
       }]),

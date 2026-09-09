@@ -85,6 +85,7 @@ export interface PersistenceRpcStoreInstructionV2 {
   readonly instructionOrdinal: number;
   readonly action: "create" | "noop_existing";
   readonly provider: "impact";
+  readonly providerEntityNamespace: "campaign";
   readonly providerEntityId: string;
   readonly expectedExistingStoreId: string | null;
   readonly qualified: boolean;
@@ -95,10 +96,12 @@ export interface PersistenceRpcOfferInstructionV2 {
   readonly instructionOrdinal: number;
   readonly action: "create" | "noop_existing";
   readonly provider: "impact";
+  readonly providerEntityNamespace: "promotion";
   readonly providerEntityId: string;
   readonly kind: "coupon" | "deal";
   readonly existingOfferId: string | null;
   readonly parentProviderEntityId: string;
+  readonly parentProviderEntityNamespace: "campaign";
   readonly expectedParentStoreId: string | null;
   readonly projection: PersistenceRpcOfferCreateProjectionV2 | null;
 }
@@ -511,6 +514,7 @@ function projectStoreInstruction(
         "action",
         "providerStoreKey",
         "provider",
+        "providerEntityNamespace",
         "providerEntityId",
         "expectedExistingStoreId",
         "qualified",
@@ -518,6 +522,7 @@ function projectStoreInstruction(
       ]) &&
       validCampaignProviderStoreKey(instruction.providerStoreKey) &&
       instruction.provider === "impact" &&
+      instruction.providerEntityNamespace === "campaign" &&
       instruction.providerEntityId === instruction.providerStoreKey.id &&
       canonicalProviderId(instruction.providerEntityId) &&
       typeof instruction.qualified === "boolean",
@@ -538,6 +543,7 @@ function projectStoreInstruction(
       instructionOrdinal,
       action: instruction.action,
       provider: instruction.provider,
+      providerEntityNamespace: instruction.providerEntityNamespace,
       providerEntityId: instruction.providerEntityId,
       expectedExistingStoreId: instruction.expectedExistingStoreId,
       qualified: instruction.qualified,
@@ -554,6 +560,7 @@ function projectStoreInstruction(
     instructionOrdinal,
     action: instruction.action,
     provider: instruction.provider,
+    providerEntityNamespace: instruction.providerEntityNamespace,
     providerEntityId: instruction.providerEntityId,
     expectedExistingStoreId: instruction.expectedExistingStoreId,
     qualified: instruction.qualified,
@@ -572,15 +579,19 @@ function projectOfferInstruction(
         "action",
         "promotionId",
         "provider",
+        "providerEntityNamespace",
         "providerEntityId",
         "kind",
         "existingOfferId",
         "parentProviderStoreKey",
+        "parentProviderEntityNamespace",
         "expectedParentStoreId",
         "selected",
         "projection",
       ]) &&
       instruction.provider === "impact" &&
+      instruction.providerEntityNamespace === "promotion" &&
+      instruction.parentProviderEntityNamespace === "campaign" &&
       typeof instruction.providerEntityId === "string" &&
       typeof instruction.promotionId === "string" &&
       instruction.providerEntityId === instruction.promotionId &&
@@ -611,9 +622,12 @@ function projectOfferInstruction(
       instructionOrdinal,
       action: instruction.action,
       provider: instruction.provider,
+      providerEntityNamespace: instruction.providerEntityNamespace,
       providerEntityId: instruction.providerEntityId,
       kind: instruction.kind,
       existingOfferId: instruction.existingOfferId,
+      parentProviderEntityNamespace:
+        instruction.parentProviderEntityNamespace,
       parentProviderEntityId: instruction.parentProviderStoreKey.id,
       expectedParentStoreId: instruction.expectedParentStoreId,
       projection: copyOfferProjection(instruction.projection),
@@ -629,9 +643,11 @@ function projectOfferInstruction(
     instructionOrdinal,
     action: instruction.action,
     provider: instruction.provider,
+    providerEntityNamespace: instruction.providerEntityNamespace,
     providerEntityId: instruction.providerEntityId,
     kind: instruction.kind,
     existingOfferId: instruction.existingOfferId,
+    parentProviderEntityNamespace: instruction.parentProviderEntityNamespace,
     parentProviderEntityId: instruction.parentProviderStoreKey.id,
     expectedParentStoreId: instruction.expectedParentStoreId,
     projection: null,
@@ -685,13 +701,15 @@ function snapshotExecution(
   );
   assertion(
     new Set(
-      storeInstructions.map((instruction) => instruction.providerEntityId),
+      storeInstructions.map((instruction) =>
+        `${instruction.providerEntityNamespace}\u0000${instruction.providerEntityId}`
+      ),
     ).size === storeInstructions.length,
     "persistence_execution_duplicate_store_identity",
   );
   const executableStoreById = new Map(
     executableStores.map((instruction) => [
-      instruction.providerEntityId,
+      `${instruction.providerEntityNamespace}\u0000${instruction.providerEntityId}`,
       instruction,
     ]),
   );
@@ -704,7 +722,9 @@ function snapshotExecution(
       projectOfferInstruction(
         instruction,
         storeInstructions.length + index,
-        executableStoreById.get(instruction.parentProviderStoreKey.id),
+        executableStoreById.get(
+          `${instruction.parentProviderEntityNamespace}\u0000${instruction.parentProviderStoreKey.id}`,
+        ),
       )
     ),
   );
@@ -715,7 +735,9 @@ function snapshotExecution(
   );
   assertion(
     new Set(
-      offerInstructions.map((instruction) => instruction.providerEntityId),
+      offerInstructions.map((instruction) =>
+        `${instruction.providerEntityNamespace}\u0000${instruction.providerEntityId}`
+      ),
     ).size === offerInstructions.length,
     "persistence_execution_duplicate_offer_identity",
   );

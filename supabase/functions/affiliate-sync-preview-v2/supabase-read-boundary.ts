@@ -133,8 +133,9 @@ export class SupabasePreviewV2DataSource implements PreviewV2DataSource {
     for (let from = 0;; from += PAGE_SIZE) {
       const { data, error } = await this.db
         .from("stores")
-        .select("id,provider_entity_id")
+        .select("id,provider_entity_namespace,provider_entity_id")
         .eq("provider", "impact")
+        .eq("provider_entity_namespace", "campaign")
         .not("provider_entity_id", "is", null)
         .range(from, from + PAGE_SIZE - 1);
       if (error) throw new Error("catalog_store_read_failed");
@@ -142,6 +143,7 @@ export class SupabasePreviewV2DataSource implements PreviewV2DataSource {
       rows.push(
         ...page.map((row) => ({
           id: row.id,
+          providerEntityNamespace: row.provider_entity_namespace,
           providerEntityId: row.provider_entity_id,
         })),
       );
@@ -157,8 +159,9 @@ export class SupabasePreviewV2DataSource implements PreviewV2DataSource {
     for (let from = 0;; from += PAGE_SIZE) {
       const { data, error } = await this.db
         .from("coupons")
-        .select("id,provider_entity_id")
+        .select("id,provider_entity_namespace,provider_entity_id")
         .eq("provider", "impact")
+        .eq("provider_entity_namespace", "promotion")
         .not("provider_entity_id", "is", null)
         .range(from, from + PAGE_SIZE - 1);
       if (error) throw new Error("catalog_offer_read_failed");
@@ -166,6 +169,7 @@ export class SupabasePreviewV2DataSource implements PreviewV2DataSource {
       rows.push(
         ...page.map((row) => ({
           id: row.id,
+          providerEntityNamespace: row.provider_entity_namespace,
           providerEntityId: row.provider_entity_id,
         })),
       );

@@ -48,8 +48,13 @@ class FakeDataSource implements AdsPreviewV2DataSource {
     minimumDealsPerStore: 0,
     maximumDealsPerStore: 18,
   };
-  storeRows: Array<{ id: unknown; providerEntityId: unknown }> = [{
+  storeRows: Array<{
+    id: unknown;
+    providerEntityNamespace: unknown;
+    providerEntityId: unknown;
+  }> = [{
     id: "store-sensitive",
+    providerEntityNamespace: "campaign",
     providerEntityId: "campaign-sensitive",
   }];
   ciphertext: string | null = CIPHERTEXT;

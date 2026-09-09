@@ -67,6 +67,7 @@ AS $function$
     'instructionOrdinal', 0,
     'action', 'create',
     'provider', 'impact',
+    'providerEntityNamespace', 'campaign',
     'providerEntityId', _campaign_id,
     'expectedExistingStoreId', NULL,
     'qualified', true,
@@ -104,6 +105,7 @@ AS $function$
     'instructionOrdinal', 0,
     'action', 'noop_existing',
     'provider', 'impact',
+    'providerEntityNamespace', 'campaign',
     'providerEntityId', _campaign_id,
     'expectedExistingStoreId', _store_id,
     'qualified', true,
@@ -125,9 +127,11 @@ AS $function$
     'instructionOrdinal', 1,
     'action', 'create',
     'provider', 'impact',
+    'providerEntityNamespace', 'promotion',
     'providerEntityId', _promotion_id,
     'kind', _kind,
     'existingOfferId', NULL,
+    'parentProviderEntityNamespace', 'campaign',
     'parentProviderEntityId', _campaign_id,
     'expectedParentStoreId', _expected_store_id,
     'projection', jsonb_build_object(
@@ -178,6 +182,7 @@ BEGIN
     SELECT id INTO STRICT store_id
     FROM public.stores
     WHERE provider = 'impact'
+      AND provider_entity_namespace = 'campaign'
       AND provider_entity_id = request.campaign_id;
     stores := jsonb_build_array(a9c_r1_test.store_existing(
       request.campaign_id,
@@ -198,7 +203,7 @@ BEGIN
   RETURN public.apply_affiliate_persistence_plan_v2(
     request.integration_id,
     'impact',
-    'v2-a9b-1',
+    'v2-a9b-2',
     'sha256-canonical-plan-v1',
     request.fingerprint,
     request.evaluated_at,
@@ -273,18 +278,26 @@ BEGIN
     );
     PERFORM a9c_r1_test.assert_true(
       (SELECT count(*) = 1 FROM public.stores
-       WHERE provider = 'impact' AND provider_entity_id = campaign)
+       WHERE provider = 'impact'
+         AND provider_entity_namespace = 'campaign'
+         AND provider_entity_id = campaign)
         AND
       (SELECT count(*) = 1 FROM public.coupons
-       WHERE provider = 'impact' AND provider_entity_id = promotion),
+       WHERE provider = 'impact'
+         AND provider_entity_namespace = 'promotion'
+         AND provider_entity_id = promotion),
       case_name || ' has one exact store and offer identity'
     );
     SELECT id INTO STRICT shared_store_id FROM public.stores
-      WHERE provider = 'impact' AND provider_entity_id = campaign;
+      WHERE provider = 'impact'
+        AND provider_entity_namespace = 'campaign'
+        AND provider_entity_id = campaign;
     PERFORM a9c_r1_test.assert_true(
       (SELECT bool_and(coupon.store_id = shared_store_id)
        FROM public.coupons AS coupon
-       WHERE coupon.provider = 'impact' AND coupon.provider_entity_id = promotion),
+       WHERE coupon.provider = 'impact'
+         AND coupon.provider_entity_namespace = 'promotion'
+         AND coupon.provider_entity_id = promotion),
       case_name || ' offer has the exact shared parent'
     );
     PERFORM a9c_r1_test.assert_true(
@@ -321,6 +334,7 @@ BEGIN
     WHERE case_id = 'different-offers' AND side = 'B';
   SELECT id INTO STRICT shared_store_id FROM public.stores
     WHERE provider = 'impact'
+      AND provider_entity_namespace = 'campaign'
       AND provider_entity_id = 'a9c-r1-different-offers-campaign';
   PERFORM a9c_r1_test.assert_true(
     result_a->>'status' = 'committed' AND result_b->>'status' = 'committed'
@@ -334,6 +348,7 @@ BEGIN
     (SELECT count(*) = 2 AND bool_and(coupon.store_id = shared_store_id)
      FROM public.coupons AS coupon
      WHERE coupon.provider = 'impact'
+       AND coupon.provider_entity_namespace = 'promotion'
        AND coupon.provider_entity_id IN ('a9c-r1-promotion-a', 'a9c-r1-promotion-b')),
     'same store/different offers has two offers with one exact parent'
   );
@@ -351,6 +366,7 @@ BEGIN
       AND
       (SELECT count(*) = 1 FROM public.coupons
        WHERE provider = 'impact'
+         AND provider_entity_namespace = 'promotion'
          AND provider_entity_id = 'a9c-r1-compatible-promotion'),
     'offer-only race has one creator and one exact no-op'
   );
@@ -370,6 +386,7 @@ BEGIN
       (SELECT count(*) = 1 AND bool_and(coupon_type::text = 'code')
        FROM public.coupons
        WHERE provider = 'impact'
+         AND provider_entity_namespace = 'promotion'
          AND provider_entity_id = 'a9c-r1-kind-conflict-promotion')
       AND NOT EXISTS (
         SELECT 1 FROM public.affiliate_import_runs
@@ -394,6 +411,7 @@ BEGIN
       AND NOT EXISTS (
         SELECT 1 FROM public.stores
         WHERE provider = 'impact'
+          AND provider_entity_namespace = 'campaign'
           AND provider_entity_id = 'a9c-r1-slug-campaign-b'
       )
       AND NOT EXISTS (
@@ -463,12 +481,15 @@ BEGIN
         ON mutation.entity_kind = 'store'
        AND store.id = mutation.entity_id
        AND store.provider = mutation.provider
+       AND store.provider_entity_namespace = mutation.provider_entity_namespace
        AND store.provider_entity_id = mutation.provider_entity_id
       LEFT JOIN public.coupons AS offer
         ON mutation.entity_kind = 'offer'
        AND offer.id = mutation.entity_id
        AND offer.provider = mutation.provider
+       AND offer.provider_entity_namespace = mutation.provider_entity_namespace
        AND offer.provider_entity_id = mutation.provider_entity_id
+       AND mutation.parent_provider_entity_namespace = 'campaign'
        AND offer.store_id = mutation.parent_entity_id
       WHERE (mutation.entity_kind = 'store' AND store.id IS NULL)
          OR (mutation.entity_kind = 'offer' AND offer.id IS NULL)
@@ -477,16 +498,18 @@ BEGIN
   );
   PERFORM a9c_r1_test.assert_true(
     NOT EXISTS (
-      SELECT provider, provider_entity_id
+      SELECT provider, provider_entity_namespace, provider_entity_id
       FROM public.stores
       WHERE provider = 'impact' AND provider_entity_id LIKE 'a9c-r1-%'
-      GROUP BY provider, provider_entity_id HAVING count(*) > 1
+      GROUP BY provider, provider_entity_namespace, provider_entity_id
+      HAVING count(*) > 1
     )
       AND NOT EXISTS (
-        SELECT provider, provider_entity_id
+        SELECT provider, provider_entity_namespace, provider_entity_id
         FROM public.coupons
         WHERE provider = 'impact' AND provider_entity_id LIKE 'a9c-r1-%'
-        GROUP BY provider, provider_entity_id HAVING count(*) > 1
+        GROUP BY provider, provider_entity_namespace, provider_entity_id
+        HAVING count(*) > 1
       ),
     'no synthetic exact provider identity is duplicated'
   );
@@ -511,20 +534,21 @@ INSERT INTO public.affiliate_integrations (
   );
 
 INSERT INTO public.stores (
-  name, slug, provider, provider_entity_id, import_origin,
+  name, slug, provider, provider_entity_namespace, provider_entity_id,
+  import_origin,
   lifecycle_managed, lifecycle_hidden, last_qualification_result,
   last_qualified_at
 ) VALUES
   (
     'A9C-R1 Compatible Offer Parent',
     'a9c-r1-compatible-offer-parent',
-    'impact', 'a9c-r1-compatible-offer-campaign', 'provider',
+    'impact', 'campaign', 'a9c-r1-compatible-offer-campaign', 'provider',
     true, false, 'qualified', '2026-08-26T00:00:00Z'
   ),
   (
     'A9C-R1 Kind Conflict Parent',
     'a9c-r1-kind-conflict-parent',
-    'impact', 'a9c-r1-kind-conflict-campaign', 'provider',
+    'impact', 'campaign', 'a9c-r1-kind-conflict-campaign', 'provider',
     true, false, 'qualified', '2026-08-26T00:00:00Z'
   );
 

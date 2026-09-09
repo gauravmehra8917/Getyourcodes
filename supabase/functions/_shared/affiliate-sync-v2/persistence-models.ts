@@ -6,7 +6,7 @@ import type {
 } from "./models.ts";
 import type { PublishingHoldReasonV2 } from "./PublishingPolicy.ts";
 
-export const PERSISTENCE_CONTRACT_VERSION_V2 = "v2-a9b-1" as const;
+export const PERSISTENCE_CONTRACT_VERSION_V2 = "v2-a9b-2" as const;
 
 export type PersistenceContractVersionV2 =
   typeof PERSISTENCE_CONTRACT_VERSION_V2;
@@ -23,6 +23,7 @@ export interface KnownStoreSlugV2 {
 /** Existing kind evidence needed to forbid silent coupon/deal reclassification. */
 export interface KnownOfferKindV2 {
   offerId: string;
+  providerEntityNamespace: "promotion";
   promotionId: string;
   kind: PersistenceOfferKindV2;
 }
@@ -119,6 +120,7 @@ export interface StoreCreateProjectionV2 {
 interface ResolvedStoreInstructionBaseV2 {
   providerStoreKey: ProviderStoreKey;
   provider: ImpactProvider;
+  providerEntityNamespace: "campaign";
   providerEntityId: string;
   qualified: boolean;
 }
@@ -148,6 +150,7 @@ export interface NoopUnmatchedStoreInstructionV2 {
   action: "noop_unmatched";
   providerStoreKey: null;
   provider: ImpactProvider;
+  providerEntityNamespace: null;
   providerEntityId: null;
   promotionId: string;
   unresolvedReason: MerchantUnresolvedReasonV2;
@@ -185,6 +188,7 @@ export interface OfferCreateProjectionV2 {
 interface OfferInstructionBaseV2 {
   promotionId: string;
   provider: ImpactProvider;
+  providerEntityNamespace: "promotion";
   providerEntityId: string;
   kind: PersistenceOfferKindV2;
   existingOfferId: string | null;
@@ -193,6 +197,7 @@ interface OfferInstructionBaseV2 {
 export interface CreateOfferInstructionV2 extends OfferInstructionBaseV2 {
   action: "create";
   parentProviderStoreKey: ProviderStoreKey;
+  parentProviderEntityNamespace: "campaign";
   expectedParentStoreId: string | null;
   selected: true;
   projection: OfferCreateProjectionV2 | null;
@@ -202,6 +207,7 @@ export interface NoopExistingOfferInstructionV2
   extends OfferInstructionBaseV2 {
   action: "noop_existing";
   parentProviderStoreKey: ProviderStoreKey;
+  parentProviderEntityNamespace: "campaign";
   expectedParentStoreId: string | null;
   selected: true;
   projection: null;
@@ -210,6 +216,7 @@ export interface NoopExistingOfferInstructionV2
 export interface NoopHeldOfferInstructionV2 extends OfferInstructionBaseV2 {
   action: "noop_held";
   parentProviderStoreKey: ProviderStoreKey;
+  parentProviderEntityNamespace: "campaign";
   expectedParentStoreId: string | null;
   selected: false;
   holdReason: Exclude<PublishingHoldReasonV2, "unresolved_store">;
@@ -220,6 +227,7 @@ export interface NoopUnresolvedOfferInstructionV2
   extends OfferInstructionBaseV2 {
   action: "noop_unresolved";
   parentProviderStoreKey: null;
+  parentProviderEntityNamespace: null;
   expectedParentStoreId: null;
   selected: false;
   holdReason: "unresolved_store";

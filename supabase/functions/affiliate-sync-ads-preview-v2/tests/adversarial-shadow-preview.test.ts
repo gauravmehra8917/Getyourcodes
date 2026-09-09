@@ -222,6 +222,7 @@ function dependencies(
       async readImpactStoreIdentityRows() {
         return [{
           id: "existing-store-safe-id",
+          providerEntityNamespace: "campaign",
           providerEntityId: opaque("campaign", 0),
         }];
       },

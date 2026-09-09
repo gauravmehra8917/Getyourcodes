@@ -269,11 +269,13 @@ function validRpcValue(
     plannedAction: instruction.action,
     outcome: instruction.action === "create" ? "created" : "noop_existing",
     provider: "impact",
+    providerEntityNamespace: instruction.providerEntityNamespace,
     providerEntityId: instruction.providerEntityId,
     entityId: instruction.action === "create"
       ? evidenceUuid("store", index)
       : instruction.expectedExistingStoreId!,
     expectedEntityId: instruction.expectedExistingStoreId,
+    parentProviderEntityNamespace: null,
     parentProviderEntityId: null,
     parentEntityId: null,
     offerKind: null,
@@ -287,11 +289,14 @@ function validRpcValue(
     plannedAction: instruction.action,
     outcome: instruction.action === "create" ? "created" : "noop_existing",
     provider: "impact",
+    providerEntityNamespace: instruction.providerEntityNamespace,
     providerEntityId: instruction.providerEntityId,
     entityId: instruction.action === "create"
       ? evidenceUuid("offer", index)
       : instruction.existingOfferId!,
     expectedEntityId: instruction.existingOfferId,
+    parentProviderEntityNamespace:
+      instruction.parentProviderEntityNamespace,
     parentProviderEntityId: instruction.parentProviderEntityId,
     parentEntityId: storeEntities.get(instruction.parentProviderEntityId)!,
     offerKind: instruction.kind,

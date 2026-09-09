@@ -141,8 +141,9 @@ export class SupabaseAdsPreviewV2DataSource implements AdsPreviewV2DataSource {
     for (;;) {
       let query = this.db
         .from("stores")
-        .select("id,provider_entity_id")
+        .select("id,provider_entity_namespace,provider_entity_id")
         .eq("provider", "impact")
+        .eq("provider_entity_namespace", "campaign")
         .not("provider_entity_id", "is", null);
       if (afterId !== null) query = query.gt("id", afterId);
       const { data, error } = await query
@@ -153,6 +154,7 @@ export class SupabaseAdsPreviewV2DataSource implements AdsPreviewV2DataSource {
       if (page.length === 0) break;
       rows.push(...page.map((row) => ({
         id: row.id,
+        providerEntityNamespace: row.provider_entity_namespace,
         providerEntityId: row.provider_entity_id,
       })));
       const nextAfterId = exactPageCursor(page[page.length - 1]?.id);

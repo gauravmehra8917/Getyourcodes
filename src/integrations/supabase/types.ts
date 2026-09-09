@@ -91,9 +91,11 @@ export type Database = {
           offer_kind: string | null
           outcome: string
           parent_entity_id: string | null
+          parent_provider_entity_namespace: string | null
           parent_provider_entity_id: string | null
           planned_action: string
           provider: string
+          provider_entity_namespace: string
           provider_entity_id: string
           run_id: string
         }
@@ -107,9 +109,11 @@ export type Database = {
           offer_kind?: string | null
           outcome: string
           parent_entity_id?: string | null
+          parent_provider_entity_namespace?: string | null
           parent_provider_entity_id?: string | null
           planned_action: string
           provider: string
+          provider_entity_namespace: string
           provider_entity_id: string
           run_id: string
         }
@@ -123,9 +127,11 @@ export type Database = {
           offer_kind?: string | null
           outcome?: string
           parent_entity_id?: string | null
+          parent_provider_entity_namespace?: string | null
           parent_provider_entity_id?: string | null
           planned_action?: string
           provider?: string
+          provider_entity_namespace?: string
           provider_entity_id?: string
           run_id?: string
         }
@@ -598,6 +604,7 @@ export type Database = {
           landing_page_url: string | null
           metadata: Json
           provider: string | null
+          provider_entity_namespace: string | null
           provider_entity_id: string | null
           seo_canonical_url: string | null
           seo_description: string | null
@@ -627,6 +634,7 @@ export type Database = {
           landing_page_url?: string | null
           metadata?: Json
           provider?: string | null
+          provider_entity_namespace?: string | null
           provider_entity_id?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
@@ -656,6 +664,7 @@ export type Database = {
           landing_page_url?: string | null
           metadata?: Json
           provider?: string | null
+          provider_entity_namespace?: string | null
           provider_entity_id?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
@@ -1303,6 +1312,7 @@ export type Database = {
           metadata: Json
           name: string
           provider: string | null
+          provider_entity_namespace: string | null
           provider_entity_id: string | null
           seo_canonical_url: string | null
           seo_description: string | null
@@ -1332,6 +1342,7 @@ export type Database = {
           metadata?: Json
           name: string
           provider?: string | null
+          provider_entity_namespace?: string | null
           provider_entity_id?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
@@ -1361,6 +1372,7 @@ export type Database = {
           metadata?: Json
           name?: string
           provider?: string | null
+          provider_entity_namespace?: string | null
           provider_entity_id?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null

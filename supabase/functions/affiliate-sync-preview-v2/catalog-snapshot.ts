@@ -7,8 +7,7 @@ import type {
 
 function nonEmptyText(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed || null;
+  return value.length > 0 && value.trim() === value ? value : null;
 }
 
 /**
@@ -22,8 +21,9 @@ export function mapExistingCatalogSnapshotV2(
   return {
     stores: stores.flatMap((row) => {
       const id = nonEmptyText(row.id);
+      const namespace = nonEmptyText(row.providerEntityNamespace);
       const campaignId = nonEmptyText(row.providerEntityId);
-      return id && campaignId
+      return id && namespace === "campaign" && campaignId
         ? [{
           id,
           providerStoreKey: {
@@ -36,8 +36,11 @@ export function mapExistingCatalogSnapshotV2(
     }),
     offers: offers.flatMap((row) => {
       const id = nonEmptyText(row.id);
+      const namespace = nonEmptyText(row.providerEntityNamespace);
       const promotionId = nonEmptyText(row.providerEntityId);
-      return id && promotionId ? [{ id, promotionId }] : [];
+      return id && namespace === "promotion" && promotionId
+        ? [{ id, promotionId }]
+        : [];
     }),
   };
 }

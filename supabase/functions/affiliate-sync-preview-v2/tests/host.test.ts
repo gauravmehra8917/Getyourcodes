@@ -225,8 +225,16 @@ class FakeDataSource implements PreviewV2DataSource {
   integration: StoredIntegrationV2 | null = structuredClone(healthyIntegration);
   ciphertext: string | null = CIPHERTEXT;
   publishingPolicy: StoredPublishingPolicyV2 | null = structuredClone(policy);
-  stores = [{ id: "store-acme", providerEntityId: "campaign-acme" }];
-  offers = [{ id: "offer-acme", providerEntityId: "promotion-acme-coupon" }];
+  stores = [{
+    id: "store-acme",
+    providerEntityNamespace: "campaign",
+    providerEntityId: "campaign-acme",
+  }];
+  offers = [{
+    id: "offer-acme",
+    providerEntityNamespace: "promotion",
+    providerEntityId: "promotion-acme-coupon",
+  }];
   failCatalog = false;
 
   async hasAdminRole(): Promise<boolean> {
@@ -996,16 +1004,54 @@ test("successful preview exposes aggregate quarantine reasons without individual
 
 test("snapshot loader preserves exact keys, PromotionIds, and ambiguity without fuzzy fallback", async () => {
   const storeRows = [
-    { id: "store-one", providerEntityId: "campaign-exact" },
-    { id: "store-two", providerEntityId: "campaign-exact" },
-    { id: "store-name-only", providerEntityId: null, name: "campaign-exact" },
+    {
+      id: "store-one",
+      providerEntityNamespace: "campaign",
+      providerEntityId: "campaign-exact",
+    },
+    {
+      id: "store-two",
+      providerEntityNamespace: "campaign",
+      providerEntityId: "campaign-exact",
+    },
+    {
+      id: "store-name-only",
+      providerEntityNamespace: null,
+      providerEntityId: null,
+      name: "campaign-exact",
+    },
+    {
+      id: "store-legacy",
+      providerEntityNamespace: "legacy",
+      providerEntityId: "campaign-legacy",
+    },
+    {
+      id: "store-padded",
+      providerEntityNamespace: "campaign",
+      providerEntityId: " campaign-padded",
+    },
   ];
   const offerRows = [
-    { id: "offer-one", providerEntityId: "promotion-exact" },
+    {
+      id: "offer-one",
+      providerEntityNamespace: "promotion",
+      providerEntityId: "promotion-exact",
+    },
     {
       id: "offer-title-only",
+      providerEntityNamespace: null,
       providerEntityId: null,
       title: "promotion-exact",
+    },
+    {
+      id: "offer-ad",
+      providerEntityNamespace: "ad",
+      providerEntityId: "promotion-exact",
+    },
+    {
+      id: "offer-padded",
+      providerEntityNamespace: "promotion",
+      providerEntityId: " promotion-padded",
     },
   ];
   const snapshot = mapExistingCatalogSnapshotV2(
@@ -1036,8 +1082,16 @@ test("snapshot loader preserves exact keys, PromotionIds, and ambiguity without 
 
   const reader = new FakeDataSource();
   reader.stores = [
-    { id: "store-one", providerEntityId: "campaign-exact" },
-    { id: "store-two", providerEntityId: "campaign-exact" },
+    {
+      id: "store-one",
+      providerEntityNamespace: "campaign",
+      providerEntityId: "campaign-exact",
+    },
+    {
+      id: "store-two",
+      providerEntityNamespace: "campaign",
+      providerEntityId: "campaign-exact",
+    },
   ];
   const loaded = await loadExistingCatalogSnapshotV2(reader);
   assert.equal(loaded.stores.length, 2);

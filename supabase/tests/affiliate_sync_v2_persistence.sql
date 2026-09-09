@@ -67,6 +67,7 @@ AS $function$
     'instructionOrdinal', _ordinal,
     'action', 'create',
     'provider', 'impact',
+    'providerEntityNamespace', 'campaign',
     'providerEntityId', _campaign_id,
     'expectedExistingStoreId', NULL,
     'qualified', true,
@@ -105,6 +106,7 @@ AS $function$
     'instructionOrdinal', _ordinal,
     'action', 'noop_existing',
     'provider', 'impact',
+    'providerEntityNamespace', 'campaign',
     'providerEntityId', _campaign_id,
     'expectedExistingStoreId', _store_id,
     'qualified', true,
@@ -127,9 +129,11 @@ AS $function$
     'instructionOrdinal', _ordinal,
     'action', 'create',
     'provider', 'impact',
+    'providerEntityNamespace', 'promotion',
     'providerEntityId', _promotion_id,
     'kind', _kind,
     'existingOfferId', NULL,
+    'parentProviderEntityNamespace', 'campaign',
     'parentProviderEntityId', _campaign_id,
     'expectedParentStoreId', _expected_store_id,
     'projection', jsonb_build_object(
@@ -171,9 +175,11 @@ AS $function$
     'instructionOrdinal', _ordinal,
     'action', 'noop_existing',
     'provider', 'impact',
+    'providerEntityNamespace', 'promotion',
     'providerEntityId', _promotion_id,
     'kind', _kind,
     'existingOfferId', _offer_id,
+    'parentProviderEntityNamespace', 'campaign',
     'parentProviderEntityId', _campaign_id,
     'expectedParentStoreId', _store_id,
     'projection', NULL
@@ -295,7 +301,7 @@ BEGIN
       ) VALUES (
         integration_a, 'impact', false, evaluated_at, true,
         0, NULL, '{}'::jsonb, actor_id,
-        CASE WHEN null_field = 'persistence_contract_version' THEN NULL ELSE 'v2-a9b-1' END,
+        CASE WHEN null_field = 'persistence_contract_version' THEN NULL ELSE 'v2-a9b-2' END,
         CASE WHEN null_field = 'plan_fingerprint_algorithm' THEN NULL ELSE 'sha256-canonical-plan-v1' END,
         CASE WHEN null_field = 'plan_fingerprint' THEN NULL ELSE repeat('ef', 32) END,
         CASE WHEN null_field = 'plan_evaluated_at' THEN NULL ELSE evaluated_at END,
@@ -322,7 +328,7 @@ BEGIN
   ) VALUES (
     integration_a, 'impact', false, evaluated_at, true,
     0, NULL, '{}'::jsonb, actor_id,
-    'v2-a9b-1', 'sha256-canonical-plan-v1', repeat('ef', 32),
+    'v2-a9b-2', 'sha256-canonical-plan-v1', repeat('ef', 32),
     evaluated_at, 'committed', valid_persistence_counts
   ) RETURNING id INTO complete_v2_run_id;
   PERFORM pg_temp.assert_true(EXISTS (
@@ -336,11 +342,13 @@ BEGIN
   BEGIN
     INSERT INTO public.affiliate_import_run_mutations_v2 (
       run_id, instruction_ordinal, entity_kind, planned_action, outcome,
-      provider, provider_entity_id, entity_id, parent_provider_entity_id,
+      provider, provider_entity_namespace, provider_entity_id, entity_id,
+      parent_provider_entity_namespace, parent_provider_entity_id,
       parent_entity_id, offer_kind
     ) VALUES (
       legacy_run_id, 100, 'offer', 'create', 'created',
-      'impact', 'offer-null-kind', gen_random_uuid(), 'ABC',
+      'impact', 'promotion', 'offer-null-kind', gen_random_uuid(),
+      'campaign', 'ABC',
       gen_random_uuid(), NULL
     );
     RAISE EXCEPTION 'assertion_failed: offer ledger accepted NULL offer_kind';
@@ -349,28 +357,33 @@ BEGIN
   END;
   INSERT INTO public.affiliate_import_run_mutations_v2 (
     run_id, instruction_ordinal, entity_kind, planned_action, outcome,
-    provider, provider_entity_id, entity_id, parent_provider_entity_id,
+    provider, provider_entity_namespace, provider_entity_id, entity_id,
+    parent_provider_entity_namespace, parent_provider_entity_id,
     parent_entity_id, offer_kind
   ) VALUES
     (
       legacy_run_id, 101, 'offer', 'create', 'created',
-      'impact', '00123', gen_random_uuid(), 'abc-DEF_123',
+      'impact', 'promotion', '00123', gen_random_uuid(),
+      'campaign', 'abc-DEF_123',
       gen_random_uuid(), 'coupon'
     ),
     (
       legacy_run_id, 102, 'offer', 'create', 'created',
-      'impact', 'A.B:C/9', gen_random_uuid(), 'ABC',
+      'impact', 'promotion', 'A.B:C/9', gen_random_uuid(),
+      'campaign', 'ABC',
       gen_random_uuid(), 'deal'
     ),
     (
       legacy_run_id, 103, 'store', 'create', 'created',
-      'impact', 'ABC', gen_random_uuid(), NULL,
+      'impact', 'campaign', 'ABC', gen_random_uuid(), NULL, NULL,
       NULL, NULL
     );
   PERFORM pg_temp.assert_true(EXISTS (
     SELECT 1 FROM public.affiliate_import_run_mutations_v2
     WHERE run_id = legacy_run_id
       AND provider_entity_id = '00123'
+      AND provider_entity_namespace = 'promotion'
+      AND parent_provider_entity_namespace = 'campaign'
       AND parent_provider_entity_id = 'abc-DEF_123'
       AND offer_kind = 'coupon'
   ), 'A coupon ledger row and exact identities are accepted unchanged');
@@ -378,12 +391,14 @@ BEGIN
     SELECT 1 FROM public.affiliate_import_run_mutations_v2
     WHERE run_id = legacy_run_id
       AND provider_entity_id = 'A.B:C/9'
+      AND provider_entity_namespace = 'promotion'
       AND offer_kind = 'deal'
   ), 'A deal ledger row and punctuation identity are accepted unchanged');
   PERFORM pg_temp.assert_true(EXISTS (
     SELECT 1 FROM public.affiliate_import_run_mutations_v2
     WHERE run_id = legacy_run_id
       AND entity_kind = 'store'
+      AND provider_entity_namespace = 'campaign'
       AND provider_entity_id = 'ABC'
       AND offer_kind IS NULL
   ), 'A store ledger row with NULL offer_kind remains valid');
@@ -392,12 +407,14 @@ BEGIN
     BEGIN
       INSERT INTO public.affiliate_import_run_mutations_v2 (
         run_id, instruction_ordinal, entity_kind, planned_action, outcome,
-        provider, provider_entity_id, entity_id, offer_kind
+        provider, provider_entity_namespace, provider_entity_id, entity_id,
+        offer_kind
       ) VALUES (
         legacy_run_id,
         CASE WHEN ledger_offer_kind = 'coupon' THEN 104 ELSE 105 END,
         'store', 'create', 'created', 'impact',
-        'store-invalid-' || ledger_offer_kind, gen_random_uuid(), ledger_offer_kind
+        'campaign', 'store-invalid-' || ledger_offer_kind,
+        gen_random_uuid(), ledger_offer_kind
       );
       RAISE EXCEPTION 'assertion_failed: store ledger accepted % offer_kind', ledger_offer_kind;
     EXCEPTION WHEN check_violation THEN
@@ -418,10 +435,10 @@ BEGIN
     BEGIN
       INSERT INTO public.affiliate_import_run_mutations_v2 (
         run_id, instruction_ordinal, entity_kind, planned_action, outcome,
-        provider, provider_entity_id, entity_id
+        provider, provider_entity_namespace, provider_entity_id, entity_id
       ) VALUES (
         legacy_run_id, 106, 'store', 'create', 'created',
-        'impact', invalid_identity, gen_random_uuid()
+        'impact', 'campaign', invalid_identity, gen_random_uuid()
       );
       RAISE EXCEPTION 'assertion_failed: ledger accepted malformed provider identity';
     EXCEPTION WHEN check_violation THEN
@@ -430,11 +447,13 @@ BEGIN
     BEGIN
       INSERT INTO public.affiliate_import_run_mutations_v2 (
         run_id, instruction_ordinal, entity_kind, planned_action, outcome,
-        provider, provider_entity_id, entity_id, parent_provider_entity_id,
+        provider, provider_entity_namespace, provider_entity_id, entity_id,
+        parent_provider_entity_namespace, parent_provider_entity_id,
         parent_entity_id, offer_kind
       ) VALUES (
         legacy_run_id, 107, 'offer', 'create', 'created',
-        'impact', 'valid-ledger-offer', gen_random_uuid(), invalid_identity,
+        'impact', 'promotion', 'valid-ledger-offer', gen_random_uuid(),
+        'campaign', invalid_identity,
         gen_random_uuid(), 'coupon'
       );
       RAISE EXCEPTION 'assertion_failed: ledger accepted malformed parent identity';
@@ -455,11 +474,11 @@ BEGIN
   -- B/AA: exact replay creates one logical run and returns the same run ID.
   counts := pg_temp.expected_counts();
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('a', 64), evaluated_at, actor_id, counts, '[]'::jsonb, '[]'::jsonb
   ) INTO result_one;
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('a', 64), evaluated_at, actor_id, counts, '[]'::jsonb, '[]'::jsonb
   ) INTO result_two;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'committed', 'B first request commits');
@@ -468,6 +487,22 @@ BEGIN
   SELECT count(*) INTO row_count FROM public.affiliate_import_runs
   WHERE integration_id = integration_a AND plan_fingerprint = repeat('a', 64);
   PERFORM pg_temp.assert_true(row_count = 1, 'B replay creates one run');
+
+  SELECT public.apply_affiliate_persistence_plan_v2(
+    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    repeat('ab', 32), evaluated_at, actor_id, counts, '[]'::jsonb, '[]'::jsonb
+  ) INTO result_one;
+  PERFORM pg_temp.assert_true(
+    result_one = jsonb_build_object(
+      'status', 'blocked', 'stage', 'request_validation',
+      'reason', 'invalid_request'
+    ),
+    'B flat-identity contract cannot replay under namespace semantics'
+  );
+  PERFORM pg_temp.assert_true(NOT EXISTS (
+    SELECT 1 FROM public.affiliate_import_runs
+    WHERE integration_id = integration_a AND plan_fingerprint = repeat('ab', 32)
+  ), 'B rejected flat contract creates no run');
 
   -- C: structural concurrency prerequisites. True concurrent sessions are
   -- exercised by the external harness when one is available.
@@ -490,11 +525,11 @@ BEGIN
   counts := pg_temp.expected_counts(1, 0, 0, 0, 0, 0, 0);
   stores := jsonb_build_array(pg_temp.store_create(0, 'campaign-one', 'campaign-one', evaluated_at));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('b', 64), evaluated_at, actor_id, counts, stores, '[]'::jsonb
   ) INTO result_one;
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('c', 64), evaluated_at, actor_id, counts, stores, '[]'::jsonb
   ) INTO result_two;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'committed', 'D first store commits');
@@ -510,11 +545,11 @@ BEGIN
   stores := jsonb_build_array(pg_temp.store_existing(0, 'campaign-one', store_id));
   offers := jsonb_build_array(pg_temp.offer_create(1, 'promotion-one', 'coupon', 'campaign-one', store_id));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('d', 64), evaluated_at, actor_id, counts, stores, offers
   ) INTO result_one;
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('e', 64), evaluated_at, actor_id, counts, stores, offers
   ) INTO result_two;
   SELECT count(*) INTO row_count FROM public.coupons
@@ -537,7 +572,7 @@ BEGIN
       pg_temp.store_create(0, invalid_identity, 'invalid-campaign-probe', evaluated_at)
     );
     SELECT public.apply_affiliate_persistence_plan_v2(
-      integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+      integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
       repeat('a2', 32), evaluated_at, actor_id, counts, stores, '[]'::jsonb
     ) INTO result_one;
     PERFORM pg_temp.assert_true(
@@ -552,7 +587,7 @@ BEGIN
       pg_temp.offer_create(1, invalid_identity, 'coupon', 'campaign-one', store_id)
     );
     SELECT public.apply_affiliate_persistence_plan_v2(
-      integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+      integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
       repeat('a2', 32), evaluated_at, actor_id, counts, stores, offers
     ) INTO result_one;
     PERFORM pg_temp.assert_true(
@@ -565,7 +600,7 @@ BEGIN
       pg_temp.offer_create(1, 'valid-parent-probe-offer', 'coupon', invalid_identity, store_id)
     );
     SELECT public.apply_affiliate_persistence_plan_v2(
-      integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+      integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
       repeat('a2', 32), evaluated_at, actor_id, counts, stores, offers
     ) INTO result_one;
     PERFORM pg_temp.assert_true(
@@ -605,7 +640,7 @@ BEGIN
     pg_temp.offer_create(7, 'A.B:C/9', 'deal', 'A.B:C/9')
   );
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('a4', 32), evaluated_at, actor_id, counts, stores, offers
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'committed', 'R2 exact valid identity plan commits');
@@ -638,7 +673,7 @@ BEGIN
       '{projection,lifecycleManaged}', invalid_lifecycle_value
     ));
     SELECT public.apply_affiliate_persistence_plan_v2(
-      integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+      integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
       repeat('a3', 32), evaluated_at, actor_id, counts, stores, '[]'::jsonb
     ) INTO result_one;
     PERFORM pg_temp.assert_true(
@@ -652,7 +687,7 @@ BEGIN
       '{projection,lifecycleHidden}', invalid_lifecycle_value
     ));
     SELECT public.apply_affiliate_persistence_plan_v2(
-      integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+      integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
       repeat('a3', 32), evaluated_at, actor_id, counts, stores, '[]'::jsonb
     ) INTO result_one;
     PERFORM pg_temp.assert_true(
@@ -679,7 +714,7 @@ BEGIN
   counts := pg_temp.expected_counts(1, 0, 0, 0, 0, 0, 0);
   stores := jsonb_build_array(pg_temp.store_create(0, 'campaign-collision', 'occupied-slug', evaluated_at));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('f', 64), evaluated_at, actor_id, counts, stores, '[]'::jsonb
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'blocked' AND result_one->>'reason' = 'store_slug_collision', 'F slug collision blocks');
@@ -697,7 +732,7 @@ BEGIN
     0, 'campaign-one', '30000000-0000-4000-8000-000000000001'
   ));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('0', 64), evaluated_at, actor_id, counts, stores, '[]'::jsonb
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'blocked' AND result_one->>'reason' = 'store_identity_mismatch', 'G wrong store UUID blocks');
@@ -710,7 +745,7 @@ BEGIN
     '30000000-0000-4000-8000-000000000002', 'campaign-one', store_id
   ));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('2', 64), evaluated_at, actor_id, counts, stores, offers
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'blocked' AND result_one->>'reason' = 'offer_identity_mismatch', 'H wrong offer UUID blocks');
@@ -719,7 +754,7 @@ BEGIN
   counts := pg_temp.expected_counts(0, 1, 0, 1, 0, 0, 0);
   offers := jsonb_build_array(pg_temp.offer_create(1, 'promotion-one', 'deal', 'campaign-one', store_id));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('3', 64), evaluated_at, actor_id, counts, stores, offers
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'blocked' AND result_one->>'reason' = 'offer_kind_conflict', 'I kind conflict blocks');
@@ -727,22 +762,25 @@ BEGIN
 
   -- J: an exact offer attached to another parent blocks.
   INSERT INTO public.stores (
-    name, slug, provider, provider_entity_id, import_origin,
+    name, slug, provider, provider_entity_namespace, provider_entity_id,
+    import_origin,
     lifecycle_managed, lifecycle_hidden, last_qualification_result
   ) VALUES (
-    'Other parent', 'other-parent', 'impact', 'campaign-other',
+    'Other parent', 'other-parent', 'impact', 'campaign', 'campaign-other',
     'provider', true, false, 'qualified'
   ) RETURNING id INTO other_store_id;
   INSERT INTO public.coupons (
-    store_id, title, coupon_type, status, provider, provider_entity_id
+    store_id, title, coupon_type, status, provider,
+    provider_entity_namespace, provider_entity_id
   ) VALUES (
-    other_store_id, 'Wrong parent', 'code', 'active', 'impact', 'promotion-parent-mismatch'
+    other_store_id, 'Wrong parent', 'code', 'active', 'impact',
+    'promotion', 'promotion-parent-mismatch'
   );
   offers := jsonb_build_array(pg_temp.offer_create(
     1, 'promotion-parent-mismatch', 'coupon', 'campaign-one', store_id
   ));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('4', 64), evaluated_at, actor_id, counts, stores, offers
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'blocked' AND result_one->>'reason' = 'parent_store_mismatch', 'J parent mismatch blocks');
@@ -754,7 +792,7 @@ BEGIN
     1, 'promotion-one', 'deal', 'campaign-rollback-store', NULL
   ));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('5', 64), evaluated_at, actor_id, counts, stores, offers
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'blocked', 'K later offer conflict blocks');
@@ -770,7 +808,7 @@ BEGIN
     pg_temp.offer_create(2, 'promotion-one', 'deal', 'campaign-one', store_id)
   );
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('6', 64), evaluated_at, actor_id, counts, stores, offers
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'blocked', 'L later offer conflict blocks');
@@ -785,7 +823,7 @@ BEGIN
   counts := pg_temp.expected_counts(1, 0, 0, 0, 0, 0, 0);
   stores := jsonb_build_array(pg_temp.store_create(0, 'campaign-run-failure', 'run-failure', evaluated_at));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('1', 64), evaluated_at, actor_id, counts, stores, '[]'::jsonb
   ) INTO result_one;
   DROP TRIGGER a9c_s2_force_run_failure ON public.affiliate_import_runs;
@@ -811,7 +849,7 @@ BEGIN
     0, 'campaign-ledger-failure', 'ledger-failure', evaluated_at
   ));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('7', 64), evaluated_at, actor_id, counts, stores, '[]'::jsonb
   ) INTO result_one;
   DROP TRIGGER a9c_s2_force_ledger_failure ON public.affiliate_import_run_mutations_v2;
@@ -858,13 +896,13 @@ BEGIN
   -- P/Q: held and unresolved aggregate counts never create ledger/offers.
   counts := pg_temp.expected_counts(0, 0, 0, 0, 0, 1, 0);
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('8', 64), evaluated_at, actor_id, counts, '[]'::jsonb, '[]'::jsonb
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'committed' AND result_one#>>'{counts,actual,ledgerRows}' = '0', 'P held aggregate creates no ledger');
   counts := pg_temp.expected_counts(0, 0, 0, 0, 0, 0, 1);
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('9', 64), evaluated_at, actor_id, counts, '[]'::jsonb, '[]'::jsonb
   ) INTO result_two;
   PERFORM pg_temp.assert_true(result_two->>'status' = 'committed' AND result_two#>>'{counts,actual,ledgerRows}' = '0', 'Q unresolved aggregate creates no ledger');
@@ -878,7 +916,7 @@ BEGIN
     1, 'promotion-one', 'coupon', offer_id, 'campaign-one', store_id
   ));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('b0', 32), evaluated_at, actor_id, counts, stores, offers
   ) INTO result_one;
   SELECT to_jsonb(store) INTO after_store FROM public.stores AS store WHERE store.id = store_id;
@@ -928,7 +966,7 @@ BEGIN
   -- Y: the same fingerprint under a different integration is independent.
   counts := pg_temp.expected_counts();
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_b, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_b, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('a', 64), evaluated_at, actor_id, counts, '[]'::jsonb, '[]'::jsonb
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'committed', 'Y integration scopes replay identity');
@@ -941,12 +979,12 @@ BEGIN
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'blocked', 'Z future contract is rejected by first RPC');
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-future',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-future',
     repeat('c1', 32), evaluated_at, actor_id, counts, '[]'::jsonb, '[]'::jsonb
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'blocked', 'Z future algorithm is rejected by first RPC');
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('c2', 32), evaluated_at, actor_id, counts, '[]'::jsonb, '[]'::jsonb
   ) INTO result_one;
   PERFORM pg_temp.assert_true(result_one->>'status' = 'committed', 'Z different valid fingerprint is distinct');
@@ -959,7 +997,7 @@ BEGIN
     '42'::jsonb
   ));
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('d0', 32), evaluated_at, actor_id, counts, stores, '[]'::jsonb
   ) INTO result_one;
   PERFORM pg_temp.assert_true(
@@ -971,7 +1009,7 @@ BEGIN
   -- AD: bounded counters cannot overflow legacy integer run counters.
   counts := pg_temp.expected_counts(0, 0, 2147483647, 0, 0, 0, 1);
   SELECT public.apply_affiliate_persistence_plan_v2(
-    integration_a, 'impact', 'v2-a9b-1', 'sha256-canonical-plan-v1',
+    integration_a, 'impact', 'v2-a9b-2', 'sha256-canonical-plan-v1',
     repeat('d1', 32), evaluated_at, actor_id, counts, '[]'::jsonb, '[]'::jsonb
   ) INTO result_one;
   PERFORM pg_temp.assert_true(

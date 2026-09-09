@@ -15,11 +15,13 @@ export interface CatalogPlanningStoreRowV2 {
   id: unknown;
   slug: unknown;
   provider: unknown;
+  providerEntityNamespace: unknown;
   providerEntityId: unknown;
 }
 
 export interface CatalogPlanningOfferRowV2 {
   id: unknown;
+  providerEntityNamespace: unknown;
   providerEntityId: unknown;
   couponType: unknown;
 }
@@ -43,9 +45,12 @@ function exactNonemptyText(value: unknown, errorCode: string): string {
 
 function exactImpactStoreKey(
   provider: unknown,
+  providerEntityNamespace: unknown,
   providerEntityId: unknown,
 ): ProviderStoreKey | null {
-  if (provider !== "impact") return null;
+  if (provider !== "impact" || providerEntityNamespace !== "campaign") {
+    return null;
+  }
   if (
     typeof providerEntityId !== "string" || providerEntityId.length === 0 ||
     providerEntityId.trim() !== providerEntityId
@@ -81,6 +86,7 @@ export function mapCatalogPlanningContextV2(
     const slug = exactNonemptyText(row.slug, "catalog_store_slug_invalid");
     const providerStoreKey = exactImpactStoreKey(
       row.provider,
+      row.providerEntityNamespace,
       row.providerEntityId,
     );
 
@@ -95,6 +101,7 @@ export function mapCatalogPlanningContextV2(
   for (const row of offerRows) {
     const offerId = exactNonemptyText(row.id, "catalog_offer_id_invalid");
     if (
+      row.providerEntityNamespace !== "promotion" ||
       typeof row.providerEntityId !== "string" ||
       row.providerEntityId.length === 0 ||
       row.providerEntityId.trim() !== row.providerEntityId
@@ -103,7 +110,12 @@ export function mapCatalogPlanningContextV2(
     }
     const promotionId = row.providerEntityId;
     const kind = exactOfferKind(row.couponType);
-    knownOfferKinds.push({ offerId, promotionId, kind });
+    knownOfferKinds.push({
+      offerId,
+      providerEntityNamespace: "promotion",
+      promotionId,
+      kind,
+    });
     snapshotOffers.push({ id: offerId, promotionId });
   }
 
@@ -125,7 +137,7 @@ async function readAllStoreRows(
   for (;;) {
     let query = db
       .from("stores")
-      .select("id,slug,provider,provider_entity_id");
+      .select("id,slug,provider,provider_entity_namespace,provider_entity_id");
     if (afterId !== null) query = query.gt("id", afterId);
     const { data, error } = await query
       .order("id", { ascending: true })
@@ -137,6 +149,7 @@ async function readAllStoreRows(
       id: row.id,
       slug: row.slug,
       provider: row.provider,
+      providerEntityNamespace: row.provider_entity_namespace,
       providerEntityId: row.provider_entity_id,
     })));
     const nextAfterId = exactNonemptyText(
@@ -157,8 +170,9 @@ async function readImpactOfferRows(
   for (;;) {
     let query = db
       .from("coupons")
-      .select("id,provider_entity_id,coupon_type")
+      .select("id,provider_entity_namespace,provider_entity_id,coupon_type")
       .eq("provider", "impact")
+      .eq("provider_entity_namespace", "promotion")
       .not("provider_entity_id", "is", null);
     if (afterId !== null) query = query.gt("id", afterId);
     const { data, error } = await query
@@ -169,6 +183,7 @@ async function readImpactOfferRows(
     if (page.length === 0) break;
     rows.push(...page.map((row) => ({
       id: row.id,
+      providerEntityNamespace: row.provider_entity_namespace,
       providerEntityId: row.provider_entity_id,
       couponType: row.coupon_type,
     })));

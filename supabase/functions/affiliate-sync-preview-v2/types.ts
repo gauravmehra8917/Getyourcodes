@@ -54,11 +54,13 @@ export interface ResolvedImpactHostConfigV2 {
 
 export interface CatalogStoreIdentityRowV2 {
   id: unknown;
+  providerEntityNamespace: unknown;
   providerEntityId: unknown;
 }
 
 export interface CatalogOfferIdentityRowV2 {
   id: unknown;
+  providerEntityNamespace: unknown;
   providerEntityId: unknown;
 }
 

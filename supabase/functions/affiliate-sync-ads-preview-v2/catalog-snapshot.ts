@@ -35,7 +35,9 @@ export function mapExistingAdsCatalogSnapshotV2(
         provider: "impact" as const,
         namespace: "campaign" as const,
         id: exactNonemptyText(
-          row.providerEntityId,
+          row.providerEntityNamespace === "campaign"
+            ? row.providerEntityId
+            : null,
           "catalog_store_provider_entity_id_invalid",
         ),
       },

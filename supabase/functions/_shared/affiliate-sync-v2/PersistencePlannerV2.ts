@@ -412,12 +412,21 @@ function validKnownKinds(
   for (const value of values) {
     const offerId = nonempty(value.offerId);
     const promotionId = nonempty(value.promotionId);
-    if (!offerId || !promotionId || (value.kind !== "coupon" && value.kind !== "deal")) {
+    if (
+      !offerId || !promotionId ||
+      value.providerEntityNamespace !== "promotion" ||
+      (value.kind !== "coupon" && value.kind !== "deal")
+    ) {
       facts.context_is_consistent = false;
       add(blocker("invalid_context", "plan"));
       continue;
     }
-    result.push({ offerId, promotionId, kind: value.kind });
+    result.push({
+      offerId,
+      providerEntityNamespace: "promotion",
+      promotionId,
+      kind: value.kind,
+    });
   }
   return result.sort((left, right) =>
     compareCodeUnit(left.promotionId, right.promotionId) ||
@@ -549,6 +558,7 @@ export class PersistencePlannerV2 {
           action: "noop_unmatched",
           providerStoreKey: null,
           provider: "impact",
+          providerEntityNamespace: null,
           providerEntityId: null,
           promotionId: action.promotionId,
           unresolvedReason: action.unresolvedReason,
@@ -605,6 +615,7 @@ export class PersistencePlannerV2 {
           action: "create",
           providerStoreKey: copyKey(action.providerStoreKey),
           provider: "impact",
+          providerEntityNamespace: "campaign",
           providerEntityId: action.providerStoreKey.id,
           qualified: action.qualified,
           expectedExistingStoreId: null,
@@ -624,6 +635,7 @@ export class PersistencePlannerV2 {
           action: "noop_existing",
           providerStoreKey: copyKey(action.providerStoreKey),
           provider: "impact",
+          providerEntityNamespace: "campaign",
           providerEntityId: action.providerStoreKey.id,
           qualified: action.qualified,
           expectedExistingStoreId: existingId,
@@ -647,6 +659,7 @@ export class PersistencePlannerV2 {
           action: "blocked_ambiguous",
           providerStoreKey: copyKey(action.providerStoreKey),
           provider: "impact",
+          providerEntityNamespace: "campaign",
           providerEntityId: action.providerStoreKey.id,
           qualified: action.qualified,
           expectedExistingStoreIds: ids,
@@ -775,6 +788,7 @@ export class PersistencePlannerV2 {
       const base = {
         promotionId,
         provider: "impact" as const,
+        providerEntityNamespace: "promotion" as const,
         providerEntityId: promotionId,
         kind: action.kind,
         existingOfferId: existingId,
@@ -789,6 +803,7 @@ export class PersistencePlannerV2 {
           ...base,
           action: "noop_unresolved",
           parentProviderStoreKey: null,
+          parentProviderEntityNamespace: null,
           expectedParentStoreId: null,
           selected: false,
           holdReason: "unresolved_store",
@@ -868,6 +883,7 @@ export class PersistencePlannerV2 {
           ...base,
           action: "create",
           parentProviderStoreKey: copyKey(parent),
+          parentProviderEntityNamespace: "campaign",
           expectedParentStoreId,
           selected: true,
           projection,
@@ -881,6 +897,7 @@ export class PersistencePlannerV2 {
           ...base,
           action: "noop_existing",
           parentProviderStoreKey: copyKey(parent),
+          parentProviderEntityNamespace: "campaign",
           expectedParentStoreId,
           selected: true,
           projection: null,
@@ -894,6 +911,7 @@ export class PersistencePlannerV2 {
           ...base,
           action: "noop_held",
           parentProviderStoreKey: copyKey(parent),
+          parentProviderEntityNamespace: "campaign",
           expectedParentStoreId,
           selected: false,
           holdReason: action.holdReason,
@@ -984,13 +1002,24 @@ export function validatePersistencePlanV2(plan: PersistencePlanV2): void {
 
   const writableStoreIds = new Set<string>();
   for (const instruction of plan.storeInstructions) {
-    if (instruction.action !== "create") continue;
-    assertCondition(validKey(instruction.providerStoreKey), "persistence_plan_store_identity");
+    if (instruction.providerStoreKey === null) {
+      assertCondition(
+        instruction.action === "noop_unmatched" &&
+          instruction.provider === "impact" &&
+          instruction.providerEntityNamespace === null &&
+          instruction.providerEntityId === null,
+        "persistence_plan_store_provider_identity",
+      );
+      continue;
+    }
     assertCondition(
       instruction.provider === "impact" &&
+        instruction.providerEntityNamespace === "campaign" &&
         instruction.providerEntityId === instruction.providerStoreKey.id,
       "persistence_plan_store_provider_identity",
     );
+    if (instruction.action !== "create") continue;
+    assertCondition(validKey(instruction.providerStoreKey), "persistence_plan_store_identity");
     const identity = keyText(instruction.providerStoreKey);
     assertCondition(!writableStoreIds.has(identity), "persistence_plan_duplicate_store");
     writableStoreIds.add(identity);
@@ -1006,11 +1035,25 @@ export function validatePersistencePlanV2(plan: PersistencePlanV2): void {
 
   const writableOfferIds = new Set<string>();
   for (const instruction of plan.offerInstructions) {
-    if (instruction.action !== "create") continue;
     assertCondition(
-      instruction.provider === "impact" && instruction.providerEntityId === instruction.promotionId,
+      instruction.provider === "impact" &&
+        instruction.providerEntityNamespace === "promotion" &&
+        instruction.providerEntityId === instruction.promotionId,
       "persistence_plan_offer_provider_identity",
     );
+    if (instruction.parentProviderStoreKey === null) {
+      assertCondition(
+        instruction.action === "noop_unresolved" &&
+          instruction.parentProviderEntityNamespace === null,
+        "persistence_plan_offer_parent_identity",
+      );
+    } else {
+      assertCondition(
+        instruction.parentProviderEntityNamespace === "campaign",
+        "persistence_plan_offer_parent_identity",
+      );
+    }
+    if (instruction.action !== "create") continue;
     assertCondition(!writableOfferIds.has(instruction.promotionId), "persistence_plan_duplicate_offer");
     writableOfferIds.add(instruction.promotionId);
     const parent = resolvedParents.get(keyText(instruction.parentProviderStoreKey));
