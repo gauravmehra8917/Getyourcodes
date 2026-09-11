@@ -52,13 +52,32 @@ export class ImpactAdOfferNormalizer {
         campaignId: ad.campaignId,
         advertiserId: ad.advertiserId,
         dealId: ad.dealId,
+        dealState: ad.dealState,
         title: ad.title,
         description: ad.description,
         trackingUrl: ad.trackingUrl,
         landingPageUrl: ad.landingPageUrl,
-        startDate: ad.startDate,
-        endDate: ad.endDate,
-        codeClass: ad.codeClass,
+        providerDealStartDate: ad.dealStartDate,
+        providerDealEndDate: ad.dealEndDate,
+        providerStartDate: ad.startDate,
+        providerEndDate: ad.endDate,
+        startDate: ad.dealStartDate ?? ad.startDate,
+        endDate: ad.dealEndDate ?? ad.endDate,
+        dateFieldsValid: ad.dateFieldsValid,
+        discountType: ad.discountType,
+        discountValue: ad.discountValue,
+        structuredTerms: ad.structuredTerms === null
+          ? null
+          : { ...ad.structuredTerms },
+        ...(ad.codeClass === "code_bearing"
+          ? {
+            codeClass: "code_bearing" as const,
+            validatedCouponCode: ad.validatedCouponCode,
+          }
+          : {
+            codeClass: "no_code" as const,
+            validatedCouponCode: null,
+          }),
         association: association.matchMethod === "unmatched"
           ? { ...association }
           : {

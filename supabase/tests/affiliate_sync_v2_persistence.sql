@@ -506,7 +506,7 @@ BEGIN
 
   -- C: structural concurrency prerequisites. True concurrent sessions are
   -- exercised by the external harness when one is available.
-  SELECT pg_get_functiondef('public.apply_affiliate_persistence_plan_v2(uuid,text,text,text,text,timestamptz,uuid,jsonb,jsonb,jsonb)'::regprocedure)
+  SELECT pg_get_functiondef('public.affiliate_sync_v2_apply_promotions_plan_internal(uuid,text,text,text,text,timestamptz,uuid,jsonb,jsonb,jsonb)'::regprocedure)
     INTO function_definition;
   PERFORM pg_temp.assert_true(
     position('FOR UPDATE' IN function_definition) > 0

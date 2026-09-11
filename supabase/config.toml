@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.affiliate-sync-ads-preview-v2]
 verify_jwt = false
+
+[functions.affiliate-sync-ads-apply-v2]
+verify_jwt = false

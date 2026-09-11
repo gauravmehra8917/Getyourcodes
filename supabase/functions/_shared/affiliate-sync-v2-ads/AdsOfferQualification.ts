@@ -33,6 +33,7 @@ function reasonFor(
     offer.snapshotStatus === "unresolved"
   ) return "unresolved_store";
   if (offer.title === null || !offer.title.trim()) return "missing_title";
+  if (!offer.dateFieldsValid) return "invalid_date";
   const start = offer.startDate === null ? null : Date.parse(offer.startDate);
   const end = offer.endDate === null ? null : Date.parse(offer.endDate);
   if (

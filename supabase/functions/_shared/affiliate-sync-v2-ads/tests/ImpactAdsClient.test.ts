@@ -411,6 +411,48 @@ test("conflicting exact AdIds fetched on separate pages are excluded", async () 
   });
 });
 
+test("different validated codes for one AdId across pages exclude the identity", async () => {
+  const next = `${ORIGIN}/Mediapartners/${SID}/Ads?Page=2`;
+  const privateAdId = "private-code-conflict";
+  const transport = new FakeTransport((_request, sequence) =>
+    response(
+      sequence === 1
+        ? {
+          Ads: [{
+            Id: privateAdId,
+            CampaignId: "Campaign-A",
+            DealDefaultPromoCode: "SAVE10",
+          }],
+          "@nextpageuri": next,
+        }
+        : {
+          Ads: [{
+            Id: privateAdId,
+            CampaignId: "Campaign-A",
+            DealDefaultPromoCode: "SAVE20",
+          }],
+        },
+    )
+  );
+  const fetched = await adsClient(transport).fetch(ADS);
+  assert.equal(fetched.records.length, 2);
+  const deduplicated = RawAdDeduplicator.deduplicate(fetched.records);
+  assert.equal(deduplicated.uniqueAds.length, 0);
+  assert.deepEqual(deduplicated.conflictedProviderOfferKeys, [{
+    provider: "impact",
+    namespace: "ad",
+    id: privateAdId,
+  }]);
+  assert.equal(
+    JSON.stringify(deduplicated.diagnostics).includes(privateAdId),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(deduplicated.diagnostics).includes("SAVE"),
+    false,
+  );
+});
+
 test("Campaign client is isolated, bounded, and carries rate state into later Ads", async () => {
   const transport = new FakeTransport((_request, _sequence, current) => {
     current.rate = { limit: 1000, remaining: 9, reset: 1800000000 };

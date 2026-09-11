@@ -21,24 +21,43 @@ export interface AdsRecordProvenanceV2 {
 
 export type AdCodeClassV2 = "code_bearing" | "no_code";
 
-/**
- * Parser output for one provider Ad. `DealDefaultPromoCode` has already been
- * reduced to `codeClass`; neither it nor Impact `Code` is retained.
- */
-export interface RawImpactAdV2 {
+export type ValidatedImpactAdCouponCodeV2 =
+  | { codeClass: "code_bearing"; validatedCouponCode: string }
+  | { codeClass: "no_code"; validatedCouponCode: null };
+
+export type ImpactAdDiscountTypeV2 = "percentage" | "fixed" | "unknown";
+
+export interface ImpactAdStructuredTermsV2 {
+  minimumPurchase: number | null;
+  maximumSavings: number | null;
+  purchaseLimit: number | null;
+  scope: string | null;
+  currency: string | null;
+  text: string | null;
+}
+
+/** Parser output for one provider Ad. Impact `Code` is never retained. */
+export type RawImpactAdV2 = {
   providerOfferKey: ProviderAdOfferKey;
   campaignId: string | null;
   advertiserId: string | null;
   dealId: string | null;
+  dealState: string | null;
   title: string | null;
   description: string | null;
   trackingUrl: string | null;
   landingPageUrl: string | null;
+  dealStartDate: string | null;
+  dealEndDate: string | null;
   startDate: string | null;
   endDate: string | null;
-  codeClass: AdCodeClassV2;
+  /** False when any explicitly supplied date carrier has an invalid shape/value. */
+  dateFieldsValid: boolean;
+  discountType: ImpactAdDiscountTypeV2;
+  discountValue: number | null;
+  structuredTerms: ImpactAdStructuredTermsV2 | null;
   provenance: AdsRecordProvenanceV2;
-}
+} & ValidatedImpactAdCouponCodeV2;
 
 /** Narrow Campaign record used only to construct the exact Campaign index. */
 export interface RawImpactCampaignForAdsV2 {
@@ -86,21 +105,30 @@ export interface NormalizedImpactAdStoreV2 {
 }
 
 /** Source-neutral offer. It is deliberately neither a coupon nor a deal. */
-export interface NormalizedImpactAdOfferV2 {
+export type NormalizedImpactAdOfferV2 = {
   providerOfferKey: ProviderAdOfferKey;
   campaignId: string | null;
   advertiserId: string | null;
   dealId: string | null;
+  dealState: string | null;
   title: string | null;
   description: string | null;
   trackingUrl: string | null;
   landingPageUrl: string | null;
+  providerDealStartDate: string | null;
+  providerDealEndDate: string | null;
+  providerStartDate: string | null;
+  providerEndDate: string | null;
+  /** Effective dates use DealStartDate/DealEndDate before StartDate/EndDate. */
   startDate: string | null;
   endDate: string | null;
-  codeClass: AdCodeClassV2;
+  dateFieldsValid: boolean;
+  discountType: ImpactAdDiscountTypeV2;
+  discountValue: number | null;
+  structuredTerms: ImpactAdStructuredTermsV2 | null;
   association: AdStoreAssociationV2;
   provenance: AdsRecordProvenanceV2;
-}
+} & ValidatedImpactAdCouponCodeV2;
 
 export interface ImpactAdNormalizationResultV2 {
   stores: NormalizedImpactAdStoreV2[];
@@ -127,10 +155,10 @@ export interface MatchedImpactAdStoreV2 extends NormalizedImpactAdStoreV2 {
   matchedStoreId: string | null;
 }
 
-export interface MatchedImpactAdOfferV2 extends NormalizedImpactAdOfferV2 {
+export type MatchedImpactAdOfferV2 = NormalizedImpactAdOfferV2 & {
   snapshotStatus: AdsStoreSnapshotStatusV2 | "unresolved";
   matchedStoreId: string | null;
-}
+};
 
 export interface ImpactAdStoreMatchResultV2 {
   stores: MatchedImpactAdStoreV2[];

@@ -4,9 +4,12 @@ import {
   AdsPreviewPlanner,
   type AdsRecordProvenanceV2,
   type AdsShadowPolicyConfigV2,
+  ImpactAdMerchantResolver,
+  ImpactAdOfferNormalizer,
   type ImpactAdsFetchDiagnosticsV2,
   type ImpactAdsFetchResultV2,
   type ImpactCampaignFetchResultForAdsV2,
+  RawAdDeduplicator,
   type RawImpactAdV2,
   type RawImpactCampaignForAdsV2,
 } from "../index.ts";
@@ -24,23 +27,42 @@ function ad(input: {
   advertiserId?: string | null;
   dealId?: string | null;
   title?: string | null;
+  dealStartDate?: string | null;
+  dealEndDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  dateFieldsValid?: boolean;
   codeBearing?: boolean;
+  couponCode?: string | null;
   recordIndex?: number;
 }): RawImpactAdV2 {
+  const couponCode = input.couponCode === undefined
+    ? input.codeBearing ? `CODE-${input.id}` : null
+    : input.couponCode;
   return {
     providerOfferKey: { provider: "impact", namespace: "ad", id: input.id },
     campaignId: input.campaignId ?? null,
     advertiserId: input.advertiserId ?? null,
     dealId: input.dealId ?? null,
+    dealState: null,
     title: input.title === undefined ? "Valid title" : input.title,
     description: "private description",
     trackingUrl: "https://tracking.example/private",
     landingPageUrl: "https://landing.example/private",
+    dealStartDate: input.dealStartDate ?? null,
+    dealEndDate: input.dealEndDate ?? null,
     startDate: input.startDate ?? null,
     endDate: input.endDate ?? null,
-    codeClass: input.codeBearing ? "code_bearing" : "no_code",
+    dateFieldsValid: input.dateFieldsValid ?? true,
+    discountType: "unknown",
+    discountValue: null,
+    structuredTerms: null,
+    ...(couponCode === null
+      ? { codeClass: "no_code" as const, validatedCouponCode: null }
+      : {
+        codeClass: "code_bearing" as const,
+        validatedCouponCode: couponCode,
+      }),
     provenance: { ...PROVENANCE, recordIndex: input.recordIndex ?? 0 },
   };
 }
@@ -488,6 +510,189 @@ test("each conflicting duplicate provider field excludes the exact Ad identity",
   }
 });
 
+test("different exact validated codes exclude the whole Ad identity", () => {
+  const privateAdId = "PRIVATE-CODE-CONFLICT";
+  const first = ad({
+    id: privateAdId,
+    campaignId: "Campaign-A",
+    advertiserId: "Advertiser-A",
+    dealId: "Deal-A",
+    couponCode: "SAVE10",
+  });
+  const second = ad({
+    id: privateAdId,
+    campaignId: "Campaign-A",
+    advertiserId: "Advertiser-A",
+    dealId: "Deal-A",
+    couponCode: "SAVE20",
+  });
+  second.provenance.fetchSequence = 2;
+  const deduplicated = RawAdDeduplicator.deduplicate([second, first]);
+  assert.deepEqual(deduplicated.uniqueAds, []);
+  assert.deepEqual(deduplicated.conflictedProviderOfferKeys, [{
+    provider: "impact",
+    namespace: "ad",
+    id: privateAdId,
+  }]);
+  assert.deepEqual(deduplicated.diagnostics, {
+    acceptedInputRecords: 2,
+    uniqueUsableAds: 0,
+    duplicateRecordsRemoved: 1,
+    duplicatedAdIdentities: 1,
+    identitiesWithConflictingProviderFields: 1,
+    conflictedAdIdentitiesExcluded: 1,
+  });
+  assert.equal(
+    JSON.stringify(deduplicated.diagnostics).includes(privateAdId),
+    false,
+  );
+});
+
+test("nonnull DealId conflicts are detected across all duplicate occurrences", () => {
+  const privateAdId = "PRIVATE-THREE-WAY-DEAL-CONFLICT";
+  const occurrences = [
+    ad({ id: privateAdId, campaignId: "Campaign-A", dealId: null }),
+    ad({ id: privateAdId, campaignId: "Campaign-A", dealId: "Deal-A" }),
+    ad({ id: privateAdId, campaignId: "Campaign-A", dealId: "Deal-B" }),
+  ];
+  occurrences.forEach((entry, index) => {
+    entry.provenance.fetchSequence = index + 1;
+  });
+  const deduplicated = RawAdDeduplicator.deduplicate(occurrences);
+  assert.equal(deduplicated.uniqueAds.length, 0);
+  assert.deepEqual(
+    deduplicated.conflictedProviderOfferKeys.map((key) => key.id),
+    [privateAdId],
+  );
+  assert.equal(
+    deduplicated.diagnostics.identitiesWithConflictingProviderFields,
+    1,
+  );
+});
+
+test("an omitted DealId does not conflict with one consistent supplied DealId", () => {
+  const privateAdId = "PRIVATE-OPTIONAL-DEAL-ID";
+  const occurrences = [
+    ad({ id: privateAdId, campaignId: "Campaign-A", dealId: null }),
+    ad({ id: privateAdId, campaignId: "Campaign-A", dealId: "Deal-A" }),
+    ad({ id: privateAdId, campaignId: "Campaign-A", dealId: "Deal-A" }),
+  ];
+  occurrences.forEach((entry, index) => {
+    entry.provenance.fetchSequence = index + 1;
+  });
+  const deduplicated = RawAdDeduplicator.deduplicate(occurrences);
+  assert.equal(deduplicated.uniqueAds.length, 1);
+  assert.equal(deduplicated.uniqueAds[0]?.dealId, "Deal-A");
+  assert.deepEqual(deduplicated.uniqueAds[0]?.provenance, PROVENANCE);
+  assert.deepEqual(deduplicated.conflictedProviderOfferKeys, []);
+  assert.deepEqual(deduplicated.diagnostics, {
+    acceptedInputRecords: 3,
+    uniqueUsableAds: 1,
+    duplicateRecordsRemoved: 2,
+    duplicatedAdIdentities: 1,
+    identitiesWithConflictingProviderFields: 0,
+    conflictedAdIdentitiesExcluded: 0,
+  });
+});
+
+test("Deal dates take precedence and bounded fields survive normalization", () => {
+  const source = ad({
+    id: "Ad-A",
+    campaignId: "Campaign-A",
+    advertiserId: "Advertiser-A",
+    couponCode: "Summer 20",
+    dealStartDate: "2027-01-01T00:00:00Z",
+    dealEndDate: "2027-12-31T00:00:00Z",
+    startDate: "2026-01-01T00:00:00Z",
+    endDate: "2028-12-31T00:00:00Z",
+  });
+  source.dealState = "ACTIVE";
+  source.discountType = "percentage";
+  source.discountValue = 20;
+  source.structuredTerms = {
+    minimumPurchase: 100,
+    maximumSavings: 50,
+    purchaseLimit: 1,
+    scope: "ENTIRE_STORE",
+    currency: "USD",
+    text: "Provider terms",
+  };
+  const normalized = ImpactAdOfferNormalizer.normalize(
+    ImpactAdMerchantResolver.resolve(
+      [source],
+      [campaign("Campaign-A", "Advertiser-A")],
+    ),
+  );
+  assert.deepEqual(normalized.offers[0], {
+    providerOfferKey: { provider: "impact", namespace: "ad", id: "Ad-A" },
+    campaignId: "Campaign-A",
+    advertiserId: "Advertiser-A",
+    dealId: null,
+    dealState: "ACTIVE",
+    title: "Valid title",
+    description: "private description",
+    trackingUrl: "https://tracking.example/private",
+    landingPageUrl: "https://landing.example/private",
+    providerDealStartDate: "2027-01-01T00:00:00Z",
+    providerDealEndDate: "2027-12-31T00:00:00Z",
+    providerStartDate: "2026-01-01T00:00:00Z",
+    providerEndDate: "2028-12-31T00:00:00Z",
+    startDate: "2027-01-01T00:00:00Z",
+    endDate: "2027-12-31T00:00:00Z",
+    dateFieldsValid: true,
+    discountType: "percentage",
+    discountValue: 20,
+    structuredTerms: {
+      minimumPurchase: 100,
+      maximumSavings: 50,
+      purchaseLimit: 1,
+      scope: "ENTIRE_STORE",
+      currency: "USD",
+      text: "Provider terms",
+    },
+    codeClass: "code_bearing",
+    validatedCouponCode: "Summer 20",
+    association: {
+      providerStoreKey: {
+        provider: "impact",
+        namespace: "campaign",
+        id: "Campaign-A",
+      },
+      matchMethod: "campaign_id",
+      unresolvedReason: null,
+    },
+    provenance: PROVENANCE,
+  });
+
+  const result = plan({
+    campaigns: [campaign("Campaign-A", "Advertiser-A")],
+    ads: [source],
+  });
+  assert.equal(result.complete, true);
+  if (result.complete) {
+    assert.equal(result.preview.qualification.reasonCounts.not_started, 1);
+    assert.equal(result.preview.selection.selectedAdsTotal, 0);
+  }
+});
+
+test("an invalid preferred Deal date never falls through to a valid StartDate", () => {
+  const result = plan({
+    campaigns: [campaign("Campaign-A")],
+    ads: [ad({
+      id: "Ad-A",
+      campaignId: "Campaign-A",
+      dealStartDate: "2026-01-01T00:00:00",
+      startDate: "2026-01-01T00:00:00Z",
+      dateFieldsValid: false,
+      couponCode: "SAVE20",
+    })],
+  });
+  assert.equal(result.complete, true);
+  if (!result.complete) return;
+  assert.equal(result.preview.qualification.reasonCounts.invalid_date, 1);
+  assert.equal(result.preview.selection.selectedAdsTotal, 0);
+});
+
 test("Campaign and Ads incomplete results block planning without partial output", () => {
   const incompleteCampaign = completeDiagnostics("campaigns", 0);
   incompleteCampaign.complete = false;
@@ -554,6 +759,7 @@ test("completed public DTO is aggregate-only and contains no provider values", (
     "tracking.example",
     "landing.example",
     "store-private",
+    "INTERNAL_COUPON_SECRET",
   ];
   const result = plan({
     campaigns: [campaign(sentinels[1]!, sentinels[2]!)],
@@ -563,7 +769,7 @@ test("completed public DTO is aggregate-only and contains no provider values", (
         campaignId: sentinels[1]!,
         advertiserId: sentinels[2]!,
         dealId: sentinels[3]!,
-        codeBearing: true,
+        couponCode: sentinels[8]!,
       }),
     ],
     stores: [{ id: sentinels[7]!, campaignId: sentinels[1]! }],
