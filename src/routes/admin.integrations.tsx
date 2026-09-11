@@ -164,7 +164,9 @@ function IntegrationsPage() {
   const toggleFn = useServerFn(toggleIntegration);
   const deleteFn = useServerFn(deleteIntegration);
   const testFn = useServerFn(testIntegration);
-  const legacySyncFn = useServerFn(runProviderSync);
+  // Cutover interlock: the Legacy Import (V1) execution path is intentionally
+  // not bound to runProviderSync while the Impact importer upgrade is in
+  // progress. The server function itself is retained, only unreachable here.
   const logoFn = useServerFn(syncStoreLogos);
   const logoMutation = useMutation({
     mutationFn: (rec: { id: string; provider_type: string }) =>
@@ -232,21 +234,11 @@ function IntegrationsPage() {
     });
   };
 
-  const runLegacyImport = (rec: IntegrationRecord) => {
-    setLegacyImportModal({ rec, running: true, report: null });
-    (legacySyncFn({ data: { integrationId: rec.id, preview: false } }) as Promise<SyncRunReport>)
-      .then((report) => {
-        setLegacyImportModal({ rec, running: false, report });
-        if (report.error) toast.error(report.error);
-        else if (report.validationErrors.length)
-          toast.warning(`${report.validationErrors.length} record(s) failed validation`);
-        else toast.success("Legacy import completed");
-      })
-      .catch((err) => {
-        const msg = err instanceof Error ? err.message : "Import failed";
-        setLegacyImportModal({ rec, running: false, report: null, error: msg });
-        toast.error(msg);
-      });
+  const LEGACY_IMPORT_FROZEN_MESSAGE =
+    "Provider import is temporarily unavailable during the Impact importer upgrade.";
+
+  const runLegacyImport = (_rec: IntegrationRecord) => {
+    toast.warning(LEGACY_IMPORT_FROZEN_MESSAGE);
   };
 
   const runV2Preview = (rec: IntegrationRecord) => {
