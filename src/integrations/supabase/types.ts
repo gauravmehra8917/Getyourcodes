@@ -92,9 +92,11 @@ export type Database = {
           outcome: string
           parent_entity_id: string | null
           parent_provider_entity_id: string | null
+          parent_provider_entity_namespace: string | null
           planned_action: string
           provider: string
           provider_entity_id: string
+          provider_entity_namespace: string
           run_id: string
         }
         Insert: {
@@ -108,9 +110,11 @@ export type Database = {
           outcome: string
           parent_entity_id?: string | null
           parent_provider_entity_id?: string | null
+          parent_provider_entity_namespace?: string | null
           planned_action: string
           provider: string
           provider_entity_id: string
+          provider_entity_namespace: string
           run_id: string
         }
         Update: {
@@ -124,9 +128,11 @@ export type Database = {
           outcome?: string
           parent_entity_id?: string | null
           parent_provider_entity_id?: string | null
+          parent_provider_entity_namespace?: string | null
           planned_action?: string
           provider?: string
           provider_entity_id?: string
+          provider_entity_namespace?: string
           run_id?: string
         }
         Relationships: [
@@ -599,6 +605,7 @@ export type Database = {
           metadata: Json
           provider: string | null
           provider_entity_id: string | null
+          provider_entity_namespace: string | null
           seo_canonical_url: string | null
           seo_description: string | null
           seo_og_image: string | null
@@ -628,6 +635,7 @@ export type Database = {
           metadata?: Json
           provider?: string | null
           provider_entity_id?: string | null
+          provider_entity_namespace?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
           seo_og_image?: string | null
@@ -657,6 +665,7 @@ export type Database = {
           metadata?: Json
           provider?: string | null
           provider_entity_id?: string | null
+          provider_entity_namespace?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
           seo_og_image?: string | null
@@ -1304,6 +1313,7 @@ export type Database = {
           name: string
           provider: string | null
           provider_entity_id: string | null
+          provider_entity_namespace: string | null
           seo_canonical_url: string | null
           seo_description: string | null
           seo_og_image: string | null
@@ -1333,6 +1343,7 @@ export type Database = {
           name: string
           provider?: string | null
           provider_entity_id?: string | null
+          provider_entity_namespace?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
           seo_og_image?: string | null
@@ -1362,6 +1373,7 @@ export type Database = {
           name?: string
           provider?: string | null
           provider_entity_id?: string | null
+          provider_entity_namespace?: string | null
           seo_canonical_url?: string | null
           seo_description?: string | null
           seo_og_image?: string | null
@@ -1511,6 +1523,36 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      affiliate_sync_v2_apply_ads_plan_internal: {
+        Args: {
+          _evaluation_timestamp: string
+          _expected_counts: Json
+          _integration_id: string
+          _offer_instructions: Json
+          _persistence_contract_version: string
+          _plan_fingerprint: string
+          _plan_fingerprint_algorithm: string
+          _provider: string
+          _store_instructions: Json
+          _triggered_by: string
+        }
+        Returns: Json
+      }
+      affiliate_sync_v2_apply_promotions_plan_internal: {
+        Args: {
+          _evaluation_timestamp: string
+          _expected_counts: Json
+          _integration_id: string
+          _offer_instructions: Json
+          _persistence_contract_version: string
+          _plan_fingerprint: string
+          _plan_fingerprint_algorithm: string
+          _provider: string
+          _store_instructions: Json
+          _triggered_by: string
+        }
+        Returns: Json
+      }
       affiliate_sync_v2_has_exact_keys: {
         Args: { _keys: string[]; _value: Json }
         Returns: boolean
