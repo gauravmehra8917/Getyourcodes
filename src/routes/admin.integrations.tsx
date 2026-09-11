@@ -31,7 +31,7 @@ import {
 import { PageHeader } from "@/components/admin/page-header";
 import { ImportResultModal } from "@/components/admin/import-result-modal";
 import { V2PreviewResultModal } from "@/components/admin/v2-preview-result-modal";
-import { runProviderSync, getImportHistory, type SyncRunReport } from "@/lib/sync-execution.functions";
+import { getImportHistory, type SyncRunReport } from "@/lib/sync-execution.functions";
 import {
   getAdminV2PreviewOperatorStatus,
   type AdminV2PreviewHostResponse,
@@ -570,7 +570,6 @@ function IntegrationsPage() {
           report={legacyImportModal.report}
           error={legacyImportModal.error}
           onClose={() => setLegacyImportModal(null)}
-          onRetry={() => runLegacyImport(legacyImportModal.rec)}
         />
       )}
 
