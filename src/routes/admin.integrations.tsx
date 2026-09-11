@@ -784,7 +784,12 @@ function IntegrationCard({
         <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewV2}>
           V2 Preview
         </ActionBtn>
-        <ActionBtn icon={<DownloadCloud className="h-3.5 w-3.5" />} onClick={onLegacyImport}>
+        <ActionBtn
+          icon={<DownloadCloud className="h-3.5 w-3.5" />}
+          onClick={onLegacyImport}
+          disabled
+          title="Provider import is temporarily unavailable during the Impact importer upgrade."
+        >
           Legacy Import (V1)
         </ActionBtn>
         <ActionBtn
