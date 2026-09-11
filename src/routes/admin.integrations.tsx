@@ -570,6 +570,7 @@ function IntegrationsPage() {
           report={legacyImportModal.report}
           error={legacyImportModal.error}
           onClose={() => setLegacyImportModal(null)}
+          onRetry={() => toast.warning(LEGACY_IMPORT_FROZEN_MESSAGE)}
         />
       )}
 
