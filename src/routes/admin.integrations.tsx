@@ -25,17 +25,17 @@ import {
   ArrowDown,
   RefreshCw,
   DownloadCloud,
-  Eye,
   Image as ImageIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
-import { ImportResultModal } from "@/components/admin/import-result-modal";
-import { V2PreviewResultModal } from "@/components/admin/v2-preview-result-modal";
-import { runProviderSync, getImportHistory, type SyncRunReport } from "@/lib/sync-execution.functions";
 import {
-  getAdminV2PreviewOperatorStatus,
-  type AdminV2PreviewHostResponse,
-} from "@/lib/affiliate-sync-v2-preview";
+  getAffiliateImportHistory,
+  type AffiliateImportRunRow,
+} from "@/lib/affiliate-import-history.functions";
+import type {
+  AffiliateSyncAdsApplyV2Failure,
+  AffiliateSyncAdsApplyV2Result,
+} from "@/lib/affiliate-sync-ads-apply-v2.client";
 import { listPublishingPolicies, setIntegrationPolicy } from "@/lib/publishing-policies.functions";
 import { syncStoreLogos, type LogoSyncReport } from "@/lib/presentation.functions";
 import { IntegrationWizard, type IntegrationRecord as WizardRecord } from "@/components/admin/integration-wizard";
@@ -100,10 +100,6 @@ const PROVIDER_TYPE_LABEL: Record<string, string> = {
   custom_rest_api: "Custom API",
 };
 
-const previewAffiliateSyncV2 = createClientOnlyFn(async (integrationId: string) => {
-  const client = await import("@/lib/affiliate-sync-v2-preview.client");
-  return client.previewAffiliateSyncV2(integrationId);
-});
 
 const STATUS_META: Record<string, { label: string; dot: string; badge: string }> = {
   connected: { label: "Connected", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
@@ -112,6 +108,18 @@ const STATUS_META: Record<string, { label: string; dot: string; badge: string }>
   failed: { label: "Failed", dot: "bg-rose-500", badge: "bg-rose-100 text-rose-700" },
   disabled: { label: "Disabled", dot: "bg-slate-400", badge: "bg-slate-200 text-slate-600" },
 };
+
+const IMPACT_PROVIDER_NAMES = new Set(["impact", "impact.com", "impact radius"]);
+
+function isExactImpactProvider(providerName: unknown): boolean {
+  return typeof providerName === "string" &&
+    IMPACT_PROVIDER_NAMES.has(providerName.trim().toLowerCase());
+}
+
+const runImpactCouponImport = createClientOnlyFn(async (integrationId: string) => {
+  const client = await import("@/lib/affiliate-sync-ads-apply-v2.client");
+  return client.importImpactCoupons(integrationId);
+});
 
 const PAGE_SIZE = 20;
 
@@ -140,17 +148,11 @@ function IntegrationsPage() {
     result: TestResult | null;
     error?: string;
   } | null>(null);
-  const [legacyImportModal, setLegacyImportModal] = useState<{
+  const [impactImportConfirm, setImpactImportConfirm] = useState<IntegrationRecord | null>(null);
+  const [impactImport, setImpactImport] = useState<{
     rec: IntegrationRecord;
     running: boolean;
-    report: SyncRunReport | null;
-    error?: string;
-  } | null>(null);
-  const [v2PreviewModal, setV2PreviewModal] = useState<{
-    rec: IntegrationRecord;
-    running: boolean;
-    response: AdminV2PreviewHostResponse | null;
-    error?: string;
+    result: AffiliateSyncAdsApplyV2Result | null;
   } | null>(null);
 
   const [search, setSearch] = useState("");
@@ -164,7 +166,7 @@ function IntegrationsPage() {
   const toggleFn = useServerFn(toggleIntegration);
   const deleteFn = useServerFn(deleteIntegration);
   const testFn = useServerFn(testIntegration);
-  const legacySyncFn = useServerFn(runProviderSync);
+  // The retired provider-import execution path is intentionally not bound in this Admin route.
   const logoFn = useServerFn(syncStoreLogos);
   const logoMutation = useMutation({
     mutationFn: (rec: { id: string; provider_type: string }) =>
@@ -232,38 +234,29 @@ function IntegrationsPage() {
     });
   };
 
-  const runLegacyImport = (rec: IntegrationRecord) => {
-    setLegacyImportModal({ rec, running: true, report: null });
-    (legacySyncFn({ data: { integrationId: rec.id, preview: false } }) as Promise<SyncRunReport>)
-      .then((report) => {
-        setLegacyImportModal({ rec, running: false, report });
-        if (report.error) toast.error(report.error);
-        else if (report.validationErrors.length)
-          toast.warning(`${report.validationErrors.length} record(s) failed validation`);
-        else toast.success("Legacy import completed");
-      })
-      .catch((err) => {
-        const msg = err instanceof Error ? err.message : "Import failed";
-        setLegacyImportModal({ rec, running: false, report: null, error: msg });
-        toast.error(msg);
-      });
-  };
+  const impactImportMutation = useMutation({
+    retry: false,
+    mutationFn: async (rec: IntegrationRecord): Promise<AffiliateSyncAdsApplyV2Result> => {
+      const result = await runImpactCouponImport(rec.id);
+      return result ?? { status: "indeterminate" };
+    },
+    onSuccess: (result, rec) => {
+      setImpactImport({ rec, running: false, result });
+      if (result.status === "committed" || result.status === "replayed_existing") {
+        qc.invalidateQueries({ queryKey: ["integration-imports", rec.id] });
+      }
+    },
+    onError: (_error, rec) => {
+      setImpactImport({ rec, running: false, result: { status: "indeterminate" } });
+    },
+  });
 
-  const runV2Preview = (rec: IntegrationRecord) => {
-    setV2PreviewModal({ rec, running: true, response: null });
-    previewAffiliateSyncV2(rec.id)
-      .then((response) => {
-        setV2PreviewModal({ rec, running: false, response });
-        const status = getAdminV2PreviewOperatorStatus(response.preview);
-        if (status.severity === "blocker") toast.error(status.title);
-        else if (status.severity === "diagnostics") toast.warning(status.title);
-        else toast.success(status.title);
-      })
-      .catch((err) => {
-        const msg = err instanceof Error ? err.message : "V2 preview failed";
-        setV2PreviewModal({ rec, running: false, response: null, error: msg });
-        toast.error(msg);
-      });
+  const confirmImpactImport = () => {
+    const rec = impactImportConfirm;
+    if (!rec || impactImportMutation.isPending) return;
+    setImpactImportConfirm(null);
+    setImpactImport({ rec, running: true, result: null });
+    impactImportMutation.mutate(rec);
   };
 
   // Derived summary
@@ -491,8 +484,9 @@ function IntegrationsPage() {
                 onToggle={() => toggleMutation.mutate({ id: rec.id, enabled: !rec.is_enabled })}
                 onDelete={() => setConfirmDelete(rec)}
                 onHistory={() => setDrawer({ rec, tab: "audit" })}
-                onPreviewV2={() => runV2Preview(rec)}
-                onLegacyImport={() => runLegacyImport(rec)}
+                showImpactImport={rec.is_enabled === true && isExactImpactProvider(rec.provider_name)}
+                importing={impactImportMutation.isPending}
+                onImportImpact={() => setImpactImportConfirm(rec)}
                 syncingLogos={logoMutation.isPending && logoMutation.variables?.id === rec.id}
                 onSyncLogos={() => logoMutation.mutate(rec)}
               />
@@ -570,27 +564,69 @@ function IntegrationsPage() {
         />
       )}
 
-      {legacyImportModal && (
-        <ImportResultModal
-          title={`Legacy Import (V1) — ${legacyImportModal.rec.integration_name}`}
-          preview={false}
-          running={legacyImportModal.running}
-          report={legacyImportModal.report}
-          error={legacyImportModal.error}
-          onClose={() => setLegacyImportModal(null)}
-          onRetry={() => runLegacyImport(legacyImportModal.rec)}
-        />
+      {impactImportConfirm && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
+          onClick={() => setImpactImportConfirm(null)}
+        >
+          <div className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-base font-semibold text-slate-800">Import Impact Coupons?</h4>
+            <p className="mt-1 text-sm text-slate-600">
+              Fetch the current eligible coded coupons from Impact and import new exact Campaign stores and Ad
+              coupons. Existing exact provider identities are left unchanged.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setImpactImportConfirm(null)}
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmImpactImport}
+                disabled={impactImportMutation.isPending}
+                className="rounded bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                Confirm Import
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {v2PreviewModal && (
-        <V2PreviewResultModal
-          title={`V2 Preview — ${v2PreviewModal.rec.integration_name}`}
-          running={v2PreviewModal.running}
-          response={v2PreviewModal.response}
-          error={v2PreviewModal.error}
-          onClose={() => setV2PreviewModal(null)}
-          onRetry={() => runV2Preview(v2PreviewModal.rec)}
-        />
+      {impactImport && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Impact import result"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
+          onClick={() => !impactImport.running && setImpactImport(null)}
+        >
+          <div className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-base font-semibold text-slate-800">
+              Import Impact Coupons — {impactImport.rec.integration_name}
+            </h4>
+            {impactImport.running && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                <Loader2 className="h-4 w-4 animate-spin" /> Importing coupons…
+              </div>
+            )}
+            {!impactImport.running && impactImport.result && (
+              <ImpactImportResultBody result={impactImport.result} />
+            )}
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setImpactImport(null)}
+                disabled={impactImport.running}
+                className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900 disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {testModal && (
@@ -716,8 +752,9 @@ function IntegrationCard({
   onToggle,
   onDelete,
   onHistory,
-  onPreviewV2,
-  onLegacyImport,
+  showImpactImport,
+  importing,
+  onImportImpact,
   syncingLogos,
   onSyncLogos,
 }: {
@@ -729,8 +766,9 @@ function IntegrationCard({
   onToggle: () => void;
   onDelete: () => void;
   onHistory: () => void;
-  onPreviewV2: () => void;
-  onLegacyImport: () => void;
+  showImpactImport: boolean;
+  importing: boolean;
+  onImportImpact: () => void;
   syncingLogos: boolean;
   onSyncLogos: () => void;
 }) {
@@ -789,12 +827,17 @@ function IntegrationCard({
         >
           {rec.is_enabled ? "Disable" : "Enable"}
         </ActionBtn>
-        <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewV2}>
-          V2 Preview
-        </ActionBtn>
-        <ActionBtn icon={<DownloadCloud className="h-3.5 w-3.5" />} onClick={onLegacyImport}>
-          Legacy Import (V1)
-        </ActionBtn>
+        {showImpactImport && (
+          <ActionBtn
+            icon={importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
+            onClick={onImportImpact}
+            disabled={importing}
+            tone="success"
+            title="Import coupons from Impact"
+          >
+            {importing ? "Importing…" : "Import Impact Coupons"}
+          </ActionBtn>
+        )}
         <ActionBtn
           icon={syncingLogos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
           onClick={onSyncLogos}
@@ -880,6 +923,74 @@ function ConfirmDelete({ name, onCancel, onConfirm }: { name: string; onCancel: 
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ImpactImportResultBody({ result }: { result: AffiliateSyncAdsApplyV2Result }) {
+  if (result.status === "committed" || result.status === "replayed_existing") {
+    return (
+      <div className="mt-3 space-y-3 text-sm">
+        <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-emerald-700">
+          {result.status === "replayed_existing"
+            ? "Previous committed import result recovered."
+            : "Import completed."}
+        </div>
+        <div className="space-y-1 rounded border border-slate-200 bg-slate-50 p-3">
+          <Row label="Run ID">{result.runId}</Row>
+          <Row label="Created stores">{result.created.stores}</Row>
+          <Row label="Created coupons">{result.created.coupons}</Row>
+          <Row label="Existing stores">{result.noops.stores}</Row>
+          <Row label="Existing coupons">{result.noops.coupons}</Row>
+          <Row label="Ledger rows">{result.ledgerRows}</Row>
+        </div>
+      </div>
+    );
+  }
+
+  const failure = result as AffiliateSyncAdsApplyV2Failure;
+
+  const headline =
+    failure.status === "blocked"
+      ? "Import blocked"
+      : failure.status === "failed"
+        ? "Import failed"
+        : "Import outcome could not be confirmed";
+
+  const message =
+    failure.status === "indeterminate"
+      ? "Import outcome could not be confirmed. Check Import History before trying again."
+      : failure.reason ?? failure.rpcReason ?? "The import did not complete.";
+
+  return (
+    <div className="mt-3 space-y-3 text-sm">
+      <div className="rounded border border-amber-200 bg-amber-50 p-3 text-amber-800">
+        <div className="font-semibold">{headline}</div>
+        <div className="mt-1">{message}</div>
+      </div>
+
+      {(failure.stage || failure.rpcStage || failure.rpcReason) && (
+        <div className="space-y-1 rounded border border-slate-200 bg-slate-50 p-3">
+          {failure.stage && <Row label="Stage">{failure.stage}</Row>}
+          {failure.rpcStage && <Row label="RPC stage">{failure.rpcStage}</Row>}
+          {failure.rpcReason && <Row label="RPC reason">{failure.rpcReason}</Row>}
+        </div>
+      )}
+
+      {failure.blockerReasonCounts && Object.keys(failure.blockerReasonCounts).length > 0 && (
+        <div className="rounded border border-slate-200 bg-slate-50 p-3">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Blockers
+          </div>
+          <div className="space-y-1">
+            {Object.entries(failure.blockerReasonCounts!)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([reason, count]) => (
+                <Row key={reason} label={reason}>{count}</Row>
+              ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1074,7 +1185,7 @@ function DetailsDrawer({
 }) {
   const [tab, setTab] = useState(initialTab);
   const historyFn = useServerFn(getTestHistory);
-  const importsFn = useServerFn(getImportHistory);
+  const importsFn = useServerFn(getAffiliateImportHistory);
   const policiesFn = useServerFn(listPublishingPolicies);
   const assignPolicyFn = useServerFn(setIntegrationPolicy);
   const auditFn = useServerFn(getAuditHistory);
@@ -1092,7 +1203,8 @@ function DetailsDrawer({
   });
   const importsQ = useQuery({
     queryKey: ["integration-imports", rec.id],
-    queryFn: () => importsFn({ data: { integrationId: rec.id } }),
+    queryFn: () =>
+      importsFn({ data: { integrationId: rec.id } }) as Promise<AffiliateImportRunRow[]>,
     enabled: tab === "imports",
   });
   const policiesQ = useQuery({
@@ -1279,11 +1391,7 @@ function DetailsDrawer({
                     </div>
                     <div>
                       <span className="text-slate-400">Published</span>{" "}
-                      {typeof (r as { records_published?: number }).records_published === "number" ? (
-                        (r as { records_published?: number }).records_published
-                      ) : (
-                        <span className="text-slate-400">Not available</span>
-                      )}
+                      {r.records_published ?? <span className="text-slate-400">Not available</span>}
                     </div>
                     <div>
                       <span className="text-slate-400">Held</span>{" "}
