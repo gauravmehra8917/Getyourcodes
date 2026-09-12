@@ -1576,7 +1576,6 @@ export type Database = {
           query: string
         }[]
       }
-      import_apply: { Args: { _payload: Json }; Returns: Json }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       subscribe_email: { Args: { _email: string }; Returns: undefined }
       unsubscribe_by_token: { Args: { _token: string }; Returns: boolean }
