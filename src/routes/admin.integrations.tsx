@@ -102,9 +102,6 @@ const PROVIDER_TYPE_LABEL: Record<string, string> = {
   custom_rest_api: "Custom API",
 };
 
-const runImpactCouponImport = createClientOnlyFn(async (integrationId: string) => {
-  return importImpactCoupons(integrationId);
-});
 
 const STATUS_META: Record<string, { label: string; dot: string; badge: string }> = {
   connected: { label: "Connected", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
@@ -141,17 +138,11 @@ function IntegrationsPage() {
     result: TestResult | null;
     error?: string;
   } | null>(null);
-  const [legacyImportModal, setLegacyImportModal] = useState<{
+  const [impactImportConfirm, setImpactImportConfirm] = useState<IntegrationRecord | null>(null);
+  const [impactImport, setImpactImport] = useState<{
     rec: IntegrationRecord;
     running: boolean;
-    report: SyncRunReport | null;
-    error?: string;
-  } | null>(null);
-  const [v2PreviewModal, setV2PreviewModal] = useState<{
-    rec: IntegrationRecord;
-    running: boolean;
-    response: AdminV2PreviewHostResponse | null;
-    error?: string;
+    result: AffiliateSyncAdsApplyV2Result | null;
   } | null>(null);
 
   const [search, setSearch] = useState("");
