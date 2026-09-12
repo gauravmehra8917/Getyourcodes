@@ -102,9 +102,8 @@ const PROVIDER_TYPE_LABEL: Record<string, string> = {
   custom_rest_api: "Custom API",
 };
 
-const previewAffiliateSyncV2 = createClientOnlyFn(async (integrationId: string) => {
-  const client = await import("@/lib/affiliate-sync-v2-preview.client");
-  return client.previewAffiliateSyncV2(integrationId);
+const runImpactCouponImport = createClientOnlyFn(async (integrationId: string) => {
+  return importImpactCoupons(integrationId);
 });
 
 const STATUS_META: Record<string, { label: string; dot: string; badge: string }> = {
