@@ -25,17 +25,19 @@ import {
   ArrowDown,
   RefreshCw,
   DownloadCloud,
-  Eye,
   Image as ImageIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
-import { ImportResultModal } from "@/components/admin/import-result-modal";
-import { V2PreviewResultModal } from "@/components/admin/v2-preview-result-modal";
-import { getImportHistory, type SyncRunReport } from "@/lib/sync-execution.functions";
 import {
-  getAdminV2PreviewOperatorStatus,
-  type AdminV2PreviewHostResponse,
-} from "@/lib/affiliate-sync-v2-preview";
+  getAffiliateImportHistory,
+  type AffiliateImportRunRow,
+} from "@/lib/affiliate-import-history.functions";
+import {
+  ADMIN_IMPACT_IMPORT_MUTATION_OPTIONS,
+  importImpactCoupons,
+  isExactImpactProvider,
+  type AffiliateSyncAdsApplyV2Result,
+} from "@/lib/affiliate-sync-ads-apply-v2.client";
 import { listPublishingPolicies, setIntegrationPolicy } from "@/lib/publishing-policies.functions";
 import { syncStoreLogos, type LogoSyncReport } from "@/lib/presentation.functions";
 import { IntegrationWizard, type IntegrationRecord as WizardRecord } from "@/components/admin/integration-wizard";
@@ -100,10 +102,6 @@ const PROVIDER_TYPE_LABEL: Record<string, string> = {
   custom_rest_api: "Custom API",
 };
 
-const previewAffiliateSyncV2 = createClientOnlyFn(async (integrationId: string) => {
-  const client = await import("@/lib/affiliate-sync-v2-preview.client");
-  return client.previewAffiliateSyncV2(integrationId);
-});
 
 const STATUS_META: Record<string, { label: string; dot: string; badge: string }> = {
   connected: { label: "Connected", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
@@ -140,17 +138,11 @@ function IntegrationsPage() {
     result: TestResult | null;
     error?: string;
   } | null>(null);
-  const [legacyImportModal, setLegacyImportModal] = useState<{
+  const [impactImportConfirm, setImpactImportConfirm] = useState<IntegrationRecord | null>(null);
+  const [impactImport, setImpactImport] = useState<{
     rec: IntegrationRecord;
     running: boolean;
-    report: SyncRunReport | null;
-    error?: string;
-  } | null>(null);
-  const [v2PreviewModal, setV2PreviewModal] = useState<{
-    rec: IntegrationRecord;
-    running: boolean;
-    response: AdminV2PreviewHostResponse | null;
-    error?: string;
+    result: AffiliateSyncAdsApplyV2Result | null;
   } | null>(null);
 
   const [search, setSearch] = useState("");
@@ -234,28 +226,23 @@ function IntegrationsPage() {
     });
   };
 
-  const LEGACY_IMPORT_FROZEN_MESSAGE =
-    "Provider import is temporarily unavailable during the Impact importer upgrade.";
+  const impactImportMutation = useMutation({
+    ...ADMIN_IMPACT_IMPORT_MUTATION_OPTIONS,
+    mutationFn: (rec: IntegrationRecord) => importImpactCoupons(rec.id),
+    onSuccess: (result, rec) => {
+      setImpactImport({ rec, running: false, result });
+      if (result.status === "committed" || result.status === "replayed_existing") {
+        qc.invalidateQueries({ queryKey: ["integration-imports", rec.id] });
+      }
+    },
+  });
 
-  const runLegacyImport = (_rec: IntegrationRecord) => {
-    toast.warning(LEGACY_IMPORT_FROZEN_MESSAGE);
-  };
-
-  const runV2Preview = (rec: IntegrationRecord) => {
-    setV2PreviewModal({ rec, running: true, response: null });
-    previewAffiliateSyncV2(rec.id)
-      .then((response) => {
-        setV2PreviewModal({ rec, running: false, response });
-        const status = getAdminV2PreviewOperatorStatus(response.preview);
-        if (status.severity === "blocker") toast.error(status.title);
-        else if (status.severity === "diagnostics") toast.warning(status.title);
-        else toast.success(status.title);
-      })
-      .catch((err) => {
-        const msg = err instanceof Error ? err.message : "V2 preview failed";
-        setV2PreviewModal({ rec, running: false, response: null, error: msg });
-        toast.error(msg);
-      });
+  const confirmImpactImport = () => {
+    const rec = impactImportConfirm;
+    if (!rec || impactImportMutation.isPending) return;
+    setImpactImportConfirm(null);
+    setImpactImport({ rec, running: true, result: null });
+    impactImportMutation.mutate(rec);
   };
 
   // Derived summary
@@ -483,8 +470,9 @@ function IntegrationsPage() {
                 onToggle={() => toggleMutation.mutate({ id: rec.id, enabled: !rec.is_enabled })}
                 onDelete={() => setConfirmDelete(rec)}
                 onHistory={() => setDrawer({ rec, tab: "audit" })}
-                onPreviewV2={() => runV2Preview(rec)}
-                onLegacyImport={() => runLegacyImport(rec)}
+                showImpactImport={rec.is_enabled === true && isExactImpactProvider(rec.provider_name)}
+                importing={impactImportMutation.isPending && impactImport?.rec.id === rec.id}
+                onImportImpact={() => setImpactImportConfirm(rec)}
                 syncingLogos={logoMutation.isPending && logoMutation.variables?.id === rec.id}
                 onSyncLogos={() => logoMutation.mutate(rec)}
               />
@@ -562,27 +550,70 @@ function IntegrationsPage() {
         />
       )}
 
-      {legacyImportModal && (
-        <ImportResultModal
-          title={`Legacy Import (V1) — ${legacyImportModal.rec.integration_name}`}
-          preview={false}
-          running={legacyImportModal.running}
-          report={legacyImportModal.report}
-          error={legacyImportModal.error}
-          onClose={() => setLegacyImportModal(null)}
-          onRetry={() => toast.warning(LEGACY_IMPORT_FROZEN_MESSAGE)}
-        />
+      {impactImportConfirm && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
+          onClick={() => setImpactImportConfirm(null)}
+        >
+          <div className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-base font-semibold text-slate-800">Import Impact Coupons?</h4>
+            <p className="mt-1 text-sm text-slate-600">
+              This will fetch current offers from{" "}
+              <span className="font-medium">{impactImportConfirm.integration_name}</span> and apply them to the
+              catalog. Review results in Import History afterwards.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setImpactImportConfirm(null)}
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmImpactImport}
+                disabled={impactImportMutation.isPending}
+                className="rounded bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                Confirm Import
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {v2PreviewModal && (
-        <V2PreviewResultModal
-          title={`V2 Preview — ${v2PreviewModal.rec.integration_name}`}
-          running={v2PreviewModal.running}
-          response={v2PreviewModal.response}
-          error={v2PreviewModal.error}
-          onClose={() => setV2PreviewModal(null)}
-          onRetry={() => runV2Preview(v2PreviewModal.rec)}
-        />
+      {impactImport && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Impact import result"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
+          onClick={() => !impactImport.running && setImpactImport(null)}
+        >
+          <div className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-base font-semibold text-slate-800">
+              Import Impact Coupons — {impactImport.rec.integration_name}
+            </h4>
+            {impactImport.running && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                <Loader2 className="h-4 w-4 animate-spin" /> Importing coupons…
+              </div>
+            )}
+            {!impactImport.running && impactImport.result && (
+              <ImpactImportResultBody result={impactImport.result} />
+            )}
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setImpactImport(null)}
+                disabled={impactImport.running}
+                className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900 disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {testModal && (
@@ -708,8 +739,9 @@ function IntegrationCard({
   onToggle,
   onDelete,
   onHistory,
-  onPreviewV2,
-  onLegacyImport,
+  showImpactImport,
+  importing,
+  onImportImpact,
   syncingLogos,
   onSyncLogos,
 }: {
@@ -721,8 +753,9 @@ function IntegrationCard({
   onToggle: () => void;
   onDelete: () => void;
   onHistory: () => void;
-  onPreviewV2: () => void;
-  onLegacyImport: () => void;
+  showImpactImport: boolean;
+  importing: boolean;
+  onImportImpact: () => void;
   syncingLogos: boolean;
   onSyncLogos: () => void;
 }) {
@@ -781,17 +814,17 @@ function IntegrationCard({
         >
           {rec.is_enabled ? "Disable" : "Enable"}
         </ActionBtn>
-        <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewV2}>
-          V2 Preview
-        </ActionBtn>
-        <ActionBtn
-          icon={<DownloadCloud className="h-3.5 w-3.5" />}
-          onClick={onLegacyImport}
-          disabled
-          title="Provider import is temporarily unavailable during the Impact importer upgrade."
-        >
-          Legacy Import (V1)
-        </ActionBtn>
+        {showImpactImport && (
+          <ActionBtn
+            icon={importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
+            onClick={onImportImpact}
+            disabled={importing}
+            tone="success"
+            title="Import coupons from Impact"
+          >
+            {importing ? "Importing…" : "Import Impact Coupons"}
+          </ActionBtn>
+        )}
         <ActionBtn
           icon={syncingLogos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
           onClick={onSyncLogos}
@@ -1071,7 +1104,7 @@ function DetailsDrawer({
 }) {
   const [tab, setTab] = useState(initialTab);
   const historyFn = useServerFn(getTestHistory);
-  const importsFn = useServerFn(getImportHistory);
+  const importsFn = useServerFn(getAffiliateImportHistory);
   const policiesFn = useServerFn(listPublishingPolicies);
   const assignPolicyFn = useServerFn(setIntegrationPolicy);
   const auditFn = useServerFn(getAuditHistory);
