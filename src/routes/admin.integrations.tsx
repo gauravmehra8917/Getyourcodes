@@ -226,28 +226,23 @@ function IntegrationsPage() {
     });
   };
 
-  const LEGACY_IMPORT_FROZEN_MESSAGE =
-    "Provider import is temporarily unavailable during the Impact importer upgrade.";
+  const impactImportMutation = useMutation({
+    ...ADMIN_IMPACT_IMPORT_MUTATION_OPTIONS,
+    mutationFn: (rec: IntegrationRecord) => importImpactCoupons(rec.id),
+    onSuccess: (result, rec) => {
+      setImpactImport({ rec, running: false, result });
+      if (result.status === "committed" || result.status === "replayed_existing") {
+        qc.invalidateQueries({ queryKey: ["integration-imports", rec.id] });
+      }
+    },
+  });
 
-  const runLegacyImport = (_rec: IntegrationRecord) => {
-    toast.warning(LEGACY_IMPORT_FROZEN_MESSAGE);
-  };
-
-  const runV2Preview = (rec: IntegrationRecord) => {
-    setV2PreviewModal({ rec, running: true, response: null });
-    previewAffiliateSyncV2(rec.id)
-      .then((response) => {
-        setV2PreviewModal({ rec, running: false, response });
-        const status = getAdminV2PreviewOperatorStatus(response.preview);
-        if (status.severity === "blocker") toast.error(status.title);
-        else if (status.severity === "diagnostics") toast.warning(status.title);
-        else toast.success(status.title);
-      })
-      .catch((err) => {
-        const msg = err instanceof Error ? err.message : "V2 preview failed";
-        setV2PreviewModal({ rec, running: false, response: null, error: msg });
-        toast.error(msg);
-      });
+  const confirmImpactImport = () => {
+    const rec = impactImportConfirm;
+    if (!rec || impactImportMutation.isPending) return;
+    setImpactImportConfirm(null);
+    setImpactImport({ rec, running: true, result: null });
+    impactImportMutation.mutate(rec);
   };
 
   // Derived summary
