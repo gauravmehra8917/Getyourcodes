@@ -25,17 +25,19 @@ import {
   ArrowDown,
   RefreshCw,
   DownloadCloud,
-  Eye,
   Image as ImageIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
-import { ImportResultModal } from "@/components/admin/import-result-modal";
-import { V2PreviewResultModal } from "@/components/admin/v2-preview-result-modal";
-import { getImportHistory, type SyncRunReport } from "@/lib/sync-execution.functions";
 import {
-  getAdminV2PreviewOperatorStatus,
-  type AdminV2PreviewHostResponse,
-} from "@/lib/affiliate-sync-v2-preview";
+  getAffiliateImportHistory,
+  type AffiliateImportRunRow,
+} from "@/lib/affiliate-import-history.functions";
+import {
+  ADMIN_IMPACT_IMPORT_MUTATION_OPTIONS,
+  importImpactCoupons,
+  isExactImpactProvider,
+  type AffiliateSyncAdsApplyV2Result,
+} from "@/lib/affiliate-sync-ads-apply-v2.client";
 import { listPublishingPolicies, setIntegrationPolicy } from "@/lib/publishing-policies.functions";
 import { syncStoreLogos, type LogoSyncReport } from "@/lib/presentation.functions";
 import { IntegrationWizard, type IntegrationRecord as WizardRecord } from "@/components/admin/integration-wizard";
