@@ -739,8 +739,9 @@ function IntegrationCard({
   onToggle,
   onDelete,
   onHistory,
-  onPreviewV2,
-  onLegacyImport,
+  showImpactImport,
+  importing,
+  onImportImpact,
   syncingLogos,
   onSyncLogos,
 }: {
@@ -752,8 +753,9 @@ function IntegrationCard({
   onToggle: () => void;
   onDelete: () => void;
   onHistory: () => void;
-  onPreviewV2: () => void;
-  onLegacyImport: () => void;
+  showImpactImport: boolean;
+  importing: boolean;
+  onImportImpact: () => void;
   syncingLogos: boolean;
   onSyncLogos: () => void;
 }) {
@@ -812,17 +814,17 @@ function IntegrationCard({
         >
           {rec.is_enabled ? "Disable" : "Enable"}
         </ActionBtn>
-        <ActionBtn icon={<Eye className="h-3.5 w-3.5" />} onClick={onPreviewV2}>
-          V2 Preview
-        </ActionBtn>
-        <ActionBtn
-          icon={<DownloadCloud className="h-3.5 w-3.5" />}
-          onClick={onLegacyImport}
-          disabled
-          title="Provider import is temporarily unavailable during the Impact importer upgrade."
-        >
-          Legacy Import (V1)
-        </ActionBtn>
+        {showImpactImport && (
+          <ActionBtn
+            icon={importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
+            onClick={onImportImpact}
+            disabled={importing}
+            tone="success"
+            title="Import coupons from Impact"
+          >
+            {importing ? "Importing…" : "Import Impact Coupons"}
+          </ActionBtn>
+        )}
         <ActionBtn
           icon={syncingLogos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
           onClick={onSyncLogos}
@@ -1102,7 +1104,7 @@ function DetailsDrawer({
 }) {
   const [tab, setTab] = useState(initialTab);
   const historyFn = useServerFn(getTestHistory);
-  const importsFn = useServerFn(getImportHistory);
+  const importsFn = useServerFn(getAffiliateImportHistory);
   const policiesFn = useServerFn(listPublishingPolicies);
   const assignPolicyFn = useServerFn(setIntegrationPolicy);
   const auditFn = useServerFn(getAuditHistory);
