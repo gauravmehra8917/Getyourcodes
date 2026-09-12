@@ -1,24 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  couponSeoDescription as legacyCouponSeoDescription,
-  couponSeoTitle as legacyCouponSeoTitle,
-  ogDescription as legacyOgDescription,
-  ogTitle as legacyOgTitle,
-  slugify as legacyCouponAnchorSlug,
-  storeSeoDescription as legacyStoreSeoDescription,
-  storeSeoTitle as legacyStoreSeoTitle,
-} from "../../affiliate-sync-core/presentation/seo-preview.ts";
-import {
-  formatDiscount as legacyFormatDiscount,
-  formatStructuredTerms as legacyFormatStructuredTerms,
-  generateTermsText as legacyGenerateTermsText,
-} from "../../affiliate-sync-core/presentation/terms.ts";
-import {
-  resolveOfferStatus as legacyResolveOfferStatus,
-} from "../../affiliate-sync-core/presentation/publishing.ts";
-import { slugify as legacyStoreSlugCandidate } from "../../affiliate-sync-core/import/SlugGenerator.ts";
-import {
   couponAnchorSlugV2,
   couponCanonicalV2,
   couponSeoDescriptionV2,
@@ -43,37 +25,9 @@ import {
 
 const EVALUATION_TIMESTAMP = "2026-06-15T12:00:00.000Z";
 
-test("SEO and slug helpers reproduce established GetYourCodes output", () => {
+test("SEO and slug helpers preserve established GetYourCodes output", () => {
   const store = "Acme & Co.";
   const coupon = "Save 20% – Summer";
-  const year = 2026;
-
-  assert.equal(storeSlugCandidateV2(store), legacyStoreSlugCandidate(store));
-  assert.equal(couponAnchorSlugV2(coupon), legacyCouponAnchorSlug(coupon));
-  assert.equal(
-    storeSeoTitleV2(store, EVALUATION_TIMESTAMP),
-    legacyStoreSeoTitle(store, year),
-  );
-  assert.equal(
-    storeSeoDescriptionV2(store),
-    legacyStoreSeoDescription(store),
-  );
-  assert.equal(
-    couponSeoTitleV2(coupon, store, EVALUATION_TIMESTAMP),
-    legacyCouponSeoTitle(coupon, store, year),
-  );
-  assert.equal(
-    couponSeoDescriptionV2(coupon, store),
-    legacyCouponSeoDescription(coupon, store),
-  );
-  assert.equal(
-    ogTitleV2(couponSeoTitleV2(coupon, store, EVALUATION_TIMESTAMP)),
-    legacyOgTitle(legacyCouponSeoTitle(coupon, store, year)),
-  );
-  assert.equal(
-    ogDescriptionV2(couponSeoDescriptionV2(coupon, store)),
-    legacyOgDescription(legacyCouponSeoDescription(coupon, store)),
-  );
 
   assert.equal(storeSlugCandidateV2(store), "acme-and-co");
   assert.equal(couponAnchorSlugV2(coupon), "save-20-summer");
@@ -82,8 +36,24 @@ test("SEO and slug helpers reproduce established GetYourCodes output", () => {
     "Acme & Co. Coupons, Promo Codes & Deals 2026 | GetYourCodes",
   );
   assert.equal(
+    storeSeoDescriptionV2(store),
+    "Save more with verified Acme & Co. coupons, promo codes and exclusive deals updated regularly on GetYourCodes.",
+  );
+  assert.equal(
     couponSeoTitleV2(coupon, store, EVALUATION_TIMESTAMP),
     "Save 20% – Summer | Acme & Co. Coupons 2026 | GetYourCodes",
+  );
+  assert.equal(
+    couponSeoDescriptionV2(coupon, store),
+    "Save with Acme & Co. using this verified offer: Save 20% – Summer. Updated regularly on GetYourCodes.",
+  );
+  assert.equal(
+    ogTitleV2(couponSeoTitleV2(coupon, store, EVALUATION_TIMESTAMP)),
+    "Save 20% – Summer | Acme & Co. Coupons 2026 | GetYourCodes",
+  );
+  assert.equal(
+    ogDescriptionV2(couponSeoDescriptionV2(coupon, store)),
+    "Save with Acme & Co. using this verified offer: Save 20% – Summer. Updated regularly on GetYourCodes.",
   );
 });
 
@@ -243,16 +213,6 @@ test("explicit status helper preserves established lifecycle decisions", () => {
       }),
       fixture.expected,
     );
-    assert.equal(
-      resolveOfferStatusV2({
-        ...fixture.input,
-        evaluationTimestamp: EVALUATION_TIMESTAMP,
-      }),
-      legacyResolveOfferStatus({
-        ...fixture.input,
-        now: new Date(EVALUATION_TIMESTAMP),
-      }),
-    );
   }
   assert.equal(
     resolveOfferStatusV2({
@@ -275,15 +235,14 @@ test("terms and discount presentation retain established byte-for-byte output", 
   const expected =
     "Minimum purchase of $50.00 required. Maximum savings of $20.00. Limited to 1 per customer. Applies to: Sitewide. Offer valid until December 31, 2026. Terms are set by the merchant and may change without notice.";
 
-  assert.deepEqual(
-    formatStructuredTermsV2(structured),
-    legacyFormatStructuredTerms(structured),
-  );
+  assert.deepEqual(formatStructuredTermsV2(structured), [
+    { label: "Minimum purchase", value: "$50.00" },
+    { label: "Maximum savings", value: "$20.00" },
+    { label: "Purchase limit", value: "1 per customer" },
+    { label: "Deal scope", value: "Sitewide" },
+  ]);
   assert.equal(generateTermsTextV2(structured, "2026-12-31"), expected);
-  assert.equal(
-    generateTermsTextV2(structured, "2026-12-31"),
-    legacyGenerateTermsText(structured, "2026-12-31"),
-  );
+
   assert.equal(
     generateTermsTextV2(
       { ...structured, text: "  Provider terms.  " },
@@ -297,18 +256,8 @@ test("terms and discount presentation retain established byte-for-byte output", 
   );
   assert.equal(generateTermsTextV2(null, null), null);
 
-  for (
-    const fixture of [
-      ["percentage", 20, undefined],
-      ["fixed", 15, "USD"],
-      ["free_shipping", null, undefined],
-      ["bogo", null, undefined],
-    ] as const
-  ) {
-    const [type, value, currency] = fixture;
-    assert.equal(
-      formatDiscountV2(type, value, currency),
-      legacyFormatDiscount(type, value, currency),
-    );
-  }
+  assert.equal(formatDiscountV2("percentage", 20), "20% off");
+  assert.equal(formatDiscountV2("fixed", 15, "USD"), "$15.00 off");
+  assert.equal(formatDiscountV2("free_shipping", null), "Free shipping");
+  assert.equal(formatDiscountV2("bogo", null), "BOGO");
 });

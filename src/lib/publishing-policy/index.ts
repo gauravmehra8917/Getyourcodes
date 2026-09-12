@@ -1,5 +1,4 @@
-// Publishing Policy Engine — public entry point.
-export { applyPublishingPolicy, PublishingPolicyEngine } from "./PolicyEngine";
+// Provider-agnostic publishing policy model used by Admin configuration.
 export {
   FALLBACK_POLICY,
   RANKING_KEYS,

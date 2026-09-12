@@ -1,9 +1,9 @@
 // Deterministic SEO generation (Phase 3A). No AI, no randomness.
-// Values produced here are only ever applied to EMPTY fields — administrator
-// edits are preserved by the importer (see public.import_apply).
+// Deterministic catalog SEO helpers. Administrator-authored values remain
+// authoritative in catalog write paths.
 
 import { SITE_URL } from "@/lib/seo";
-import { slugify } from "../../../supabase/functions/_shared/affiliate-sync-core/presentation/seo-preview";
+import { slugify } from "./seo-preview";
 
 export {
   SEO_BRAND,
@@ -15,7 +15,7 @@ export {
   couponSeoDescription,
   ogTitle,
   ogDescription,
-} from "../../../supabase/functions/_shared/affiliate-sync-core/presentation/seo-preview";
+} from "./seo-preview";
 
 export const storeCanonical = (storeSlug: string) => `${SITE_URL}/${storeSlug}-coupons`;
 
