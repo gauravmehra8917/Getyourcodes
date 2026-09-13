@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Globe2, X, Sparkles } from "lucide-react";
 import { sb, trackClick, type Coupon, type Store } from "@/lib/db";
+import { applyPublicOfferVisibility } from "@/lib/catalog-visibility";
 
 type DealRow = Coupon & { stores: Pick<Store, "name" | "slug" | "logo_url"> | null };
 
@@ -15,10 +16,11 @@ export function GlobalDealsBanner() {
     queryKey: ["global-deals-banner"],
     queryFn: async () => {
       // Prefer admin-curated featured coupons
-      const { data: featured } = await sb
-        .from("coupons")
-        .select("*, stores(name, slug, logo_url)")
-        .eq("status", "active")
+      const { data: featured } = await applyPublicOfferVisibility(
+        sb
+          .from("coupons")
+          .select("*, stores!inner(name, slug, logo_url)"),
+      )
         .eq("featured_in_banner", true)
         .order("created_at", { ascending: false })
         .limit(8);
@@ -35,10 +37,11 @@ export function GlobalDealsBanner() {
         counts.set(c.coupon_id, (counts.get(c.coupon_id) ?? 0) + 1);
       });
 
-      const { data } = await sb
-        .from("coupons")
-        .select("*, stores(name, slug, logo_url)")
-        .eq("status", "active")
+      const { data } = await applyPublicOfferVisibility(
+        sb
+          .from("coupons")
+          .select("*, stores!inner(name, slug, logo_url)"),
+      )
         .order("created_at", { ascending: false })
         .limit(24);
       const rows = (data ?? []) as DealRow[];

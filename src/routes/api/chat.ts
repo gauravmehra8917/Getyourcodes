@@ -3,7 +3,10 @@ import { convertToModelMessages, streamText, tool, stepCountIs, type UIMessage }
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
-import { excludeLifecycleHiddenStoreRelation, excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
+import {
+  applyPublicOfferVisibility,
+  excludeLifecycleHiddenStores,
+} from "@/lib/catalog-visibility";
 
 const SYSTEM_PROMPT = `You are Dealio, an AI Deal Discovery Assistant for the Getyourcodes coupon site.
 
@@ -60,10 +63,11 @@ export const Route = createFileRoute("/api/chat")({
               }),
               execute: async ({ query, couponType, limit }) => {
                 const max = limit ?? 12;
-                let q = excludeLifecycleHiddenStoreRelation(supabase
-                  .from("coupons")
-                  .select("id,title,description,coupon_code,coupon_type,affiliate_url,expiry_date,created_at,stores!inner(name,slug,logo_url)"))
-                  .eq("status", "active")
+                let q = applyPublicOfferVisibility(
+                  supabase
+                    .from("coupons")
+                    .select("id,title,description,coupon_code,coupon_type,affiliate_url,expiry_date,created_at,stores!inner(name,slug,logo_url)"),
+                )
                   .order("created_at", { ascending: false })
                   .limit(max);
 

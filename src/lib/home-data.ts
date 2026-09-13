@@ -1,6 +1,9 @@
 import { queryOptions } from "@tanstack/react-query";
 import { sb, type Category, type Coupon, type Store } from "@/lib/db";
-import { excludeLifecycleHiddenStoreRelation, excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
+import {
+  applyPublicOfferVisibility,
+  excludeLifecycleHiddenStores,
+} from "@/lib/catalog-visibility";
 
 export type StoreLite = Pick<Store, "id" | "name" | "slug" | "logo_url" | "category_id">;
 
@@ -9,11 +12,11 @@ export const activeOfferCountsQuery = queryOptions({
   queryKey: ["active-offer-counts"],
   staleTime: 5 * 60 * 1000,
   queryFn: async () => {
-    const { data } = await sb
-      .from("coupons")
-      .select("store_id")
-      .eq("status", "active")
-      .limit(10000);
+    const { data } = await applyPublicOfferVisibility(
+      sb
+        .from("coupons")
+        .select("store_id, stores!inner(id)"),
+    ).limit(10000);
     const byStore: Record<string, number> = {};
     for (const row of (data ?? []) as { store_id: string | null }[]) {
       if (!row.store_id) continue;
@@ -74,10 +77,11 @@ export function couponPageQuery(type: "code" | "deal", page: number, perPage = 2
     staleTime: 60 * 1000,
     queryFn: async () => {
       const from = (page - 1) * perPage;
-      const { data, count } = await excludeLifecycleHiddenStoreRelation(sb
-        .from("coupons")
-        .select("*, stores!inner(name, slug, logo_url)", { count: "exact" }))
-        .eq("status", "active")
+      const { data, count } = await applyPublicOfferVisibility(
+        sb
+          .from("coupons")
+          .select("*, stores!inner(name, slug, logo_url)", { count: "exact" }),
+      )
         .eq("coupon_type", type)
         .order("created_at", { ascending: false })
         .range(from, from + perPage - 1);

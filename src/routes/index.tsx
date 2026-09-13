@@ -19,6 +19,7 @@ import { RecommendedForYou } from "@/components/recommended-for-you";
 import { useAssistant } from "@/components/ai-assistant-provider";
 import { HeroSearchResults } from "@/components/hero-search-results";
 import { isConversationalQuery } from "@/lib/coupon-actions";
+import { applyPublicOfferVisibility } from "@/lib/catalog-visibility";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -69,10 +70,14 @@ function HomePage() {
     queryKey: ["coupons", "trending"],
     staleTime: 60 * 1000,
     queryFn: async () => {
-      const { data } = await sb.from("coupons")
-        .select("*, stores(name, slug, logo_url)")
-        .eq("status", "active").eq("coupon_type", "code")
-        .order("created_at", { ascending: false }).limit(6);
+      const { data } = await applyPublicOfferVisibility(
+        sb
+          .from("coupons")
+          .select("*, stores!inner(name, slug, logo_url)"),
+      )
+        .eq("coupon_type", "code")
+        .order("created_at", { ascending: false })
+        .limit(6);
       return (data ?? []) as (Coupon & { stores: Pick<Store, "name" | "slug" | "logo_url"> })[];
     },
   });
@@ -80,10 +85,14 @@ function HomePage() {
     queryKey: ["coupons", "deals"],
     staleTime: 60 * 1000,
     queryFn: async () => {
-      const { data } = await sb.from("coupons")
-        .select("*, stores(name, slug, logo_url)")
-        .eq("status", "active").eq("coupon_type", "deal")
-        .order("created_at", { ascending: false }).limit(6);
+      const { data } = await applyPublicOfferVisibility(
+        sb
+          .from("coupons")
+          .select("*, stores!inner(name, slug, logo_url)"),
+      )
+        .eq("coupon_type", "deal")
+        .order("created_at", { ascending: false })
+        .limit(6);
       return (data ?? []) as (Coupon & { stores: Pick<Store, "name" | "slug" | "logo_url"> })[];
     },
   });

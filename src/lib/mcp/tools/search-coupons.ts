@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { applyPublicOfferVisibility } from "../../catalog-visibility";
 
 export default defineTool({
   name: "search_coupons",
@@ -22,12 +23,13 @@ export default defineTool({
       process.env.SUPABASE_PUBLISHABLE_KEY!,
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
-    let q = supabase
-      .from("coupons")
-      .select(
-        "id,title,description,coupon_code,coupon_type,affiliate_url,expiry_date,created_at,stores(name,slug,logo_url)",
-      )
-      .eq("status", "active")
+    let q = applyPublicOfferVisibility(
+      supabase
+        .from("coupons")
+        .select(
+          "id,title,description,coupon_code,coupon_type,affiliate_url,expiry_date,created_at,stores!inner(name,slug,logo_url)",
+        ),
+    )
       .order("created_at", { ascending: false })
       .limit(limit ?? 12);
 

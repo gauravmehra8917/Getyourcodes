@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { sb, type Coupon, type Store } from "@/lib/db";
 import { CouponCard } from "@/components/coupon-card";
 import { rankCoupons, type RankableCoupon } from "@/lib/ranking";
+import { applyPublicOfferVisibility } from "@/lib/catalog-visibility";
 
 type CouponRow = Coupon & {
   stores: Pick<Store, "name" | "slug" | "logo_url"> | null;
@@ -60,10 +61,11 @@ export function RecommendedForYou() {
       if (storeIds.size === 0) return [] as CouponRow[];
 
       // 2. Fetch active coupons from those stores.
-      const { data } = await sb
-        .from("coupons")
-        .select("*, stores(name, slug, logo_url)")
-        .eq("status", "active")
+      const { data } = await applyPublicOfferVisibility(
+        sb
+          .from("coupons")
+          .select("*, stores!inner(name, slug, logo_url)"),
+      )
         .in("store_id", Array.from(storeIds))
         .order("created_at", { ascending: false })
         .limit(40);

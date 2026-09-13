@@ -5,7 +5,10 @@ import { sb, type Category, type Coupon, type Store } from "@/lib/db";
 import { categorySlug } from "@/lib/coupon-actions";
 import { CouponCard } from "@/components/coupon-card";
 import { StoreCard } from "@/components/store-card";
-import { excludeLifecycleHiddenStoreRelation, excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
+import {
+  applyPublicOfferVisibility,
+  excludeLifecycleHiddenStores,
+} from "@/lib/catalog-visibility";
 
 type CouponWithStore = Coupon & { stores: Pick<Store, "name" | "slug" | "logo_url"> };
 
@@ -18,10 +21,11 @@ export function useDirectSearch(term: string) {
       const like = `%${term}%`;
       const [stores, coupons, categories] = await Promise.all([
         excludeLifecycleHiddenStores(sb.from("stores").select("*")).ilike("name", like).limit(6),
-        excludeLifecycleHiddenStoreRelation(sb
-          .from("coupons")
-          .select("*, stores!inner(name, slug, logo_url)"))
-          .eq("status", "active")
+        applyPublicOfferVisibility(
+          sb
+            .from("coupons")
+            .select("*, stores!inner(name, slug, logo_url)"),
+        )
           .or(`title.ilike.${like},coupon_code.ilike.${like}`)
           .limit(6),
         sb.from("categories").select("*").ilike("name", like).limit(6),

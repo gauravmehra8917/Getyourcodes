@@ -5,7 +5,11 @@ import { sb, type Store, type Coupon, type Category } from "@/lib/db";
 import { CouponCard } from "@/components/coupon-card";
 import { StoreCard } from "@/components/store-card";
 import { abs, clip, SITE_NAME, SITE_URL } from "@/lib/seo";
-import { excludeLifecycleHiddenStoreRelation, excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
+import {
+  applyCurrentOfferWindow,
+  applyPublicOfferVisibility,
+  excludeLifecycleHiddenStores,
+} from "@/lib/catalog-visibility";
 
 type LoaderData =
   | { kind: "store"; store: Store; coupons: Coupon[] }
@@ -20,8 +24,13 @@ export const Route = createFileRoute("/$slug")({
         sb.from("stores").select("*, categories(name, slug)"),
       ).eq("slug", storeSlug).maybeSingle();
       if (!store) throw notFound();
-      const { data: coupons } = await sb
-        .from("coupons").select("*").eq("store_id", store.id).eq("status", "active").order("created_at", { ascending: false });
+      const { data: coupons } = await applyCurrentOfferWindow(
+        sb
+          .from("coupons")
+          .select("*")
+          .eq("store_id", store.id)
+          .eq("status", "active"),
+      ).order("created_at", { ascending: false });
       return { kind: "store", store: store as Store & { categories?: { name: string; slug: string } | null }, coupons: (coupons ?? []) as Coupon[] };
     }
     if (slug.endsWith("-offers")) {
@@ -229,10 +238,11 @@ function CategoryPage({ category }: { category: Category }) {
   const coupons = useQuery({
     queryKey: ["category-coupons", category.id],
     queryFn: async () => {
-      const { data } = await excludeLifecycleHiddenStoreRelation(sb
-        .from("coupons")
-        .select("*, stores!inner(id, name, slug, logo_url, category_id)"))
-        .eq("status", "active")
+      const { data } = await applyPublicOfferVisibility(
+        sb
+          .from("coupons")
+          .select("*, stores!inner(id, name, slug, logo_url, category_id)"),
+      )
         .eq("stores.category_id", category.id)
         .order("created_at", { ascending: false })
         .limit(20);

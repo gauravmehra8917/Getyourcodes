@@ -6,7 +6,10 @@ import { z } from "zod";
 import { sb, trackSearch, type Store, type Coupon, type Category } from "@/lib/db";
 import { StoreCard } from "@/components/store-card";
 import { CouponCard } from "@/components/coupon-card";
-import { excludeLifecycleHiddenStoreRelation, excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
+import {
+  applyPublicOfferVisibility,
+  excludeLifecycleHiddenStores,
+} from "@/lib/catalog-visibility";
 
 export const Route = createFileRoute("/search")({
   validateSearch: z.object({ q: z.string().optional().default("") }),
@@ -37,8 +40,11 @@ function SearchPage() {
       const term = `%${initialQ}%`;
       const [stores, coupons, categories] = await Promise.all([
         excludeLifecycleHiddenStores(sb.from("stores").select("*")).ilike("name", term).limit(12),
-        excludeLifecycleHiddenStoreRelation(sb.from("coupons").select("*, stores!inner(name, slug, logo_url)"))
-          .eq("status", "active").ilike("title", term).limit(12),
+        applyPublicOfferVisibility(
+          sb.from("coupons").select("*, stores!inner(name, slug, logo_url)"),
+        )
+          .ilike("title", term)
+          .limit(12),
         sb.from("categories").select("*").ilike("name", term).limit(12),
       ]);
       return {
