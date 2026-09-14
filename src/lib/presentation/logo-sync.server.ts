@@ -31,6 +31,8 @@ export interface LogoSyncSummary {
 type StoreRow = {
   id: string;
   name: string;
+  provider_entity_namespace: string | null;
+  provider_entity_id: string | null;
   logo_url: string | null;
   logo_source_url: string | null;
   metadata: Record<string, unknown> | null;
@@ -53,8 +55,14 @@ function normalizeSource(value: string | null | undefined, baseUrl: string | nul
 /** Auth headers + API base URL derived from the integration, if any. */
 async function providerConnection(
   integrationId: string | null,
-): Promise<{ headers: Record<string, string>; baseUrl: string | null }> {
-  if (!integrationId) return { headers: {}, baseUrl: null };
+): Promise<{
+  headers: Record<string, string>;
+  baseUrl: string | null;
+  basicUsername: string | null;
+}> {
+  if (!integrationId) {
+    return { headers: {}, baseUrl: null, basicUsername: null };
+  }
   try {
     const { loadIntegrationConfig } = await import("@/lib/integration-engine/config-loader.server");
     const config = await loadIntegrationConfig(integrationId);
@@ -64,14 +72,59 @@ async function providerConnection(
       return {
         headers: { Authorization: `Basic ${Buffer.from(`${c.username}:${c.password}`).toString("base64")}` },
         baseUrl,
+        basicUsername: c.username.trim() || null,
       };
     }
-    if (c.accessToken) return { headers: { Authorization: `Bearer ${c.accessToken}` }, baseUrl };
-    if (c.apiKey) return { headers: { [c.apiKeyName || "X-API-Key"]: c.apiKey }, baseUrl };
-    return { headers: {}, baseUrl };
+    if (c.accessToken) {
+      return {
+        headers: { Authorization: `Bearer ${c.accessToken}` },
+        baseUrl,
+        basicUsername: null,
+      };
+    }
+    if (c.apiKey) {
+      return {
+        headers: { [c.apiKeyName || "X-API-Key"]: c.apiKey },
+        baseUrl,
+        basicUsername: null,
+      };
+    }
+    return { headers: {}, baseUrl, basicUsername: null };
   } catch {
-    return { headers: {}, baseUrl: null };
+    return { headers: {}, baseUrl: null, basicUsername: null };
   }
+}
+
+/**
+ * Derives the authenticated Impact Campaign logo endpoint for stores created
+ * by the exact Campaign identity importer.
+ *
+ * Existing explicit logo sources always take precedence over this fallback.
+ */
+export function deriveImpactCampaignLogoSource(
+  provider: string,
+  providerEntityNamespace: string | null,
+  providerEntityId: unknown,
+  accountSid: string | null,
+  baseUrl: string | null,
+): string | null {
+  if (provider.trim().toLowerCase() !== "impact") return null;
+  if (providerEntityNamespace?.trim().toLowerCase() !== "campaign") return null;
+
+  const sid = accountSid?.trim() ?? "";
+  const campaign =
+    typeof providerEntityId === "string"
+      ? providerEntityId.trim()
+      : typeof providerEntityId === "number" && Number.isFinite(providerEntityId)
+        ? String(providerEntityId)
+        : "";
+
+  if (!sid || !campaign || !baseUrl) return null;
+
+  return normalizeSource(
+    `/Mediapartners/${encodeURIComponent(sid)}/Campaigns/${encodeURIComponent(campaign)}/Logo`,
+    baseUrl,
+  );
 }
 
 async function fetchImage(url: string, authHeaders: Record<string, string>) {
@@ -113,7 +166,9 @@ export async function syncStoreLogosForProvider(
 
   const { data, error } = await db
     .from("stores")
-    .select("id,name,logo_url,logo_source_url,metadata")
+    .select(
+      "id,name,provider_entity_namespace,provider_entity_id,logo_url,logo_source_url,metadata",
+    )
     .eq("provider", provider)
     .limit(limit);
 
@@ -123,14 +178,25 @@ export async function syncStoreLogosForProvider(
   }
 
   const rows = (data ?? []) as StoreRow[];
-  const { headers: authHeaders, baseUrl } = await providerConnection(integrationId);
+  const {
+    headers: authHeaders,
+    baseUrl,
+    basicUsername,
+  } = await providerConnection(integrationId);
 
   for (const store of rows) {
     const meta = (store.metadata ?? {}) as Record<string, unknown>;
     const source =
       normalizeSource(store.logo_source_url, baseUrl) ??
       normalizeSource(typeof meta.originalLogo === "string" ? meta.originalLogo : null, baseUrl) ??
-      normalizeSource(store.logo_url, baseUrl);
+      normalizeSource(store.logo_url, baseUrl) ??
+      deriveImpactCampaignLogoSource(
+        provider,
+        store.provider_entity_namespace,
+        store.provider_entity_id,
+        basicUsername,
+        baseUrl,
+      );
 
     if (!source) {
       summary.skipped += 1;
