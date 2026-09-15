@@ -827,3 +827,469 @@ test(
     );
   },
 );
+
+test(
+  "blocked Ads-1 canary plan is preserved without Ads-2 refresh materialization",
+  () => {
+    const catalog =
+      matchingExistingCatalog();
+
+    const input:
+      AdsPersistencePlannerInputV2 = {
+        ...plannerInput(
+          catalog,
+          [ad({
+            codeClass: "no_code",
+            validatedCouponCode: null,
+          })],
+        ),
+        mode: "canary",
+        canaryAdId: "Ad-A",
+      };
+
+    const base =
+      AdsPersistencePlannerV2.plan(
+        input,
+      );
+
+    assert.equal(
+      base.status,
+      "blocked",
+    );
+
+    assert.ok(
+      base.blockers.some(
+        (entry) =>
+          entry.reason ===
+            "canary_ad_ineligible",
+      ),
+    );
+
+    assert.equal(
+      base.counts.writableEntities,
+      0,
+    );
+
+    const result =
+      materializeAdsRefreshPersistencePlanV2(
+        input,
+      );
+
+    assert.equal(
+      result.status,
+      "blocked",
+    );
+
+    assert.ok(
+      result.blockers.some(
+        (entry) =>
+          entry.reason ===
+            "canary_ad_ineligible",
+      ),
+    );
+
+    /*
+     * A pre-blocked Ads-1 plan is canonical input evidence,
+     * not an invitation for Ads-2 to reinterpret source state.
+     */
+    assert.deepEqual(
+      result.storeInstructions,
+      base.storeInstructions,
+    );
+
+    assert.deepEqual(
+      result.offerInstructions,
+      base.offerInstructions,
+    );
+
+    assert.equal(
+      result.counts.stores.updateExisting,
+      0,
+    );
+
+    assert.equal(
+      result.counts.offers.updateExisting,
+      0,
+    );
+
+    assert.equal(
+      result.counts.writableEntities,
+      0,
+    );
+  },
+);
+
+test(
+  "canary exact existing future Ad remains ineligible and zero-write",
+  () => {
+    const catalog =
+      matchingExistingCatalog();
+
+    const input:
+      AdsPersistencePlannerInputV2 = {
+        ...plannerInput(
+          catalog,
+          [ad({
+            dealStartDate:
+              "2026-07-01T00:00:00Z",
+            dealEndDate:
+              "2026-12-31T23:59:59Z",
+          })],
+        ),
+        mode: "canary",
+        canaryAdId: "Ad-A",
+      };
+
+    const base =
+      AdsPersistencePlannerV2.plan(
+        input,
+      );
+
+    assert.equal(
+      base.status,
+      "blocked",
+    );
+
+    assert.ok(
+      base.blockers.some(
+        (entry) =>
+          entry.reason ===
+            "canary_ad_ineligible",
+      ),
+    );
+
+    assert.equal(
+      base.offerInstructions.length,
+      1,
+    );
+
+    assert.equal(
+      base.offerInstructions[0]?.action,
+      "noop_held",
+    );
+
+    assert.equal(
+      base.offerInstructions[0]?.action ===
+          "noop_held"
+        ? base.offerInstructions[0]
+            .holdReason
+        : null,
+      "not_started",
+    );
+
+    const result =
+      materializeAdsRefreshPersistencePlanV2(
+        input,
+      );
+
+    assert.equal(
+      result.status,
+      "blocked",
+    );
+
+    assert.ok(
+      result.blockers.some(
+        (entry) =>
+          entry.reason ===
+            "canary_ad_ineligible",
+      ),
+    );
+
+    const matching =
+      result.offerInstructions.filter(
+        (entry) =>
+          entry.providerEntityId ===
+            "Ad-A",
+      );
+
+    assert.equal(
+      matching.length,
+      1,
+    );
+
+    assert.equal(
+      matching[0]?.action,
+      "noop_held",
+    );
+
+    assert.equal(
+      matching[0]?.action ===
+          "noop_held"
+        ? matching[0].holdReason
+        : null,
+      "not_started",
+    );
+
+    assert.equal(
+      result.counts.offers.updateExisting,
+      0,
+    );
+
+    assert.equal(
+      result.counts.writableEntities,
+      0,
+    );
+  },
+);
+
+test(
+  "canary exact existing expired Ad remains ineligible and zero-write",
+  () => {
+    const catalog =
+      matchingExistingCatalog();
+
+    const input:
+      AdsPersistencePlannerInputV2 = {
+        ...plannerInput(
+          catalog,
+          [ad({
+            dealStartDate:
+              "2026-01-01T00:00:00Z",
+            dealEndDate:
+              "2026-05-31T23:59:59Z",
+          })],
+        ),
+        mode: "canary",
+        canaryAdId: "Ad-A",
+      };
+
+    const base =
+      AdsPersistencePlannerV2.plan(
+        input,
+      );
+
+    assert.equal(
+      base.status,
+      "blocked",
+    );
+
+    assert.ok(
+      base.blockers.some(
+        (entry) =>
+          entry.reason ===
+            "canary_ad_ineligible",
+      ),
+    );
+
+    assert.equal(
+      base.offerInstructions.length,
+      1,
+    );
+
+    assert.equal(
+      base.offerInstructions[0]?.action,
+      "noop_held",
+    );
+
+    assert.equal(
+      base.offerInstructions[0]?.action ===
+          "noop_held"
+        ? base.offerInstructions[0]
+            .holdReason
+        : null,
+      "expired",
+    );
+
+    const result =
+      materializeAdsRefreshPersistencePlanV2(
+        input,
+      );
+
+    assert.equal(
+      result.status,
+      "blocked",
+    );
+
+    assert.ok(
+      result.blockers.some(
+        (entry) =>
+          entry.reason ===
+            "canary_ad_ineligible",
+      ),
+    );
+
+    const matching =
+      result.offerInstructions.filter(
+        (entry) =>
+          entry.providerEntityId ===
+            "Ad-A",
+      );
+
+    assert.equal(
+      matching.length,
+      1,
+    );
+
+    assert.equal(
+      matching[0]?.action,
+      "noop_held",
+    );
+
+    assert.equal(
+      matching[0]?.action ===
+          "noop_held"
+        ? matching[0].holdReason
+        : null,
+      "expired",
+    );
+
+    assert.equal(
+      result.counts.offers.updateExisting,
+      0,
+    );
+
+    assert.equal(
+      result.counts.writableEntities,
+      0,
+    );
+  },
+);
+
+test(
+  "canary exact existing active Ad can materialize one provider UPDATE",
+  () => {
+    const catalog =
+      matchingExistingCatalog();
+
+    const current =
+      catalog.offers[0]!
+        .providerManagedState!;
+
+    /*
+     * Simulate one stale provider-owned field in the DB.
+     * Source remains a valid active exact Ad.
+     */
+    catalog.offers[0]!
+      .providerManagedState = {
+        ...current,
+        couponCode: "OLD-CODE",
+        metadata: {
+          ...current.metadata,
+        },
+      };
+
+    const input:
+      AdsPersistencePlannerInputV2 = {
+        ...plannerInput(
+          catalog,
+          [ad()],
+        ),
+        mode: "canary",
+        canaryAdId: "Ad-A",
+      };
+
+    const base =
+      AdsPersistencePlannerV2.plan(
+        input,
+      );
+
+    assert.equal(
+      base.status,
+      "ready",
+    );
+
+    assert.equal(
+      base.storeInstructions.length,
+      1,
+    );
+
+    assert.equal(
+      base.offerInstructions.length,
+      1,
+    );
+
+    assert.equal(
+      base.storeInstructions[0]?.action,
+      "noop_existing",
+    );
+
+    assert.equal(
+      base.offerInstructions[0]?.action,
+      "noop_existing",
+    );
+
+    const result =
+      materializeAdsRefreshPersistencePlanV2(
+        input,
+      );
+
+    assert.equal(
+      result.status,
+      "ready",
+    );
+
+    assert.equal(
+      result.storeInstructions.length,
+      1,
+    );
+
+    assert.equal(
+      result.offerInstructions.length,
+      1,
+    );
+
+    assert.equal(
+      result.storeInstructions[0]?.action,
+      "noop_existing",
+    );
+
+    const offer =
+      result.offerInstructions[0];
+
+    assert.equal(
+      offer?.action,
+      "update_existing",
+    );
+
+    if (
+      offer?.action !==
+        "update_existing"
+    ) {
+      return;
+    }
+
+    assert.equal(
+      offer.providerEntityId,
+      "Ad-A",
+    );
+
+    assert.equal(
+      offer.existingOfferId,
+      OFFER_ID,
+    );
+
+    assert.equal(
+      offer.expectedParentStoreId,
+      STORE_ID,
+    );
+
+    assert.equal(
+      offer
+        .expectedCurrentManagedState
+        .couponCode,
+      "OLD-CODE",
+    );
+
+    assert.equal(
+      offer
+        .desiredManagedState
+        .couponCode,
+      "SAVE-20",
+    );
+
+    assert.equal(
+      result.counts.stores.updateExisting,
+      0,
+    );
+
+    assert.equal(
+      result.counts.offers.updateExisting,
+      1,
+    );
+
+    assert.equal(
+      result.counts.writableEntities,
+      1,
+    );
+  },
+);
