@@ -681,6 +681,18 @@ function sourceIdentityIsSafe(input: {
 }
 
 /** Pure, deterministic Ads-to-transaction intent planner. */
+/**
+ * Stable pure projection boundary for detached Ads-2 refresh planning.
+ *
+ * These are aliases of the exact projection functions already used by
+ * Ads-1 planning and provider-refresh preview. No projection behavior is
+ * duplicated or changed here.
+ */
+export {
+  storeProjection as projectAdsStoreCreateProjectionV2,
+  offerProjection as projectAdsOfferCreateProjectionV2,
+};
+
 export class AdsPersistencePlannerV2 {
   /**
    * Non-executable provider refresh preview.
