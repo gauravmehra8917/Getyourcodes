@@ -47,6 +47,14 @@ import {
   type AdsPersistenceStoreInstructionV2,
   type AdsStoreCreateProjectionV2,
 } from "./ads-persistence-models.ts";
+import {
+  providerManagedOfferStateFromProjectionV2,
+  providerManagedStoreStateFromProjectionV2,
+} from "./provider-managed-state.ts";
+import {
+  decideProviderManagedOfferRefreshV2,
+  decideProviderManagedStoreRefreshV2,
+} from "./provider-refresh-decision.ts";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -73,6 +81,109 @@ export interface AdsPersistencePlannerInputV2 {
   campaignFetch: ImpactCampaignFetchResultForAdsV2;
   adsFetch: ImpactAdsFetchResultV2;
   catalog: AdsCatalogPlanningContextV2;
+}
+
+export type AdsProviderRefreshPreviewActionV2 =
+  | "noop_existing"
+  | "update_existing"
+  | "blocked";
+
+export type AdsProviderRefreshPreviewReasonV2 =
+  | "missing_snapshot"
+  | "invalid_projection";
+
+export interface AdsProviderRefreshStorePreviewV2 {
+  providerEntityNamespace: "campaign";
+  providerEntityId: string;
+  existingStoreId: string;
+  action: AdsProviderRefreshPreviewActionV2;
+  reason: AdsProviderRefreshPreviewReasonV2 | null;
+}
+
+export interface AdsProviderRefreshOfferPreviewV2 {
+  providerEntityNamespace: "ad";
+  providerEntityId: string;
+  existingOfferId: string;
+  parentProviderEntityId: string;
+  expectedParentStoreId: string;
+  action: AdsProviderRefreshPreviewActionV2;
+  reason: AdsProviderRefreshPreviewReasonV2 | null;
+}
+
+export interface AdsProviderRefreshPreviewV2 {
+  status: "ready" | "blocked";
+  mode: AdsPersistenceModeV2;
+  canaryAdId: string | null;
+  planBlockers: AdsPersistenceBlockerReasonV2[];
+  stores: AdsProviderRefreshStorePreviewV2[];
+  offers: AdsProviderRefreshOfferPreviewV2[];
+  counts: {
+    stores: {
+      noopExisting: number;
+      updateExisting: number;
+      blocked: number;
+    };
+    offers: {
+      noopExisting: number;
+      updateExisting: number;
+      blocked: number;
+    };
+  };
+}
+
+/**
+ * Preview-only comparison result.
+ *
+ * It contains no mutation payload and cannot be passed to the V2 RPC.
+ */
+function finalizeProviderRefreshPreviewV2(input: {
+  mode: AdsPersistenceModeV2;
+  canaryAdId: string | null;
+  planBlockers?: readonly AdsPersistenceBlockerReasonV2[];
+  stores?: AdsProviderRefreshStorePreviewV2[];
+  offers?: AdsProviderRefreshOfferPreviewV2[];
+}): AdsProviderRefreshPreviewV2 {
+  const stores = [...(input.stores ?? [])].sort((left, right) =>
+    compareText(left.providerEntityId, right.providerEntityId)
+  );
+  const offers = [...(input.offers ?? [])].sort((left, right) =>
+    compareText(left.providerEntityId, right.providerEntityId)
+  );
+  const planBlockers = [...(input.planBlockers ?? [])];
+
+  const counts = {
+    stores: {
+      noopExisting:
+        stores.filter((entry) => entry.action === "noop_existing").length,
+      updateExisting:
+        stores.filter((entry) => entry.action === "update_existing").length,
+      blocked:
+        stores.filter((entry) => entry.action === "blocked").length,
+    },
+    offers: {
+      noopExisting:
+        offers.filter((entry) => entry.action === "noop_existing").length,
+      updateExisting:
+        offers.filter((entry) => entry.action === "update_existing").length,
+      blocked:
+        offers.filter((entry) => entry.action === "blocked").length,
+    },
+  };
+
+  return {
+    status:
+      planBlockers.length > 0 ||
+        counts.stores.blocked > 0 ||
+        counts.offers.blocked > 0
+        ? "blocked"
+        : "ready",
+    mode: input.mode,
+    canaryAdId: input.canaryAdId,
+    planBlockers,
+    stores,
+    offers,
+    counts,
+  };
 }
 
 interface CatalogIndexesV2 {
@@ -560,6 +671,232 @@ function sourceIdentityIsSafe(input: {
 
 /** Pure, deterministic Ads-to-transaction intent planner. */
 export class AdsPersistencePlannerV2 {
+  /**
+   * Non-executable provider refresh preview.
+   *
+   * This deliberately starts from the current executable plan and inspects
+   * only exact existing entities already classified as noop_existing.
+   *
+   * It does not alter the settled persistence contract and its return value
+   * is structurally incompatible with prepareAdsPersistenceExecutionV2.
+   */
+  static planProviderRefreshPreview(
+    input: AdsPersistencePlannerInputV2,
+  ): AdsProviderRefreshPreviewV2 {
+    const executablePlan = this.plan(input);
+
+    if (executablePlan.status !== "ready") {
+      return finalizeProviderRefreshPreviewV2({
+        mode: input.mode,
+        canaryAdId: input.canaryAdId,
+        planBlockers: executablePlan.blockers.map((entry) => entry.reason),
+      });
+    }
+
+    const siteOrigin = normalizeSiteOriginV2(input.siteUrl);
+    if (siteOrigin === null) {
+      return finalizeProviderRefreshPreviewV2({
+        mode: input.mode,
+        canaryAdId: input.canaryAdId,
+        planBlockers: ["invalid_context"],
+      });
+    }
+
+    const deduplicated =
+      RawAdDeduplicator.deduplicate(input.adsFetch.records);
+
+    const selectedRaw = input.mode === "canary"
+      ? deduplicated.uniqueAds.filter((entry) =>
+        entry.providerOfferKey.id === input.canaryAdId
+      )
+      : deduplicated.uniqueAds;
+
+    const resolution = ImpactAdMerchantResolver.resolve(
+      selectedRaw,
+      input.campaignFetch.records,
+    );
+
+    const normalized = ImpactAdOfferNormalizer.normalize(resolution);
+
+    const normalizedStoreByCampaign = new Map(
+      normalized.stores.map((store) => [store.campaignId, store]),
+    );
+
+    const normalizedOfferByAd = new Map(
+      normalized.offers.map((offer) => [
+        offer.providerOfferKey.id,
+        offer,
+      ]),
+    );
+
+    const storePreviews: AdsProviderRefreshStorePreviewV2[] = [];
+
+    for (const instruction of executablePlan.storeInstructions) {
+      if (instruction.action !== "noop_existing") continue;
+
+      const existing = input.catalog.stores.find((store) =>
+        store.storeId === instruction.expectedExistingStoreId &&
+        store.provider === "impact" &&
+        store.providerEntityNamespace === "campaign" &&
+        store.providerEntityId === instruction.providerEntityId
+      );
+
+      const normalizedStore = normalizedStoreByCampaign.get(
+        instruction.providerEntityId,
+      );
+
+      if (!existing || !normalizedStore) {
+        storePreviews.push({
+          providerEntityNamespace: "campaign",
+          providerEntityId: instruction.providerEntityId,
+          existingStoreId: instruction.expectedExistingStoreId,
+          action: "blocked",
+          reason: "invalid_projection",
+        });
+        continue;
+      }
+
+      const projection = storeProjection(
+        normalizedStore,
+        input.evaluationTimestamp,
+        siteOrigin,
+      );
+
+      if (projection === null) {
+        storePreviews.push({
+          providerEntityNamespace: "campaign",
+          providerEntityId: instruction.providerEntityId,
+          existingStoreId: instruction.expectedExistingStoreId,
+          action: "blocked",
+          reason: "invalid_projection",
+        });
+        continue;
+      }
+
+      const desired =
+        providerManagedStoreStateFromProjectionV2(projection);
+
+      const decision = decideProviderManagedStoreRefreshV2(
+        existing.providerManagedState,
+        desired,
+      );
+
+      storePreviews.push({
+        providerEntityNamespace: "campaign",
+        providerEntityId: instruction.providerEntityId,
+        existingStoreId: instruction.expectedExistingStoreId,
+        action: decision === "blocked_missing_snapshot"
+          ? "blocked"
+          : decision,
+        reason: decision === "blocked_missing_snapshot"
+          ? "missing_snapshot"
+          : null,
+      });
+    }
+
+    const offerPreviews: AdsProviderRefreshOfferPreviewV2[] = [];
+
+    for (const instruction of executablePlan.offerInstructions) {
+      if (instruction.action !== "noop_existing") continue;
+
+      const existing = input.catalog.offers.find((offer) =>
+        offer.offerId === instruction.existingOfferId &&
+        offer.provider === "impact" &&
+        offer.providerEntityNamespace === "ad" &&
+        offer.providerEntityId === instruction.providerEntityId
+      );
+
+      const normalizedOffer = normalizedOfferByAd.get(
+        instruction.providerEntityId,
+      );
+
+      const normalizedStore = normalizedStoreByCampaign.get(
+        instruction.parentProviderEntityId,
+      );
+
+      const parentStore = input.catalog.stores.find((store) =>
+        store.storeId === instruction.expectedParentStoreId &&
+        store.provider === "impact" &&
+        store.providerEntityNamespace === "campaign" &&
+        store.providerEntityId === instruction.parentProviderEntityId
+      );
+
+      if (
+        !existing ||
+        !normalizedOffer ||
+        !normalizedStore ||
+        !parentStore
+      ) {
+        offerPreviews.push({
+          providerEntityNamespace: "ad",
+          providerEntityId: instruction.providerEntityId,
+          existingOfferId: instruction.existingOfferId,
+          parentProviderEntityId:
+            instruction.parentProviderEntityId,
+          expectedParentStoreId:
+            instruction.expectedParentStoreId,
+          action: "blocked",
+          reason: "invalid_projection",
+        });
+        continue;
+      }
+
+      const projection = offerProjection(
+        normalizedOffer,
+        normalizedStore,
+        parentStore.slug,
+        input.evaluationTimestamp,
+        siteOrigin,
+      );
+
+      if (projection === null) {
+        offerPreviews.push({
+          providerEntityNamespace: "ad",
+          providerEntityId: instruction.providerEntityId,
+          existingOfferId: instruction.existingOfferId,
+          parentProviderEntityId:
+            instruction.parentProviderEntityId,
+          expectedParentStoreId:
+            instruction.expectedParentStoreId,
+          action: "blocked",
+          reason: "invalid_projection",
+        });
+        continue;
+      }
+
+      const desired =
+        providerManagedOfferStateFromProjectionV2(projection);
+
+      const decision = decideProviderManagedOfferRefreshV2(
+        existing.providerManagedState,
+        desired,
+      );
+
+      offerPreviews.push({
+        providerEntityNamespace: "ad",
+        providerEntityId: instruction.providerEntityId,
+        existingOfferId: instruction.existingOfferId,
+        parentProviderEntityId:
+          instruction.parentProviderEntityId,
+        expectedParentStoreId:
+          instruction.expectedParentStoreId,
+        action: decision === "blocked_missing_snapshot"
+          ? "blocked"
+          : decision,
+        reason: decision === "blocked_missing_snapshot"
+          ? "missing_snapshot"
+          : null,
+      });
+    }
+
+    return finalizeProviderRefreshPreviewV2({
+      mode: input.mode,
+      canaryAdId: input.canaryAdId,
+      stores: storePreviews,
+      offers: offerPreviews,
+    });
+  }
+
   static plan(input: AdsPersistencePlannerInputV2): AdsPersistencePlanV2 {
     const validContext = UUID_PATTERN.test(input.integrationId) &&
       isExplicitEvaluationTimestampV2(input.evaluationTimestamp) &&
