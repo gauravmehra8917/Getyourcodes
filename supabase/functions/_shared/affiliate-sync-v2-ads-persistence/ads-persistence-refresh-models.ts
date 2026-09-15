@@ -11,6 +11,7 @@ import type {
   AdsHeldOfferInstructionV2,
   AdsNoopOfferInstructionV2,
   AdsNoopStoreInstructionV2,
+  AdsPersistenceBlockerReasonV2,
   AdsPersistenceBlockerV2,
   AdsPersistenceModeV2,
   AdsPersistencePreconditionV2,
@@ -198,6 +199,54 @@ export interface AdsRefreshPersistencePlanCountsV2 {
 }
 
 /**
+ * Provider-refresh-specific entity blocker reasons.
+ *
+ * These reasons are intentionally additive and never widen the settled
+ * v2-a11-ads-1 blocker contract.
+ */
+export type AdsRefreshPersistenceEntityBlockReasonV2 =
+  | "missing_snapshot"
+  | "invalid_projection"
+  | "missing_coupon_code"
+  | "unresolved_store"
+  | "identity_conflict"
+  | "missing_title"
+  | "invalid_date"
+  | "invalid_date_range"
+  | "qualification_inconsistent";
+
+/**
+ * Ads-2 canonical blocker evidence.
+ *
+ * Legacy ads-1 blockers are retained as-is. Refresh-only blocker evidence
+ * receives an explicit source/scope discriminator so it cannot be mistaken
+ * for settled ads-1 blocker material.
+ */
+export type AdsRefreshPersistenceBlockerV2 =
+  | AdsPersistenceBlockerV2
+  | {
+    source: "provider_refresh";
+    scope: "plan";
+    reason: AdsPersistenceBlockerReasonV2;
+    providerEntityNamespace: null;
+    providerEntityId: null;
+  }
+  | {
+    source: "provider_refresh";
+    scope: "store";
+    reason: "missing_snapshot" | "invalid_projection";
+    providerEntityNamespace: "campaign";
+    providerEntityId: string;
+  }
+  | {
+    source: "provider_refresh";
+    scope: "offer";
+    reason: AdsRefreshPersistenceEntityBlockReasonV2;
+    providerEntityNamespace: "ad";
+    providerEntityId: string;
+  };
+
+/**
  * Canonical ads-2 plan material.
  *
  * This is only a model in D1. No active planner, handler, executor or RPC
@@ -219,7 +268,7 @@ export interface AdsRefreshCanonicalPersistencePlanMaterialV2 {
 
   status: "ready" | "blocked";
 
-  blockers: AdsPersistenceBlockerV2[];
+  blockers: AdsRefreshPersistenceBlockerV2[];
 
   preconditions: AdsPersistencePreconditionV2[];
 
