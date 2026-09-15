@@ -60,6 +60,11 @@ import {
   classifyExistingAdRefreshSourceV2,
 } from "./provider-refresh-source-policy.ts";
 
+import {
+  type AdsProviderRefreshOwnershipBlockReasonV2,
+  classifyProviderManagedStoreOwnershipV2,
+} from "./provider-refresh-ownership.ts";
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -95,7 +100,8 @@ export type AdsProviderRefreshPreviewActionV2 =
 export type AdsProviderRefreshPreviewReasonV2 =
   | "missing_snapshot"
   | "invalid_projection"
-  | AdsExistingAdRefreshSourceBlockReasonV2;
+  | AdsExistingAdRefreshSourceBlockReasonV2
+  | AdsProviderRefreshOwnershipBlockReasonV2;
 
 export interface AdsProviderRefreshStorePreviewV2 {
   providerEntityNamespace: "campaign";
@@ -791,6 +797,22 @@ export class AdsPersistencePlannerV2 {
 
       previewedCampaigns.add(campaignId);
 
+      const ownership =
+        classifyProviderManagedStoreOwnershipV2(
+          existing,
+        );
+
+      if (ownership.action === "blocked") {
+        storePreviews.push({
+          providerEntityNamespace: "campaign",
+          providerEntityId: campaignId,
+          existingStoreId: existing.storeId,
+          action: "blocked",
+          reason: ownership.reason,
+        });
+        return;
+      }
+
       const normalizedStore =
         normalizedStoreByCampaign.get(campaignId);
 
@@ -854,6 +876,26 @@ export class AdsPersistencePlannerV2 {
       if (previewedAds.has(adId)) return;
 
       previewedAds.add(adId);
+
+      const parentOwnership =
+        classifyProviderManagedStoreOwnershipV2(
+          inputOffer.parentStore,
+        );
+
+      if (parentOwnership.action === "blocked") {
+        offerPreviews.push({
+          providerEntityNamespace: "ad",
+          providerEntityId: adId,
+          existingOfferId: inputOffer.existing.offerId,
+          parentProviderEntityId:
+            inputOffer.parentStore.providerEntityId ?? "",
+          expectedParentStoreId:
+            inputOffer.parentStore.storeId,
+          action: "blocked",
+          reason: parentOwnership.reason,
+        });
+        return;
+      }
 
       const normalizedOffer =
         normalizedOfferByAd.get(adId);
@@ -1125,6 +1167,51 @@ export class AdsPersistencePlannerV2 {
         supplementalPlanBlockers.push(
           "incompatible_parent",
         );
+        continue;
+      }
+
+      /*
+       * Parent governance is an authorization boundary.
+       * It must precede source-quality/lifecycle refresh policy.
+       */
+      const existingParentOwnership =
+        classifyProviderManagedStoreOwnershipV2(
+          existingParent,
+        );
+
+      if (
+        existingParentOwnership.action === "blocked"
+      ) {
+        offerPreviews.push({
+          providerEntityNamespace: "ad",
+          providerEntityId: adId,
+          existingOfferId: existing.offerId,
+          parentProviderEntityId:
+            existingParent.providerEntityId!,
+          expectedParentStoreId:
+            existingParent.storeId,
+          action: "blocked",
+          reason: existingParentOwnership.reason,
+        });
+
+        previewedAds.add(adId);
+
+        /*
+         * Preserve the existing no-adoption rule:
+         * only the exact source-resolved Campaign may
+         * independently enter Campaign refresh preview.
+         */
+        if (
+          offer.association.matchMethod === "campaign_id" &&
+          offer.association.providerStoreKey.id ===
+            existingParent.providerEntityId
+        ) {
+          previewExistingStore(
+            existingParent.providerEntityId!,
+            existingParent,
+          );
+        }
+
         continue;
       }
 

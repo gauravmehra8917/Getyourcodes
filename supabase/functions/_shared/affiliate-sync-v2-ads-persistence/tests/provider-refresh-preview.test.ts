@@ -170,6 +170,9 @@ function matchingExistingCatalog(): AdsCatalogPlanningContextV2 {
       provider: "impact",
       providerEntityNamespace: "campaign",
       providerEntityId: "Campaign-A",
+      importOrigin: "provider",
+      lifecycleManaged: true,
+
       providerManagedState:
         providerManagedStoreStateFromProjectionV2(
           store.projection,
@@ -779,4 +782,222 @@ test("new invalid or no-code Ads remain outside provider refresh preview", () =>
       0,
     );
   }
+});
+
+test("missing parent ownership evidence blocks Campaign and Ad refresh preview", () => {
+  const catalog = matchingExistingCatalog();
+
+  delete catalog.stores[0]!.importOrigin;
+  delete catalog.stores[0]!.lifecycleManaged;
+
+  const input = plannerInput(catalog);
+
+  const executable =
+    AdsPersistencePlannerV2.plan(input);
+
+  const preview =
+    AdsPersistencePlannerV2.planProviderRefreshPreview(
+      input,
+    );
+
+  assert.equal(
+    executable.storeInstructions[0]?.action,
+    "noop_existing",
+  );
+
+  assert.equal(
+    executable.offerInstructions[0]?.action,
+    "noop_existing",
+  );
+
+  assert.equal(
+    executable.counts.writableEntities,
+    0,
+  );
+
+  assert.equal(preview.status, "blocked");
+
+  assert.equal(
+    preview.stores[0]?.reason,
+    "missing_ownership_evidence",
+  );
+
+  assert.equal(
+    preview.offers[0]?.reason,
+    "missing_ownership_evidence",
+  );
+
+  assert.equal(
+    preview.counts.stores.updateExisting,
+    0,
+  );
+
+  assert.equal(
+    preview.counts.offers.updateExisting,
+    0,
+  );
+});
+
+test("non-provider-managed parent blocks Campaign and Ad refresh preview", () => {
+  const catalog = matchingExistingCatalog();
+
+  catalog.stores[0]!.importOrigin = null;
+  catalog.stores[0]!.lifecycleManaged = false;
+
+  const input = plannerInput(catalog);
+
+  const executable =
+    AdsPersistencePlannerV2.plan(input);
+
+  const preview =
+    AdsPersistencePlannerV2.planProviderRefreshPreview(
+      input,
+    );
+
+  assert.equal(
+    executable.storeInstructions[0]?.action,
+    "noop_existing",
+  );
+
+  assert.equal(
+    executable.offerInstructions[0]?.action,
+    "noop_existing",
+  );
+
+  assert.equal(
+    executable.counts.writableEntities,
+    0,
+  );
+
+  assert.equal(preview.status, "blocked");
+
+  assert.equal(
+    preview.stores[0]?.reason,
+    "ownership_not_provider_managed",
+  );
+
+  assert.equal(
+    preview.offers[0]?.reason,
+    "ownership_not_provider_managed",
+  );
+
+  assert.equal(
+    preview.counts.stores.updateExisting,
+    0,
+  );
+
+  assert.equal(
+    preview.counts.offers.updateExisting,
+    0,
+  );
+});
+
+test("parent ownership outranks invalid provider source reason", () => {
+  const catalog = matchingExistingCatalog();
+
+  catalog.stores[0]!.importOrigin = null;
+  catalog.stores[0]!.lifecycleManaged = false;
+
+  const input = plannerInput(
+    catalog,
+    ad({
+      codeClass: "no_code",
+      validatedCouponCode: null,
+    }),
+  );
+
+  const executable =
+    AdsPersistencePlannerV2.plan(input);
+
+  const preview =
+    AdsPersistencePlannerV2.planProviderRefreshPreview(
+      input,
+    );
+
+  assert.equal(
+    executable.counts.writableEntities,
+    0,
+  );
+
+  assert.equal(preview.status, "blocked");
+
+  assert.equal(
+    preview.offers[0]?.action,
+    "blocked",
+  );
+
+  assert.equal(
+    preview.offers[0]?.reason,
+    "ownership_not_provider_managed",
+  );
+
+  assert.notEqual(
+    preview.offers[0]?.reason,
+    "missing_coupon_code",
+  );
+
+  assert.equal(
+    preview.counts.offers.updateExisting,
+    0,
+  );
+});
+
+test("expired existing Ad cannot refresh beneath non-provider-managed parent", () => {
+  const catalog = matchingExistingCatalog();
+
+  catalog.stores[0]!.importOrigin = null;
+  catalog.stores[0]!.lifecycleManaged = false;
+
+  const input = plannerInput(
+    catalog,
+    ad({
+      dealStartDate:
+        "2026-01-01T00:00:00Z",
+      dealEndDate:
+        "2026-05-31T23:59:59Z",
+    }),
+  );
+
+  const executable =
+    AdsPersistencePlannerV2.plan(input);
+
+  const preview =
+    AdsPersistencePlannerV2.planProviderRefreshPreview(
+      input,
+    );
+
+  assert.equal(
+    executable.offerInstructions[0]?.action,
+    "noop_held",
+  );
+
+  assert.equal(
+    executable.offerInstructions[0]?.action ===
+        "noop_held"
+      ? executable.offerInstructions[0].holdReason
+      : null,
+    "expired",
+  );
+
+  assert.equal(
+    executable.counts.writableEntities,
+    0,
+  );
+
+  assert.equal(preview.status, "blocked");
+
+  assert.equal(
+    preview.stores[0]?.reason,
+    "ownership_not_provider_managed",
+  );
+
+  assert.equal(
+    preview.offers[0]?.reason,
+    "ownership_not_provider_managed",
+  );
+
+  assert.equal(
+    preview.counts.offers.updateExisting,
+    0,
+  );
 });
