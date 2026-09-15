@@ -529,3 +529,254 @@ test("new future and expired Ads remain excluded from refresh preview", () => {
     );
   }
 });
+test("exact existing no-code Ad is explicitly blocked and never updated", () => {
+  const catalog = matchingExistingCatalog();
+
+  const noCode = ad({
+    codeClass: "no_code",
+    validatedCouponCode: null,
+  });
+
+  const input = plannerInput(
+    catalog,
+    noCode,
+  );
+
+  const executable =
+    AdsPersistencePlannerV2.plan(input);
+
+  const preview =
+    AdsPersistencePlannerV2.planProviderRefreshPreview(
+      input,
+    );
+
+  assert.equal(
+    executable.counts.writableEntities,
+    0,
+  );
+
+  assert.equal(preview.status, "blocked");
+
+  assert.equal(
+    preview.offers[0]?.action,
+    "blocked",
+  );
+
+  assert.equal(
+    preview.offers[0]?.reason,
+    "missing_coupon_code",
+  );
+
+  assert.equal(
+    preview.counts.offers.updateExisting,
+    0,
+  );
+});
+
+test("exact existing invalid date and date range Ads are explicitly blocked", () => {
+  const cases = [
+    {
+      rawAd: ad({
+        dateFieldsValid: false,
+      }),
+      expectedReason: "invalid_date",
+    },
+    {
+      rawAd: ad({
+        dealStartDate: "2026-12-31T00:00:00Z",
+        dealEndDate: "2026-01-01T00:00:00Z",
+        dateFieldsValid: true,
+      }),
+      expectedReason: "invalid_date_range",
+    },
+  ] as const;
+
+  for (const entry of cases) {
+    const catalog = matchingExistingCatalog();
+
+    const input = plannerInput(
+      catalog,
+      entry.rawAd,
+    );
+
+    const executable =
+      AdsPersistencePlannerV2.plan(input);
+
+    const preview =
+      AdsPersistencePlannerV2.planProviderRefreshPreview(
+        input,
+      );
+
+    assert.equal(
+      executable.counts.writableEntities,
+      0,
+    );
+
+    assert.equal(preview.status, "blocked");
+
+    assert.equal(
+      preview.offers[0]?.action,
+      "blocked",
+    );
+
+    assert.equal(
+      preview.offers[0]?.reason,
+      entry.expectedReason,
+    );
+
+    assert.equal(
+      preview.counts.offers.updateExisting,
+      0,
+    );
+  }
+});
+
+test("exact existing missing-title Ad is explicitly blocked", () => {
+  const catalog = matchingExistingCatalog();
+
+  const input = plannerInput(
+    catalog,
+    ad({
+      title: null,
+    }),
+  );
+
+  const executable =
+    AdsPersistencePlannerV2.plan(input);
+
+  const preview =
+    AdsPersistencePlannerV2.planProviderRefreshPreview(
+      input,
+    );
+
+  assert.equal(
+    executable.counts.writableEntities,
+    0,
+  );
+
+  assert.equal(preview.status, "blocked");
+
+  assert.equal(
+    preview.offers[0]?.action,
+    "blocked",
+  );
+
+  assert.equal(
+    preview.offers[0]?.reason,
+    "missing_title",
+  );
+
+  assert.equal(
+    preview.counts.offers.updateExisting,
+    0,
+  );
+});
+
+test("exact existing unresolved Campaign and advertiser conflict are explicitly blocked", () => {
+  const cases = [
+    {
+      rawAd: ad({
+        campaignId: "Unknown-Campaign",
+      }),
+      expectedReason: "unresolved_store",
+    },
+    {
+      rawAd: ad({
+        advertiserId: "Different-Advertiser",
+      }),
+      expectedReason: "identity_conflict",
+    },
+  ] as const;
+
+  for (const entry of cases) {
+    const catalog = matchingExistingCatalog();
+
+    const input = plannerInput(
+      catalog,
+      entry.rawAd,
+    );
+
+    const executable =
+      AdsPersistencePlannerV2.plan(input);
+
+    const preview =
+      AdsPersistencePlannerV2.planProviderRefreshPreview(
+        input,
+      );
+
+    assert.equal(
+      executable.counts.writableEntities,
+      0,
+    );
+
+    assert.equal(preview.status, "blocked");
+
+    assert.equal(
+      preview.offers[0]?.action,
+      "blocked",
+    );
+
+    assert.equal(
+      preview.offers[0]?.reason,
+      entry.expectedReason,
+    );
+
+    assert.equal(
+      preview.counts.offers.updateExisting,
+      0,
+    );
+  }
+});
+
+test("new invalid or no-code Ads remain outside provider refresh preview", () => {
+  const cases = [
+    ad({
+      codeClass: "no_code",
+      validatedCouponCode: null,
+    }),
+    ad({
+      dateFieldsValid: false,
+    }),
+    ad({
+      title: null,
+    }),
+    ad({
+      campaignId: "Unknown-Campaign",
+    }),
+  ];
+
+  for (const rawAd of cases) {
+    const input = plannerInput(
+      {
+        stores: [],
+        offers: [],
+      },
+      rawAd,
+    );
+
+    const preview =
+      AdsPersistencePlannerV2.planProviderRefreshPreview(
+        input,
+      );
+
+    assert.deepEqual(
+      preview.stores,
+      [],
+    );
+
+    assert.deepEqual(
+      preview.offers,
+      [],
+    );
+
+    assert.equal(
+      preview.counts.stores.updateExisting,
+      0,
+    );
+
+    assert.equal(
+      preview.counts.offers.updateExisting,
+      0,
+    );
+  }
+});

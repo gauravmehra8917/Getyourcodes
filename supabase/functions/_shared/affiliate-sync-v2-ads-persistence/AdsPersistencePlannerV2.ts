@@ -55,6 +55,10 @@ import {
   decideProviderManagedOfferRefreshV2,
   decideProviderManagedStoreRefreshV2,
 } from "./provider-refresh-decision.ts";
+import {
+  type AdsExistingAdRefreshSourceBlockReasonV2,
+  classifyExistingAdRefreshSourceV2,
+} from "./provider-refresh-source-policy.ts";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -90,7 +94,8 @@ export type AdsProviderRefreshPreviewActionV2 =
 
 export type AdsProviderRefreshPreviewReasonV2 =
   | "missing_snapshot"
-  | "invalid_projection";
+  | "invalid_projection"
+  | AdsExistingAdRefreshSourceBlockReasonV2;
 
 export interface AdsProviderRefreshStorePreviewV2 {
   providerEntityNamespace: "campaign";
@@ -1020,20 +1025,23 @@ export class AdsPersistencePlannerV2 {
     }
 
     /*
-     * C3 supplement:
+     * C5 supplement:
      *
-     * An exact existing provider Ad may have become future-dated or expired.
-     * The executable CREATE planner intentionally holds those Ads before
-     * exact-existing matching. The preview may inspect them, but only when:
+     * Inspect only source Ads whose exact provider Ad identity already exists
+     * in the catalog but which were not previewed through executable
+     * noop_existing instructions above.
      *
-     * - provider identity is exact and unique,
-     * - parent Campaign identity is exact and unique,
-     * - no legacy collision exists,
-     * - the existing coupon remains kind=code,
-     * - parent relationship is unchanged,
-     * - qualification reason is exactly not_started or expired.
+     * The pure source-policy classifier runs before projection:
      *
-     * No new future/expired Ad is admitted here.
+     * - active / not_started / expired valid source => refresh comparison
+     * - missing code => blocked
+     * - invalid date/range => blocked
+     * - missing title => blocked
+     * - unresolved Campaign => blocked
+     * - Campaign/Advertiser conflict => blocked identity_conflict
+     *
+     * New Ads with these dispositions remain outside refresh entirely.
+     * Nothing in this preview deletes, hides or mutates stored catalog data.
      */
     for (
       const offer of normalized.offers.sort((left, right) =>
@@ -1047,25 +1055,6 @@ export class AdsPersistencePlannerV2 {
 
       if (previewedAds.has(adId)) continue;
 
-      const qualified = qualifiedByAd.get(adId);
-
-      if (
-        !qualified ||
-        (
-          qualified.reason !== "not_started" &&
-          qualified.reason !== "expired"
-        )
-      ) {
-        continue;
-      }
-
-      if (
-        offer.codeClass !== "code_bearing" ||
-        offer.association.matchMethod !== "campaign_id"
-      ) {
-        continue;
-      }
-
       const existingAds =
         indexes.adOffers.get(adId) ?? [];
 
@@ -1073,8 +1062,9 @@ export class AdsPersistencePlannerV2 {
         indexes.legacyOffers.get(adId) ?? [];
 
       /*
-       * No exact existing Ad means this is a new future/expired Ad.
-       * It remains held and is not a refresh candidate.
+       * No exact existing Ad:
+       * this remains a CREATE/hold concern for executable plan(), not a
+       * provider-managed refresh concern.
        */
       if (
         existingAds.length === 0 &&
@@ -1106,6 +1096,89 @@ export class AdsPersistencePlannerV2 {
       if (existing.couponType !== "code") {
         supplementalPlanBlockers.push(
           "offer_kind_conflict",
+        );
+        continue;
+      }
+
+      const qualified = qualifiedByAd.get(adId);
+
+      if (!qualified) {
+        supplementalPlanBlockers.push(
+          "identity_collapse_detected",
+        );
+        continue;
+      }
+
+      /*
+       * The stored parent is used only as bounded evidence for reporting a
+       * blocked refresh. It is never used to resolve or repair an unresolved
+       * incoming Campaign association.
+       */
+      const existingParent = input.catalog.stores.find((store) =>
+        store.storeId === existing.storeId &&
+        store.provider === "impact" &&
+        store.providerEntityNamespace === "campaign" &&
+        store.providerEntityId !== null
+      );
+
+      if (!existingParent) {
+        supplementalPlanBlockers.push(
+          "incompatible_parent",
+        );
+        continue;
+      }
+
+      const sourceDisposition =
+        classifyExistingAdRefreshSourceV2(qualified);
+
+      if (sourceDisposition.action === "no_action") {
+        continue;
+      }
+
+      if (sourceDisposition.action === "blocked") {
+        offerPreviews.push({
+          providerEntityNamespace: "ad",
+          providerEntityId: adId,
+          existingOfferId: existing.offerId,
+          parentProviderEntityId:
+            existingParent.providerEntityId!,
+          expectedParentStoreId:
+            existingParent.storeId,
+          action: "blocked",
+          reason: sourceDisposition.blockReason,
+        });
+
+        previewedAds.add(adId);
+
+        /*
+         * Only a source-resolved Campaign is eligible for an independent
+         * Campaign refresh preview. An unresolved source cannot cause store
+         * adoption or movement.
+         */
+        if (
+          offer.association.matchMethod === "campaign_id" &&
+          offer.association.providerStoreKey.id ===
+            existingParent.providerEntityId
+        ) {
+          previewExistingStore(
+            existingParent.providerEntityId!,
+            existingParent,
+          );
+        }
+
+        continue;
+      }
+
+      /*
+       * Refreshable source must have the exact resolved Campaign identity.
+       * Revalidate catalog uniqueness and immutable parent relationship
+       * before provider-managed comparison.
+       */
+      if (
+        offer.association.matchMethod !== "campaign_id"
+      ) {
+        supplementalPlanBlockers.push(
+          "incompatible_parent",
         );
         continue;
       }
@@ -1143,7 +1216,11 @@ export class AdsPersistencePlannerV2 {
       const parentStore =
         campaignMatches[0]!;
 
-      if (existing.storeId !== parentStore.storeId) {
+      if (
+        existing.storeId !== parentStore.storeId ||
+        existingParent.storeId !== parentStore.storeId ||
+        existingParent.providerEntityId !== campaignId
+      ) {
         supplementalPlanBlockers.push(
           "incompatible_parent",
         );
