@@ -51,6 +51,16 @@ export interface AdsCatalogStoreFactV2 {
   provider: string | null;
   providerEntityNamespace: string | null;
   providerEntityId: string | null;
+
+  /**
+   * Bounded read-only ownership evidence.
+   *
+   * Optional means ownership was not proven by the supplied catalog snapshot.
+   * Provider refresh must fail closed when either value is absent.
+   */
+  importOrigin?: "provider" | null;
+  lifecycleManaged?: boolean;
+
   providerManagedState?: AdsProviderManagedStoreStateV2 | null;
 }
 

@@ -25,6 +25,15 @@ export interface AdsCatalogStoreRowV2 {
   provider: unknown;
   providerEntityNamespace: unknown;
   providerEntityId: unknown;
+
+  /**
+   * Ownership columns are optional at this raw mapper boundary so synthetic
+   * callers that do not provide ownership evidence remain distinguishable
+   * from a database row that explicitly contains NULL / false.
+   */
+  importOrigin?: unknown;
+  lifecycleManaged?: unknown;
+
   affiliateUrl?: unknown;
   metadata?: unknown;
 }
@@ -129,6 +138,51 @@ function metadataText(
   code: string,
 ): string | null {
   return optionalExactText(metadata[key], code);
+}
+
+function storeOwnershipEvidence(
+  row: AdsCatalogStoreRowV2,
+): Pick<
+  AdsCatalogStoreFactV2,
+  "importOrigin" | "lifecycleManaged"
+> | null {
+  const hasImportOrigin =
+    row.importOrigin !== undefined;
+
+  const hasLifecycleManaged =
+    row.lifecycleManaged !== undefined;
+
+  if (hasImportOrigin !== hasLifecycleManaged) {
+    throw new Error(
+      "ads_catalog_store_ownership_evidence_partial",
+    );
+  }
+
+  if (!hasImportOrigin) {
+    return null;
+  }
+
+  if (
+    row.importOrigin !== null &&
+    row.importOrigin !== "provider"
+  ) {
+    throw new Error(
+      "ads_catalog_store_import_origin_invalid",
+    );
+  }
+
+  if (
+    typeof row.lifecycleManaged !== "boolean"
+  ) {
+    throw new Error(
+      "ads_catalog_store_lifecycle_managed_invalid",
+    );
+  }
+
+  return {
+    importOrigin: row.importOrigin,
+    lifecycleManaged: row.lifecycleManaged,
+  };
 }
 
 function managedStoreState(
@@ -399,6 +453,9 @@ export function mapAdsCatalogPlanningContextV2(
       "ads_catalog_store_provider_id_invalid",
     );
 
+    const ownership =
+      storeOwnershipEvidence(row);
+
     if (
       (provider === null) !== (namespace === null) ||
       (provider === null) !== (providerId === null)
@@ -410,6 +467,7 @@ export function mapAdsCatalogPlanningContextV2(
       provider,
       providerEntityNamespace: namespace,
       providerEntityId: providerId,
+      ...(ownership ?? {}),
       providerManagedState: managedStoreState(row, provider, namespace),
     };
   });
@@ -446,7 +504,7 @@ async function readAllStoreFacts(
 
   for (;;) {
     let query = db.from("stores").select(
-      "id,slug,provider,provider_entity_namespace,provider_entity_id,affiliate_url,metadata",
+      "id,slug,provider,provider_entity_namespace,provider_entity_id,import_origin,lifecycle_managed,affiliate_url,metadata",
     );
 
     if (afterId !== null) query = query.gt("id", afterId);
@@ -466,6 +524,8 @@ async function readAllStoreFacts(
       provider: row.provider,
       providerEntityNamespace: row.provider_entity_namespace,
       providerEntityId: row.provider_entity_id,
+      importOrigin: row.import_origin,
+      lifecycleManaged: row.lifecycle_managed,
       affiliateUrl: row.affiliate_url,
       metadata: row.metadata,
     })));

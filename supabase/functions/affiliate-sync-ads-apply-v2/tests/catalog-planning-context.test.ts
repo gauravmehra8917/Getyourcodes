@@ -379,6 +379,8 @@ test("catalog loader is fully keyset-paged and reads only bounded planning colum
       ? "legacy"
       : "campaign",
     provider_entity_id: number === 2 ? null : `Campaign-${number}`,
+    import_origin: number === 2 ? null : "provider",
+    lifecycle_managed: number !== 2,
     affiliate_url: number === 0 ? "https://campaign.example/" : null,
     metadata: number === 0
       ? {
@@ -461,6 +463,26 @@ test("catalog loader is fully keyset-paged and reads only bounded planning colum
 
   assert.equal(result.stores.length, 3);
   assert.equal(result.offers.length, 1);
+
+  assert.equal(
+    result.stores[0]?.importOrigin,
+    "provider",
+  );
+
+  assert.equal(
+    result.stores[0]?.lifecycleManaged,
+    true,
+  );
+
+  assert.equal(
+    result.stores[2]?.importOrigin,
+    null,
+  );
+
+  assert.equal(
+    result.stores[2]?.lifecycleManaged,
+    false,
+  );
   assert.equal(
     result.stores[0]?.providerManagedState?.metadata.campaignId,
     "Campaign-0",
@@ -487,7 +509,7 @@ test("catalog loader is fully keyset-paged and reads only bounded planning colum
 
   assert.equal(
     storeAudits[0]?.columns,
-    "id,slug,provider,provider_entity_namespace,provider_entity_id,affiliate_url,metadata",
+    "id,slug,provider,provider_entity_namespace,provider_entity_id,import_origin,lifecycle_managed,affiliate_url,metadata",
   );
 
   assert.equal(
@@ -506,5 +528,99 @@ test("catalog loader is fully keyset-paged and reads only bounded planning colum
       "provider_entity_namespace",
       ["ad", "legacy", "promotion"],
     ]],
+  );
+});
+test("catalog mapper retains ownership evidence and rejects malformed ownership evidence", () => {
+  const mapped = mapAdsCatalogPlanningContextV2([
+    {
+      id: STORE_ID,
+      slug: "provider-campaign",
+      provider: "impact",
+      providerEntityNamespace: "campaign",
+      providerEntityId: "Campaign-A",
+      importOrigin: "provider",
+      lifecycleManaged: true,
+      affiliateUrl: null,
+      metadata: {},
+    },
+    {
+      id: "33333333-3333-4333-8333-333333333333",
+      slug: "manual-store",
+      provider: null,
+      providerEntityNamespace: null,
+      providerEntityId: null,
+      importOrigin: null,
+      lifecycleManaged: false,
+    },
+  ], []);
+
+  assert.equal(
+    mapped.stores[0]?.importOrigin,
+    "provider",
+  );
+
+  assert.equal(
+    mapped.stores[0]?.lifecycleManaged,
+    true,
+  );
+
+  assert.equal(
+    mapped.stores[1]?.importOrigin,
+    null,
+  );
+
+  assert.equal(
+    mapped.stores[1]?.lifecycleManaged,
+    false,
+  );
+
+  assert.throws(
+    () =>
+      mapAdsCatalogPlanningContextV2([
+        {
+          id: STORE_ID,
+          slug: "partial-ownership",
+          provider: "impact",
+          providerEntityNamespace: "campaign",
+          providerEntityId: "Campaign-A",
+          importOrigin: "provider",
+          metadata: {},
+        },
+      ], []),
+    /ads_catalog_store_ownership_evidence_partial/,
+  );
+
+  assert.throws(
+    () =>
+      mapAdsCatalogPlanningContextV2([
+        {
+          id: STORE_ID,
+          slug: "invalid-origin",
+          provider: "impact",
+          providerEntityNamespace: "campaign",
+          providerEntityId: "Campaign-A",
+          importOrigin: "manual",
+          lifecycleManaged: false,
+          metadata: {},
+        },
+      ], []),
+    /ads_catalog_store_import_origin_invalid/,
+  );
+
+  assert.throws(
+    () =>
+      mapAdsCatalogPlanningContextV2([
+        {
+          id: STORE_ID,
+          slug: "invalid-lifecycle",
+          provider: "impact",
+          providerEntityNamespace: "campaign",
+          providerEntityId: "Campaign-A",
+          importOrigin: "provider",
+          lifecycleManaged: "true",
+          metadata: {},
+        },
+      ], []),
+    /ads_catalog_store_lifecycle_managed_invalid/,
   );
 });
