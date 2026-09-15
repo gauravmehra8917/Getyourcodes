@@ -9,12 +9,49 @@ export const ADS_PERSISTENCE_CONTRACT_VERSION_V2 = "v2-a11-ads-1" as const;
 
 export type AdsPersistenceModeV2 = "full" | "canary";
 
+export interface AdsProviderManagedStoreStateV2 {
+  affiliateUrl: string | null;
+  metadata: {
+    advertiserId: string | null;
+    campaignId: string | null;
+    campaignName: string | null;
+    destinationUrl: string | null;
+    trackingUrl: string | null;
+  };
+}
+
+export interface AdsProviderManagedOfferStateV2 {
+  couponCode: string;
+  affiliateUrl: string | null;
+  landingPageUrl: string | null;
+  startDate: string | null;
+  expiryDate: string | null;
+  status: "active" | "expired" | "draft";
+  terms: string | null;
+  discountType: "percentage" | "fixed" | null;
+  discountValue: number | null;
+  structuredTerms: ImpactAdStructuredTermsV2 | null;
+  metadata: {
+    adId: string | null;
+    campaignId: string | null;
+    advertiserId: string | null;
+    dealId: string | null;
+    campaignName: string | null;
+    adName: string | null;
+    dealStartDate: string | null;
+    dealEndDate: string | null;
+    startDate: string | null;
+    endDate: string | null;
+  };
+}
+
 export interface AdsCatalogStoreFactV2 {
   storeId: string;
   slug: string;
   provider: string | null;
   providerEntityNamespace: string | null;
   providerEntityId: string | null;
+  providerManagedState?: AdsProviderManagedStoreStateV2 | null;
 }
 
 export interface AdsCatalogOfferFactV2 {
@@ -24,6 +61,7 @@ export interface AdsCatalogOfferFactV2 {
   providerEntityNamespace: "ad" | "legacy" | "promotion";
   providerEntityId: string;
   couponType: "code" | "deal";
+  providerManagedState?: AdsProviderManagedOfferStateV2 | null;
 }
 
 /** Trusted, read-only catalog evidence. It contains no coupon content. */
