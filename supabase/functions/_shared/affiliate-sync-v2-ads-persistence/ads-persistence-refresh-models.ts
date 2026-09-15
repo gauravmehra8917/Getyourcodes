@@ -213,7 +213,9 @@ export type AdsRefreshPersistenceEntityBlockReasonV2 =
   | "missing_title"
   | "invalid_date"
   | "invalid_date_range"
-  | "qualification_inconsistent";
+  | "qualification_inconsistent"
+  | "missing_ownership_evidence"
+  | "ownership_not_provider_managed";
 
 /**
  * Ads-2 canonical blocker evidence.
@@ -234,7 +236,11 @@ export type AdsRefreshPersistenceBlockerV2 =
   | {
     source: "provider_refresh";
     scope: "store";
-    reason: "missing_snapshot" | "invalid_projection";
+    reason:
+      | "missing_snapshot"
+      | "invalid_projection"
+      | "missing_ownership_evidence"
+      | "ownership_not_provider_managed";
     providerEntityNamespace: "campaign";
     providerEntityId: string;
   }

@@ -526,3 +526,69 @@ test("non-JSON or non-finite canonical values fail closed", () => {
     /ads2_undefined_value/,
   );
 });
+
+test("ownership authorization blockers are canonical at store and offer scope", () => {
+  const blockers: AdsRefreshPersistenceBlockerV2[] = [
+    {
+      source: "provider_refresh",
+      scope: "store",
+      reason: "missing_ownership_evidence",
+      providerEntityNamespace: "campaign",
+      providerEntityId: "Campaign-A",
+    },
+    {
+      source: "provider_refresh",
+      scope: "offer",
+      reason: "ownership_not_provider_managed",
+      providerEntityNamespace: "ad",
+      providerEntityId: "Ad-A",
+    },
+  ];
+
+  const result =
+    finalizeAdsRefreshPersistencePlanV2({
+      basePlan: basePlan(),
+      storeInstructions: [
+        storeUpdate(),
+      ],
+      offerInstructions: [
+        offerUpdate(),
+      ],
+      additionalBlockers: blockers,
+    });
+
+  assert.equal(
+    result.status,
+    "blocked",
+  );
+
+  assert.equal(
+    result.blockers.length,
+    2,
+  );
+
+  assert.deepEqual(
+    result.blockers
+      .map((entry) => entry.reason)
+      .sort(),
+    [
+      "missing_ownership_evidence",
+      "ownership_not_provider_managed",
+    ].sort(),
+  );
+
+  assert.equal(
+    result.counts.writableEntities,
+    2,
+  );
+
+  assert.match(
+    result.canonicalPlanMaterialString,
+    /missing_ownership_evidence/,
+  );
+
+  assert.match(
+    result.canonicalPlanMaterialString,
+    /ownership_not_provider_managed/,
+  );
+});
