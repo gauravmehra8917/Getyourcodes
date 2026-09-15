@@ -680,6 +680,17 @@ export class AdsPersistencePlannerV2 {
    * It does not alter the settled persistence contract and its return value
    * is structurally incompatible with prepareAdsPersistenceExecutionV2.
    */
+  /**
+   * Non-executable provider refresh preview.
+   *
+   * Existing executable CREATE/NOOP semantics remain untouched.
+   *
+   * In addition to exact existing entities already classified as
+   * noop_existing by plan(), this preview may inspect exact existing Ads
+   * whose only current qualification disposition is not_started or expired.
+   *
+   * New future/expired Ads remain excluded from refresh preview.
+   */
   static planProviderRefreshPreview(
     input: AdsPersistencePlannerInputV2,
   ): AdsProviderRefreshPreviewV2 {
@@ -694,7 +705,18 @@ export class AdsPersistencePlannerV2 {
     }
 
     const siteOrigin = normalizeSiteOriginV2(input.siteUrl);
+
     if (siteOrigin === null) {
+      return finalizeProviderRefreshPreviewV2({
+        mode: input.mode,
+        canaryAdId: input.canaryAdId,
+        planBlockers: ["invalid_context"],
+      });
+    }
+
+    const indexes = catalogIndexes(input.catalog);
+
+    if (indexes === null) {
       return finalizeProviderRefreshPreviewV2({
         mode: input.mode,
         canaryAdId: input.canaryAdId,
@@ -716,10 +738,22 @@ export class AdsPersistencePlannerV2 {
       input.campaignFetch.records,
     );
 
-    const normalized = ImpactAdOfferNormalizer.normalize(resolution);
+    const normalized =
+      ImpactAdOfferNormalizer.normalize(resolution);
+
+    const matched =
+      AdsStoreMatcher.match(normalized, { stores: [] });
+
+    const qualification =
+      AdsOfferQualification.evaluate(matched, {
+        evaluationTimestamp: input.evaluationTimestamp,
+      });
 
     const normalizedStoreByCampaign = new Map(
-      normalized.stores.map((store) => [store.campaignId, store]),
+      normalized.stores.map((store) => [
+        store.campaignId,
+        store,
+      ]),
     );
 
     const normalizedOfferByAd = new Map(
@@ -729,31 +763,41 @@ export class AdsPersistencePlannerV2 {
       ]),
     );
 
+    const qualifiedByAd = new Map(
+      qualification.offers.map((entry) => [
+        entry.offer.providerOfferKey.id,
+        entry,
+      ]),
+    );
+
     const storePreviews: AdsProviderRefreshStorePreviewV2[] = [];
+    const offerPreviews: AdsProviderRefreshOfferPreviewV2[] = [];
 
-    for (const instruction of executablePlan.storeInstructions) {
-      if (instruction.action !== "noop_existing") continue;
+    const previewedCampaigns = new Set<string>();
+    const previewedAds = new Set<string>();
 
-      const existing = input.catalog.stores.find((store) =>
-        store.storeId === instruction.expectedExistingStoreId &&
-        store.provider === "impact" &&
-        store.providerEntityNamespace === "campaign" &&
-        store.providerEntityId === instruction.providerEntityId
-      );
+    const supplementalPlanBlockers: AdsPersistenceBlockerReasonV2[] = [];
 
-      const normalizedStore = normalizedStoreByCampaign.get(
-        instruction.providerEntityId,
-      );
+    const previewExistingStore = (
+      campaignId: string,
+      existing: AdsCatalogStoreFactV2,
+    ): void => {
+      if (previewedCampaigns.has(campaignId)) return;
 
-      if (!existing || !normalizedStore) {
+      previewedCampaigns.add(campaignId);
+
+      const normalizedStore =
+        normalizedStoreByCampaign.get(campaignId);
+
+      if (!normalizedStore) {
         storePreviews.push({
           providerEntityNamespace: "campaign",
-          providerEntityId: instruction.providerEntityId,
-          existingStoreId: instruction.expectedExistingStoreId,
+          providerEntityId: campaignId,
+          existingStoreId: existing.storeId,
           action: "blocked",
           reason: "invalid_projection",
         });
-        continue;
+        return;
       }
 
       const projection = storeProjection(
@@ -765,26 +809,27 @@ export class AdsPersistencePlannerV2 {
       if (projection === null) {
         storePreviews.push({
           providerEntityNamespace: "campaign",
-          providerEntityId: instruction.providerEntityId,
-          existingStoreId: instruction.expectedExistingStoreId,
+          providerEntityId: campaignId,
+          existingStoreId: existing.storeId,
           action: "blocked",
           reason: "invalid_projection",
         });
-        continue;
+        return;
       }
 
       const desired =
         providerManagedStoreStateFromProjectionV2(projection);
 
-      const decision = decideProviderManagedStoreRefreshV2(
-        existing.providerManagedState,
-        desired,
-      );
+      const decision =
+        decideProviderManagedStoreRefreshV2(
+          existing.providerManagedState,
+          desired,
+        );
 
       storePreviews.push({
         providerEntityNamespace: "campaign",
-        providerEntityId: instruction.providerEntityId,
-        existingStoreId: instruction.expectedExistingStoreId,
+        providerEntityId: campaignId,
+        existingStoreId: existing.storeId,
         action: decision === "blocked_missing_snapshot"
           ? "blocked"
           : decision,
@@ -792,59 +837,50 @@ export class AdsPersistencePlannerV2 {
           ? "missing_snapshot"
           : null,
       });
-    }
+    };
 
-    const offerPreviews: AdsProviderRefreshOfferPreviewV2[] = [];
+    const previewExistingOffer = (inputOffer: {
+      providerEntityId: string;
+      existing: AdsCatalogOfferFactV2;
+      parentStore: AdsCatalogStoreFactV2;
+    }): void => {
+      const adId = inputOffer.providerEntityId;
 
-    for (const instruction of executablePlan.offerInstructions) {
-      if (instruction.action !== "noop_existing") continue;
+      if (previewedAds.has(adId)) return;
 
-      const existing = input.catalog.offers.find((offer) =>
-        offer.offerId === instruction.existingOfferId &&
-        offer.provider === "impact" &&
-        offer.providerEntityNamespace === "ad" &&
-        offer.providerEntityId === instruction.providerEntityId
-      );
+      previewedAds.add(adId);
 
-      const normalizedOffer = normalizedOfferByAd.get(
-        instruction.providerEntityId,
-      );
+      const normalizedOffer =
+        normalizedOfferByAd.get(adId);
 
-      const normalizedStore = normalizedStoreByCampaign.get(
-        instruction.parentProviderEntityId,
-      );
+      const campaignId =
+        inputOffer.parentStore.providerEntityId;
 
-      const parentStore = input.catalog.stores.find((store) =>
-        store.storeId === instruction.expectedParentStoreId &&
-        store.provider === "impact" &&
-        store.providerEntityNamespace === "campaign" &&
-        store.providerEntityId === instruction.parentProviderEntityId
-      );
+      const normalizedStore = campaignId === null
+        ? undefined
+        : normalizedStoreByCampaign.get(campaignId);
 
       if (
-        !existing ||
         !normalizedOffer ||
         !normalizedStore ||
-        !parentStore
+        campaignId === null
       ) {
         offerPreviews.push({
           providerEntityNamespace: "ad",
-          providerEntityId: instruction.providerEntityId,
-          existingOfferId: instruction.existingOfferId,
-          parentProviderEntityId:
-            instruction.parentProviderEntityId,
-          expectedParentStoreId:
-            instruction.expectedParentStoreId,
+          providerEntityId: adId,
+          existingOfferId: inputOffer.existing.offerId,
+          parentProviderEntityId: campaignId ?? "",
+          expectedParentStoreId: inputOffer.parentStore.storeId,
           action: "blocked",
           reason: "invalid_projection",
         });
-        continue;
+        return;
       }
 
       const projection = offerProjection(
         normalizedOffer,
         normalizedStore,
-        parentStore.slug,
+        inputOffer.parentStore.slug,
         input.evaluationTimestamp,
         siteOrigin,
       );
@@ -852,6 +888,112 @@ export class AdsPersistencePlannerV2 {
       if (projection === null) {
         offerPreviews.push({
           providerEntityNamespace: "ad",
+          providerEntityId: adId,
+          existingOfferId: inputOffer.existing.offerId,
+          parentProviderEntityId: campaignId,
+          expectedParentStoreId: inputOffer.parentStore.storeId,
+          action: "blocked",
+          reason: "invalid_projection",
+        });
+        return;
+      }
+
+      const desired =
+        providerManagedOfferStateFromProjectionV2(
+          projection,
+        );
+
+      const decision =
+        decideProviderManagedOfferRefreshV2(
+          inputOffer.existing.providerManagedState,
+          desired,
+        );
+
+      offerPreviews.push({
+        providerEntityNamespace: "ad",
+        providerEntityId: adId,
+        existingOfferId: inputOffer.existing.offerId,
+        parentProviderEntityId: campaignId,
+        expectedParentStoreId: inputOffer.parentStore.storeId,
+        action: decision === "blocked_missing_snapshot"
+          ? "blocked"
+          : decision,
+        reason: decision === "blocked_missing_snapshot"
+          ? "missing_snapshot"
+          : null,
+      });
+    };
+
+    /*
+     * First preserve C2 behavior for exact existing entities already emitted
+     * by the executable planner as noop_existing.
+     */
+    for (
+      const instruction of executablePlan.storeInstructions
+    ) {
+      if (instruction.action !== "noop_existing") {
+        continue;
+      }
+
+      const existing = input.catalog.stores.find((store) =>
+        store.storeId ===
+          instruction.expectedExistingStoreId &&
+        store.provider === "impact" &&
+        store.providerEntityNamespace === "campaign" &&
+        store.providerEntityId ===
+          instruction.providerEntityId
+      );
+
+      if (!existing) {
+        storePreviews.push({
+          providerEntityNamespace: "campaign",
+          providerEntityId: instruction.providerEntityId,
+          existingStoreId:
+            instruction.expectedExistingStoreId,
+          action: "blocked",
+          reason: "invalid_projection",
+        });
+
+        previewedCampaigns.add(
+          instruction.providerEntityId,
+        );
+
+        continue;
+      }
+
+      previewExistingStore(
+        instruction.providerEntityId,
+        existing,
+      );
+    }
+
+    for (
+      const instruction of executablePlan.offerInstructions
+    ) {
+      if (instruction.action !== "noop_existing") {
+        continue;
+      }
+
+      const existing = input.catalog.offers.find((offer) =>
+        offer.offerId === instruction.existingOfferId &&
+        offer.provider === "impact" &&
+        offer.providerEntityNamespace === "ad" &&
+        offer.providerEntityId ===
+          instruction.providerEntityId
+      );
+
+      const parentStore = input.catalog.stores.find((store) =>
+        store.storeId ===
+          instruction.expectedParentStoreId &&
+        store.provider === "impact" &&
+        store.providerEntityNamespace === "campaign" &&
+        store.providerEntityId ===
+          instruction.parentProviderEntityId
+      );
+
+      if (!existing || !parentStore) {
+        offerPreviews.push({
+          providerEntityNamespace: "ad",
           providerEntityId: instruction.providerEntityId,
           existingOfferId: instruction.existingOfferId,
           parentProviderEntityId:
@@ -861,37 +1003,169 @@ export class AdsPersistencePlannerV2 {
           action: "blocked",
           reason: "invalid_projection",
         });
+
+        previewedAds.add(
+          instruction.providerEntityId,
+        );
+
         continue;
       }
 
-      const desired =
-        providerManagedOfferStateFromProjectionV2(projection);
+      previewExistingOffer({
+        providerEntityId:
+          instruction.providerEntityId,
+        existing,
+        parentStore,
+      });
+    }
 
-      const decision = decideProviderManagedOfferRefreshV2(
-        existing.providerManagedState,
-        desired,
+    /*
+     * C3 supplement:
+     *
+     * An exact existing provider Ad may have become future-dated or expired.
+     * The executable CREATE planner intentionally holds those Ads before
+     * exact-existing matching. The preview may inspect them, but only when:
+     *
+     * - provider identity is exact and unique,
+     * - parent Campaign identity is exact and unique,
+     * - no legacy collision exists,
+     * - the existing coupon remains kind=code,
+     * - parent relationship is unchanged,
+     * - qualification reason is exactly not_started or expired.
+     *
+     * No new future/expired Ad is admitted here.
+     */
+    for (
+      const offer of normalized.offers.sort((left, right) =>
+        compareText(
+          left.providerOfferKey.id,
+          right.providerOfferKey.id,
+        )
+      )
+    ) {
+      const adId = offer.providerOfferKey.id;
+
+      if (previewedAds.has(adId)) continue;
+
+      const qualified = qualifiedByAd.get(adId);
+
+      if (
+        !qualified ||
+        (
+          qualified.reason !== "not_started" &&
+          qualified.reason !== "expired"
+        )
+      ) {
+        continue;
+      }
+
+      if (
+        offer.codeClass !== "code_bearing" ||
+        offer.association.matchMethod !== "campaign_id"
+      ) {
+        continue;
+      }
+
+      const existingAds =
+        indexes.adOffers.get(adId) ?? [];
+
+      const legacyAds =
+        indexes.legacyOffers.get(adId) ?? [];
+
+      /*
+       * No exact existing Ad means this is a new future/expired Ad.
+       * It remains held and is not a refresh candidate.
+       */
+      if (
+        existingAds.length === 0 &&
+        legacyAds.length === 0
+      ) {
+        continue;
+      }
+
+      if (existingAds.length > 1) {
+        supplementalPlanBlockers.push(
+          "duplicate_offer_identity",
+        );
+        continue;
+      }
+
+      if (legacyAds.length > 0) {
+        supplementalPlanBlockers.push(
+          "legacy_identity_collision",
+        );
+        continue;
+      }
+
+      if (existingAds.length !== 1) {
+        continue;
+      }
+
+      const existing = existingAds[0]!;
+
+      if (existing.couponType !== "code") {
+        supplementalPlanBlockers.push(
+          "offer_kind_conflict",
+        );
+        continue;
+      }
+
+      const campaignId =
+        offer.association.providerStoreKey.id;
+
+      const campaignMatches =
+        indexes.campaignStores.get(campaignId) ?? [];
+
+      const legacyStores =
+        indexes.legacyStores.get(campaignId) ?? [];
+
+      if (campaignMatches.length > 1) {
+        supplementalPlanBlockers.push(
+          "duplicate_store_identity",
+        );
+        continue;
+      }
+
+      if (legacyStores.length > 0) {
+        supplementalPlanBlockers.push(
+          "legacy_identity_collision",
+        );
+        continue;
+      }
+
+      if (campaignMatches.length !== 1) {
+        supplementalPlanBlockers.push(
+          "incompatible_parent",
+        );
+        continue;
+      }
+
+      const parentStore =
+        campaignMatches[0]!;
+
+      if (existing.storeId !== parentStore.storeId) {
+        supplementalPlanBlockers.push(
+          "incompatible_parent",
+        );
+        continue;
+      }
+
+      previewExistingStore(
+        campaignId,
+        parentStore,
       );
 
-      offerPreviews.push({
-        providerEntityNamespace: "ad",
-        providerEntityId: instruction.providerEntityId,
-        existingOfferId: instruction.existingOfferId,
-        parentProviderEntityId:
-          instruction.parentProviderEntityId,
-        expectedParentStoreId:
-          instruction.expectedParentStoreId,
-        action: decision === "blocked_missing_snapshot"
-          ? "blocked"
-          : decision,
-        reason: decision === "blocked_missing_snapshot"
-          ? "missing_snapshot"
-          : null,
+      previewExistingOffer({
+        providerEntityId: adId,
+        existing,
+        parentStore,
       });
     }
 
     return finalizeProviderRefreshPreviewV2({
       mode: input.mode,
       canaryAdId: input.canaryAdId,
+      planBlockers: supplementalPlanBlockers,
       stores: storePreviews,
       offers: offerPreviews,
     });

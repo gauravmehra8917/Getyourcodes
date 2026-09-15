@@ -79,7 +79,9 @@ function campaign(): RawImpactCampaignForAdsV2 {
   };
 }
 
-function ad(): RawImpactAdV2 {
+function ad(
+  overrides: Partial<RawImpactAdV2> = {},
+): RawImpactAdV2 {
   return {
     providerOfferKey: {
       provider: "impact",
@@ -112,11 +114,13 @@ function ad(): RawImpactAdV2 {
     codeClass: "code_bearing",
     validatedCouponCode: "SAVE-20",
     provenance: PROVENANCE,
+    ...overrides,
   };
 }
 
 function plannerInput(
   catalog: AdsCatalogPlanningContextV2,
+  rawAd: RawImpactAdV2 = ad(),
 ): AdsPersistencePlannerInputV2 {
   return {
     integrationId: INTEGRATION_ID,
@@ -129,7 +133,7 @@ function plannerInput(
       diagnostics: diagnostics("campaigns", 1),
     },
     adsFetch: {
-      records: [ad()],
+      records: [rawAd],
       diagnostics: diagnostics("ads", 1),
     },
     catalog,
@@ -361,4 +365,167 @@ test("executable v2-a11-ads-1 plan remains NOOP despite preview UPDATE intent", 
     executable.counts.writableEntities,
     0,
   );
+});
+
+test("exact existing future Ad is refreshable but executable planner still holds it", () => {
+  const catalog = matchingExistingCatalog();
+
+  const future = ad({
+    dealStartDate: "2026-07-01T00:00:00Z",
+    dealEndDate: "2026-12-31T23:59:59Z",
+  });
+
+  const input = plannerInput(
+    catalog,
+    future,
+  );
+
+  const executable =
+    AdsPersistencePlannerV2.plan(input);
+
+  const preview =
+    AdsPersistencePlannerV2.planProviderRefreshPreview(
+      input,
+    );
+
+  assert.equal(
+    executable.offerInstructions[0]?.action,
+    "noop_held",
+  );
+
+  assert.equal(
+    executable.offerInstructions[0]?.action === "noop_held"
+      ? executable.offerInstructions[0].holdReason
+      : null,
+    "not_started",
+  );
+
+  assert.equal(
+    executable.counts.writableEntities,
+    0,
+  );
+
+  assert.equal(preview.status, "ready");
+
+  assert.equal(
+    preview.stores[0]?.action,
+    "noop_existing",
+  );
+
+  assert.equal(
+    preview.offers[0]?.action,
+    "update_existing",
+  );
+
+  assert.equal(
+    preview.counts.offers.updateExisting,
+    1,
+  );
+});
+
+test("exact existing expired Ad is refreshable but executable planner still holds it", () => {
+  const catalog = matchingExistingCatalog();
+
+  const expired = ad({
+    dealStartDate: "2026-01-01T00:00:00Z",
+    dealEndDate: "2026-05-31T23:59:59Z",
+  });
+
+  const input = plannerInput(
+    catalog,
+    expired,
+  );
+
+  const executable =
+    AdsPersistencePlannerV2.plan(input);
+
+  const preview =
+    AdsPersistencePlannerV2.planProviderRefreshPreview(
+      input,
+    );
+
+  assert.equal(
+    executable.offerInstructions[0]?.action,
+    "noop_held",
+  );
+
+  assert.equal(
+    executable.offerInstructions[0]?.action === "noop_held"
+      ? executable.offerInstructions[0].holdReason
+      : null,
+    "expired",
+  );
+
+  assert.equal(
+    executable.counts.writableEntities,
+    0,
+  );
+
+  assert.equal(preview.status, "ready");
+
+  assert.equal(
+    preview.stores[0]?.action,
+    "noop_existing",
+  );
+
+  assert.equal(
+    preview.offers[0]?.action,
+    "update_existing",
+  );
+
+  assert.equal(
+    preview.counts.offers.updateExisting,
+    1,
+  );
+});
+
+test("new future and expired Ads remain excluded from refresh preview", () => {
+  for (
+    const rawAd of [
+      ad({
+        dealStartDate: "2026-07-01T00:00:00Z",
+        dealEndDate: "2026-12-31T23:59:59Z",
+      }),
+      ad({
+        dealStartDate: "2026-01-01T00:00:00Z",
+        dealEndDate: "2026-05-31T23:59:59Z",
+      }),
+    ]
+  ) {
+    const input = plannerInput(
+      {
+        stores: [],
+        offers: [],
+      },
+      rawAd,
+    );
+
+    const executable =
+      AdsPersistencePlannerV2.plan(input);
+
+    const preview =
+      AdsPersistencePlannerV2.planProviderRefreshPreview(
+        input,
+      );
+
+    assert.equal(
+      executable.counts.writableEntities,
+      0,
+    );
+
+    assert.equal(preview.status, "ready");
+
+    assert.deepEqual(preview.stores, []);
+    assert.deepEqual(preview.offers, []);
+
+    assert.equal(
+      preview.counts.stores.updateExisting,
+      0,
+    );
+
+    assert.equal(
+      preview.counts.offers.updateExisting,
+      0,
+    );
+  }
 });
