@@ -94,10 +94,13 @@ function campaign():
   };
 }
 
+type CodeBearingAd = Extract<RawImpactAdV2, { codeClass: "code_bearing" }>;
+type NoCodeAd = Extract<RawImpactAdV2, { codeClass: "no_code" }>;
+
 function ad(
   overrides:
-    Partial<RawImpactAdV2> = {},
-): RawImpactAdV2 {
+    Partial<CodeBearingAd> = {},
+): CodeBearingAd {
   return {
     providerOfferKey: {
       provider: "impact",
@@ -137,6 +140,14 @@ function ad(
       "SAVE-20",
     provenance: PROVENANCE,
     ...overrides,
+  };
+}
+
+function noCodeAd(): NoCodeAd {
+  return {
+    ...ad(),
+    codeClass: "no_code",
+    validatedCouponCode: null,
   };
 }
 
@@ -755,10 +766,7 @@ test(
       materializeAdsRefreshPersistencePlanV2(
         plannerInput(
           catalog,
-          [ad({
-            codeClass: "no_code",
-            validatedCouponCode: null,
-          })],
+          [noCodeAd()],
         ),
       );
 
@@ -838,10 +846,7 @@ test(
       AdsPersistencePlannerInputV2 = {
         ...plannerInput(
           catalog,
-          [ad({
-            codeClass: "no_code",
-            validatedCouponCode: null,
-          })],
+          [noCodeAd()],
         ),
         mode: "canary",
         canaryAdId: "Ad-A",

@@ -9,10 +9,11 @@ import type {
 } from "../../affiliate-sync-v2-ads/index.ts";
 
 import {
-  type AdsCatalogPlanningContextV2,
   type AdsPersistencePlannerInputV2,
   AdsPersistencePlannerV2,
 } from "../AdsPersistencePlannerV2.ts";
+
+import type { AdsCatalogPlanningContextV2 } from "../ads-persistence-models.ts";
 
 import {
   providerManagedOfferStateFromProjectionV2,
@@ -79,9 +80,12 @@ function campaign(): RawImpactCampaignForAdsV2 {
   };
 }
 
+type CodeBearingAd = Extract<RawImpactAdV2, { codeClass: "code_bearing" }>;
+type NoCodeAd = Extract<RawImpactAdV2, { codeClass: "no_code" }>;
+
 function ad(
-  overrides: Partial<RawImpactAdV2> = {},
-): RawImpactAdV2 {
+  overrides: Partial<CodeBearingAd> = {},
+): CodeBearingAd {
   return {
     providerOfferKey: {
       provider: "impact",
@@ -115,6 +119,14 @@ function ad(
     validatedCouponCode: "SAVE-20",
     provenance: PROVENANCE,
     ...overrides,
+  };
+}
+
+function noCodeAd(): NoCodeAd {
+  return {
+    ...ad(),
+    codeClass: "no_code",
+    validatedCouponCode: null,
   };
 }
 
@@ -535,10 +547,7 @@ test("new future and expired Ads remain excluded from refresh preview", () => {
 test("exact existing no-code Ad is explicitly blocked and never updated", () => {
   const catalog = matchingExistingCatalog();
 
-  const noCode = ad({
-    codeClass: "no_code",
-    validatedCouponCode: null,
-  });
+  const noCode = noCodeAd();
 
   const input = plannerInput(
     catalog,
@@ -733,10 +742,7 @@ test("exact existing unresolved Campaign and advertiser conflict are explicitly 
 
 test("new invalid or no-code Ads remain outside provider refresh preview", () => {
   const cases = [
-    ad({
-      codeClass: "no_code",
-      validatedCouponCode: null,
-    }),
+    noCodeAd(),
     ad({
       dateFieldsValid: false,
     }),
@@ -900,10 +906,7 @@ test("parent ownership outranks invalid provider source reason", () => {
 
   const input = plannerInput(
     catalog,
-    ad({
-      codeClass: "no_code",
-      validatedCouponCode: null,
-    }),
+    noCodeAd(),
   );
 
   const executable =

@@ -1,3 +1,5 @@
+import type { ImpactAdStructuredTermsV2 } from "../affiliate-sync-v2-ads/index.ts";
+
 import type {
   AdsOfferCreateProjectionV2,
   AdsProviderManagedOfferStateV2,
