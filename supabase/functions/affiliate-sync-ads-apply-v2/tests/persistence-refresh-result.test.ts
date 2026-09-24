@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { canonicalAdsRefreshJsonV2 } from "../../_shared/affiliate-sync-v2-ads-persistence/ads-persistence-refresh-finalizer.ts";
 
 import {
   ADS_PERSISTENCE_REFRESH_CONTRACT_VERSION_V2,
@@ -384,10 +385,9 @@ function finalize(
     canonicalPlanMaterial:
       canonical,
 
-    canonicalPlanMaterialString:
-      JSON.stringify(
-        canonical,
-      ),
+    canonicalPlanMaterialString: canonicalAdsRefreshJsonV2(
+      canonical,
+    ),
   };
 }
 

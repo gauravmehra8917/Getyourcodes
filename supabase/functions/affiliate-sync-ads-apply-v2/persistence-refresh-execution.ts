@@ -11,6 +11,8 @@ import {
   type AdsRefreshPersistenceStoreInstructionV2,
 } from "../_shared/affiliate-sync-v2-ads-persistence/ads-persistence-refresh-models.ts";
 
+import { canonicalAdsRefreshJsonV2 } from "../_shared/affiliate-sync-v2-ads-persistence/ads-persistence-refresh-finalizer.ts";
+
 export const ADS_REFRESH_PLAN_FINGERPRINT_ALGORITHM_V2 =
   "sha256-canonical-plan-v1" as const;
 
@@ -841,7 +843,7 @@ export async function prepareAdsRefreshPersistenceExecutionV2(
     isRecord(
       plan.canonicalPlanMaterial,
     ) &&
-      JSON.stringify(
+      canonicalAdsRefreshJsonV2(
         plan.canonicalPlanMaterial,
       ) ===
         plan.canonicalPlanMaterialString,
@@ -876,7 +878,7 @@ export async function prepareAdsRefreshPersistenceExecutionV2(
   };
 
   assertion(
-    JSON.stringify(
+    canonicalAdsRefreshJsonV2(
       rootMaterial,
     ) ===
       plan.canonicalPlanMaterialString,
