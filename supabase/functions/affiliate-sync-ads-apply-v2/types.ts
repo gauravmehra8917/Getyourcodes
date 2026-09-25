@@ -1,20 +1,23 @@
 import type {
+  AdsRefreshPersistenceBlockerV2,
+  AdsRefreshPersistencePlanCountsV2,
+  AdsRefreshPersistencePlanV2,
+} from "../_shared/affiliate-sync-v2-ads-persistence/ads-persistence-refresh-models.ts";
+import type { AdsRefreshPersistenceActualCountsV2 } from "./persistence-refresh-result.ts";
+import type {
   ImpactAdsFetchLimitsV2,
   ImpactAdsTransportV2,
 } from "../_shared/affiliate-sync-v2-ads/index.ts";
 import type {
   AdsCatalogPlanningContextV2,
-  AdsPersistenceBlockerReasonV2,
   AdsPersistenceModeV2,
-  AdsPersistencePlanCountsV2,
-  AdsPersistencePlanV2,
 } from "../_shared/affiliate-sync-v2-ads-persistence/index.ts";
 import type { ImpactContinuationPolicy } from "../_shared/affiliate-sync-v2/impact-url-safety.ts";
 import type {
   ImpactHostCredentialsV2,
   StoredIntegrationV2,
 } from "../_shared/affiliate-sync-v2-host/types.ts";
-import type { PreparedAdsPersistenceExecutionV2 } from "./persistence-execution.ts";
+import type { PreparedAdsRefreshPersistenceExecutionV2 } from "./persistence-refresh-execution.ts";
 
 export interface AdsApplyV2RequestBody {
   integrationId?: unknown;
@@ -29,7 +32,7 @@ export interface AdsApplyV2DataSource {
   readCredentialCiphertext(integrationId: string): Promise<string | null>;
   loadCatalogPlanningContext(): Promise<AdsCatalogPlanningContextV2>;
   applyPersistencePlan(
-    prepared: PreparedAdsPersistenceExecutionV2,
+    prepared: PreparedAdsRefreshPersistenceExecutionV2,
   ): Promise<AdsApplyV2RpcTransportResult>;
 }
 
@@ -56,11 +59,11 @@ export interface AdsApplyV2HostDependencies {
     adsFetch:
       import("../_shared/affiliate-sync-v2-ads/index.ts").ImpactAdsFetchResultV2;
     catalog: AdsCatalogPlanningContextV2;
-  }): AdsPersistencePlanV2;
+  }): AdsRefreshPersistencePlanV2;
   prepareExecution(
-    plan: AdsPersistencePlanV2,
+    plan: AdsRefreshPersistencePlanV2,
     triggeredBy: string,
-  ): Promise<PreparedAdsPersistenceExecutionV2>;
+  ): Promise<PreparedAdsRefreshPersistenceExecutionV2>;
   now(): Date;
   siteUrl: string | null;
 }
@@ -115,8 +118,11 @@ export type AdsApplyV2RpcStage =
   | "replay_resolution"
   | "store_revalidation"
   | "store_insert"
+  | "store_update"
   | "offer_revalidation"
   | "offer_insert"
+  | "offer_update"
+  | "evidence_validation"
   | "reconciliation"
   | "audit_persistence";
 
@@ -140,15 +146,13 @@ export type AdsApplyV2RpcBlockedReason =
   | "offer_kind_conflict"
   | "offer_identity_mismatch"
   | "count_mismatch"
-  | "ledger_count_mismatch";
+  | "ledger_count_mismatch"
+  | "ownership_not_provider_managed"
+  | "stale_store_state"
+  | "stale_offer_state"
+  | "run_coherence_mismatch";
 
-export interface AdsApplyV2ActualCounts {
-  storesCreated: number;
-  storesNoopExisting: number;
-  offersCreated: number;
-  offersNoopExisting: number;
-  ledgerRows: number;
-}
+export type AdsApplyV2ActualCounts = AdsRefreshPersistenceActualCountsV2;
 
 export interface AdsApplyV2FailureResponse {
   status: "failed";
@@ -160,7 +164,9 @@ export interface AdsApplyV2BlockedResponse {
   status: "blocked";
   stage: "provider_fetch" | "persistence_plan";
   reason: "plan_blocked";
-  blockerReasonCounts: Partial<Record<AdsPersistenceBlockerReasonV2, number>>;
+  blockerReasonCounts: Partial<
+    Record<AdsRefreshPersistenceBlockerV2["reason"], number>
+  >;
 }
 
 export interface AdsApplyV2RpcBlockedResponse {
@@ -192,10 +198,11 @@ export interface AdsApplyV2SuccessResponse {
   evaluationTimestamp: string;
   refreshedPlan: true;
   counts: {
-    expected: AdsPersistencePlanCountsV2;
+    expected: AdsRefreshPersistencePlanCountsV2;
     actual: AdsApplyV2ActualCounts;
   };
   created: { stores: number; coupons: number };
+  updated: { stores: number; coupons: number };
   noops: { stores: number; coupons: number };
   ledgerRows: number;
 }

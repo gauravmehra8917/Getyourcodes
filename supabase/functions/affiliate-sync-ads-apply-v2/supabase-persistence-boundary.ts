@@ -3,10 +3,10 @@ import { SupabasePreviewV2DataSource } from "../_shared/affiliate-sync-v2-host/s
 import type { StoredIntegrationV2 } from "../_shared/affiliate-sync-v2-host/types.ts";
 import { loadAdsCatalogPlanningContextV2 } from "./catalog-planning-context.ts";
 import {
-  adsPersistenceRpcArgsV2,
-  type ApplyAffiliateAdsPersistencePlanV2Args,
-  type PreparedAdsPersistenceExecutionV2,
-} from "./persistence-execution.ts";
+  adsRefreshPersistenceRpcArgsV2,
+  type ApplyAffiliateAdsRefreshPersistencePlanV2Args,
+  type PreparedAdsRefreshPersistenceExecutionV2,
+} from "./persistence-refresh-execution.ts";
 import type { AdsApplyV2RpcTransportResult } from "./types.ts";
 
 type PrivilegedEdgeClient = ReturnType<typeof createPrivilegedEdgeClient>;
@@ -38,10 +38,10 @@ export class SupabaseAdsApplyV2DataSource {
   }
 
   async applyPersistencePlan(
-    prepared: PreparedAdsPersistenceExecutionV2,
+    prepared: PreparedAdsRefreshPersistenceExecutionV2,
   ): Promise<AdsApplyV2RpcTransportResult> {
-    const args: ApplyAffiliateAdsPersistencePlanV2Args =
-      adsPersistenceRpcArgsV2(prepared);
+    const args: ApplyAffiliateAdsRefreshPersistencePlanV2Args =
+      adsRefreshPersistenceRpcArgsV2(prepared);
     try {
       const { data, error } = await this.db.rpc(
         "apply_affiliate_persistence_plan_v2",

@@ -1,3 +1,4 @@
+import { parseAdsRefreshPersistenceSuccessV2 } from "./persistence-refresh-result.ts";
 import {
   ImpactAdsCampaignClient,
   ImpactAdsClient,
@@ -5,21 +6,17 @@ import {
   type ImpactCampaignFetchResultForAdsV2,
 } from "../_shared/affiliate-sync-v2-ads/index.ts";
 import {
-  adsPersistenceBlockerReasonCountsV2,
-  type AdsPersistencePlanCountsV2,
-} from "../_shared/affiliate-sync-v2-ads-persistence/index.ts";
-import {
   assertImpactProvider,
   HostConfigurationError,
   parseImpactHostCredentials,
 } from "../_shared/affiliate-sync-v2-host/impact-configuration.ts";
 import { resolveImpactAdsApplyHostConfigV2 } from "./impact-ads-configuration.ts";
 import {
-  adsPersistenceRpcArgsV2,
-  type PreparedAdsPersistenceExecutionV2,
-} from "./persistence-execution.ts";
+  adsRefreshPersistenceRpcArgsV2,
+  type PreparedAdsRefreshPersistenceExecutionV2,
+} from "./persistence-refresh-execution.ts";
 import type {
-  AdsApplyV2ActualCounts,
+  AdsApplyV2BlockedResponse,
   AdsApplyV2FailureReason,
   AdsApplyV2FailureStage,
   AdsApplyV2HostDependencies,
@@ -44,8 +41,11 @@ const RPC_STAGES = new Set<AdsApplyV2RpcStage>([
   "replay_resolution",
   "store_revalidation",
   "store_insert",
+  "store_update",
   "offer_revalidation",
   "offer_insert",
+  "offer_update",
+  "evidence_validation",
   "reconciliation",
   "audit_persistence",
 ]);
@@ -70,6 +70,10 @@ const RPC_REASONS = new Set<AdsApplyV2RpcBlockedReason>([
   "offer_identity_mismatch",
   "count_mismatch",
   "ledger_count_mismatch",
+  "ownership_not_provider_managed",
+  "stale_store_state",
+  "stale_offer_state",
+  "run_coherence_mismatch",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -243,266 +247,6 @@ function providerBlocked(
   );
 }
 
-function nonnegativeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
-}
-
-function validExpectedCounts(
-  value: unknown,
-): value is AdsPersistencePlanCountsV2 {
-  if (
-    !isRecord(value) || !hasExactKeys(value, [
-      "stores",
-      "offers",
-      "writableStores",
-      "writableOffers",
-      "writableEntities",
-    ]) || !isRecord(value.stores) || !hasExactKeys(value.stores, [
-      "create",
-      "noopExisting",
-      "blockedAmbiguous",
-      "noopUnmatched",
-    ]) || !isRecord(value.offers) || !hasExactKeys(value.offers, [
-      "create",
-      "noopExisting",
-      "noopHeld",
-      "noopUnresolved",
-    ])
-  ) return false;
-  const values = [
-    value.stores.create,
-    value.stores.noopExisting,
-    value.stores.blockedAmbiguous,
-    value.stores.noopUnmatched,
-    value.offers.create,
-    value.offers.noopExisting,
-    value.offers.noopHeld,
-    value.offers.noopUnresolved,
-    value.writableStores,
-    value.writableOffers,
-    value.writableEntities,
-  ];
-  if (!values.every(nonnegativeInteger)) return false;
-  const writableStores = value.writableStores as number;
-  const writableOffers = value.writableOffers as number;
-  return value.stores.blockedAmbiguous === 0 &&
-    writableStores === value.stores.create &&
-    writableOffers === value.offers.create &&
-    value.writableEntities === writableStores + writableOffers;
-}
-
-function validActualCounts(value: unknown): value is AdsApplyV2ActualCounts {
-  return isRecord(value) && hasExactKeys(value, [
-    "storesCreated",
-    "storesNoopExisting",
-    "offersCreated",
-    "offersNoopExisting",
-    "ledgerRows",
-  ]) && nonnegativeInteger(value.storesCreated) &&
-    nonnegativeInteger(value.storesNoopExisting) &&
-    nonnegativeInteger(value.offersCreated) &&
-    nonnegativeInteger(value.offersNoopExisting) &&
-    nonnegativeInteger(value.ledgerRows);
-}
-
-function sameExpectedCounts(
-  left: AdsPersistencePlanCountsV2,
-  right: AdsPersistencePlanCountsV2,
-): boolean {
-  return left.stores.create === right.stores.create &&
-    left.stores.noopExisting === right.stores.noopExisting &&
-    left.stores.blockedAmbiguous === right.stores.blockedAmbiguous &&
-    left.stores.noopUnmatched === right.stores.noopUnmatched &&
-    left.offers.create === right.offers.create &&
-    left.offers.noopExisting === right.offers.noopExisting &&
-    left.offers.noopHeld === right.offers.noopHeld &&
-    left.offers.noopUnresolved === right.offers.noopUnresolved &&
-    left.writableStores === right.writableStores &&
-    left.writableOffers === right.writableOffers &&
-    left.writableEntities === right.writableEntities;
-}
-
-function validUuid(value: unknown): value is string {
-  return typeof value === "string" && UUID_PATTERN.test(value);
-}
-
-function sameUuid(left: string, right: string): boolean {
-  return left.toLowerCase() === right.toLowerCase();
-}
-
-function canonicalProviderId(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= 512 &&
-    value === value.trim();
-}
-
-function createdEvidence(
-  value: unknown,
-): Array<{ entityId: string; providerEntityId: string }> | null {
-  if (!Array.isArray(value)) return null;
-  const result: Array<{ entityId: string; providerEntityId: string }> = [];
-  const entityIds = new Set<string>();
-  const providerIds = new Set<string>();
-  for (const entry of value) {
-    if (
-      !isRecord(entry) ||
-      !hasExactKeys(entry, ["entityId", "providerEntityId"]) ||
-      !validUuid(entry.entityId) ||
-      !canonicalProviderId(entry.providerEntityId) ||
-      entityIds.has(entry.entityId.toLowerCase()) ||
-      providerIds.has(entry.providerEntityId)
-    ) {
-      return null;
-    }
-    entityIds.add(entry.entityId.toLowerCase());
-    providerIds.add(entry.providerEntityId);
-    result.push({
-      entityId: entry.entityId,
-      providerEntityId: entry.providerEntityId,
-    });
-  }
-  return result;
-}
-
-function validSuccessEvidence(
-  ledgerValue: unknown,
-  createdStoresValue: unknown,
-  createdOffersValue: unknown,
-  noops: Record<string, unknown>,
-  actual: AdsApplyV2ActualCounts,
-  prepared: PreparedAdsPersistenceExecutionV2,
-): boolean {
-  if (!Array.isArray(ledgerValue)) return false;
-  const createdStores = createdEvidence(createdStoresValue);
-  const createdOffers = createdEvidence(createdOffersValue);
-  if (!createdStores || !createdOffers) return false;
-  const args = adsPersistenceRpcArgsV2(prepared);
-  const instructions = [
-    ...args._store_instructions,
-    ...args._offer_instructions,
-  ];
-  if (ledgerValue.length !== instructions.length) return false;
-  const storeEntities = new Map<string, string>();
-  const seenEntities = new Set<string>();
-  const seenIdentities = new Set<string>();
-  const ledgerCreatedStores: Array<
-    { entityId: string; providerEntityId: string }
-  > = [];
-  const ledgerCreatedOffers: Array<
-    { entityId: string; providerEntityId: string }
-  > = [];
-  let storeNoops = 0;
-  let offerNoops = 0;
-
-  for (let index = 0; index < ledgerValue.length; index += 1) {
-    const entry = ledgerValue[index];
-    if (
-      !isRecord(entry) || !hasExactKeys(entry, [
-        "instructionOrdinal",
-        "entityKind",
-        "plannedAction",
-        "outcome",
-        "provider",
-        "providerEntityNamespace",
-        "providerEntityId",
-        "entityId",
-        "expectedEntityId",
-        "parentProviderEntityNamespace",
-        "parentProviderEntityId",
-        "parentEntityId",
-        "offerKind",
-      ]) || entry.instructionOrdinal !== index ||
-      (entry.outcome !== "created" && entry.outcome !== "noop_existing") ||
-      entry.provider !== "impact" ||
-      !canonicalProviderId(entry.providerEntityId) ||
-      !validUuid(entry.entityId)
-    ) return false;
-    const instruction = instructions[index]!;
-    const isStore = index < args._store_instructions.length;
-    if (
-      entry.entityKind !== (isStore ? "store" : "offer") ||
-      entry.plannedAction !== instruction.action ||
-      entry.providerEntityNamespace !== instruction.providerEntityNamespace ||
-      entry.providerEntityId !== instruction.providerEntityId ||
-      (instruction.action === "noop_existing" &&
-        entry.outcome !== "noop_existing") ||
-      (entry.outcome === "created" && instruction.action !== "create")
-    ) return false;
-    const expectedId = isStore
-      ? args._store_instructions[index]!.expectedExistingStoreId
-      : args._offer_instructions[index - args._store_instructions.length]!
-        .existingOfferId;
-    if (
-      expectedId === null
-        ? entry.expectedEntityId !== null
-        : (!validUuid(entry.expectedEntityId) ||
-          !sameUuid(entry.expectedEntityId, expectedId) ||
-          !sameUuid(entry.entityId, expectedId))
-    ) return false;
-    const identity =
-      `${entry.providerEntityNamespace}\u0000${entry.providerEntityId}`;
-    if (
-      seenEntities.has(entry.entityId.toLowerCase()) ||
-      seenIdentities.has(identity)
-    ) return false;
-    seenEntities.add(entry.entityId.toLowerCase());
-    seenIdentities.add(identity);
-
-    if (isStore) {
-      if (
-        entry.providerEntityNamespace !== "campaign" ||
-        entry.parentProviderEntityNamespace !== null ||
-        entry.parentProviderEntityId !== null ||
-        entry.parentEntityId !== null || entry.offerKind !== null
-      ) return false;
-      storeEntities.set(entry.providerEntityId, entry.entityId);
-      if (entry.outcome === "created") {
-        ledgerCreatedStores.push({
-          entityId: entry.entityId,
-          providerEntityId: entry.providerEntityId,
-        });
-      } else storeNoops += 1;
-    } else {
-      const offer = args
-        ._offer_instructions[index - args._store_instructions.length]!;
-      if (
-        entry.providerEntityNamespace !== "ad" ||
-        entry.parentProviderEntityNamespace !== "campaign" ||
-        entry.parentProviderEntityId !== offer.parentProviderEntityId ||
-        !validUuid(entry.parentEntityId) || entry.offerKind !== "coupon"
-      ) return false;
-      const parentId = storeEntities.get(offer.parentProviderEntityId);
-      if (
-        !parentId || !sameUuid(parentId, entry.parentEntityId) ||
-        (offer.expectedParentStoreId !== null &&
-          !sameUuid(offer.expectedParentStoreId, entry.parentEntityId))
-      ) return false;
-      if (entry.outcome === "created") {
-        ledgerCreatedOffers.push({
-          entityId: entry.entityId,
-          providerEntityId: entry.providerEntityId,
-        });
-      } else offerNoops += 1;
-    }
-  }
-  const evidenceMatches = (
-    left: Array<{ entityId: string; providerEntityId: string }>,
-    right: Array<{ entityId: string; providerEntityId: string }>,
-  ) =>
-    left.length === right.length &&
-    left.every((entry, index) =>
-      entry.providerEntityId === right[index]!.providerEntityId &&
-      sameUuid(entry.entityId, right[index]!.entityId)
-    );
-  return evidenceMatches(createdStores, ledgerCreatedStores) &&
-    evidenceMatches(createdOffers, ledgerCreatedOffers) &&
-    ledgerCreatedStores.length === actual.storesCreated &&
-    ledgerCreatedOffers.length === actual.offersCreated &&
-    storeNoops === actual.storesNoopExisting &&
-    offerNoops === actual.offersNoopExisting &&
-    ledgerValue.length === actual.ledgerRows && noops.stores === storeNoops &&
-    noops.offers === offerNoops;
-}
-
 function indeterminate(): AdsApplyV2Response {
   return {
     status: "indeterminate",
@@ -513,7 +257,7 @@ function indeterminate(): AdsApplyV2Response {
 
 function safeRpcResult(
   value: unknown,
-  prepared: PreparedAdsPersistenceExecutionV2,
+  prepared: PreparedAdsRefreshPersistenceExecutionV2,
   mode: "full" | "canary",
 ): AdsApplyV2Response {
   if (!isRecord(value) || typeof value.status !== "string") {
@@ -550,82 +294,23 @@ function safeRpcResult(
       rpcReason: "internal_failure",
     };
   }
-  if (value.status !== "committed" && value.status !== "replayed_existing") {
-    return indeterminate();
-  }
-  if (
-    !hasExactKeys(value, [
-      "status",
-      "runId",
-      "provider",
-      "integrationId",
-      "persistenceContractVersion",
-      "planFingerprintAlgorithm",
-      "planFingerprint",
-      "evaluationTimestamp",
-      "counts",
-      "createdStores",
-      "createdOffers",
-      "noops",
-      "ledger",
-    ])
-  ) return indeterminate();
-  const args = adsPersistenceRpcArgsV2(prepared);
-  if (
-    !validUuid(value.runId) || value.provider !== "impact" ||
-    value.integrationId !== args._integration_id ||
-    value.persistenceContractVersion !== args._persistence_contract_version ||
-    value.planFingerprintAlgorithm !== args._plan_fingerprint_algorithm ||
-    value.planFingerprint !== args._plan_fingerprint ||
-    typeof value.evaluationTimestamp !== "string" ||
-    Date.parse(value.evaluationTimestamp) !==
-      Date.parse(args._evaluation_timestamp) ||
-    !isRecord(value.counts) ||
-    !hasExactKeys(value.counts, ["expected", "actual"]) ||
-    !isRecord(value.counts.expected) ||
-    !validExpectedCounts(value.counts.expected) ||
-    !sameExpectedCounts(
-      value.counts.expected,
-      args._expected_counts,
-    ) ||
-    !validActualCounts(value.counts.actual) || !isRecord(value.noops) ||
-    !hasExactKeys(value.noops, ["stores", "offers"]) ||
-    !nonnegativeInteger(value.noops.stores) ||
-    !nonnegativeInteger(value.noops.offers)
-  ) {
-    return indeterminate();
-  }
-  const expected = value.counts.expected;
-  const actual = value.counts.actual;
-  if (
-    !validSuccessEvidence(
-      value.ledger,
-      value.createdStores,
-      value.createdOffers,
-      value.noops,
-      actual,
-      prepared,
-    ) ||
-    actual.ledgerRows !== actual.storesCreated + actual.storesNoopExisting +
-        actual.offersCreated + actual.offersNoopExisting ||
-    actual.storesCreated + actual.storesNoopExisting !==
-      expected.stores.create + expected.stores.noopExisting ||
-    actual.offersCreated + actual.offersNoopExisting !==
-      expected.offers.create + expected.offers.noopExisting ||
-    actual.storesCreated > expected.stores.create ||
-    actual.storesNoopExisting < expected.stores.noopExisting ||
-    actual.offersCreated > expected.offers.create ||
-    actual.offersNoopExisting < expected.offers.noopExisting
-  ) return indeterminate();
+  const validated = parseAdsRefreshPersistenceSuccessV2(value, prepared);
+  if (!validated) return indeterminate();
+  const args = adsRefreshPersistenceRpcArgsV2(prepared);
+  const actual = validated.counts.actual;
 
   const response: AdsApplyV2SuccessResponse = {
-    status: value.status,
-    runId: value.runId,
+    status: validated.status,
+    runId: validated.runId,
     mode,
     evaluationTimestamp: args._evaluation_timestamp,
     refreshedPlan: true,
     counts: { expected: args._expected_counts, actual },
     created: { stores: actual.storesCreated, coupons: actual.offersCreated },
+    updated: {
+      stores: actual.storesUpdatedExisting,
+      coupons: actual.offersUpdatedExisting,
+    },
     noops: {
       stores: actual.storesNoopExisting,
       coupons: actual.offersNoopExisting,
@@ -892,12 +577,18 @@ export function createAffiliateSyncAdsApplyV2Handler(
       );
     }
     if (plan.status === "blocked") {
+      const blockerReasonCounts:
+        AdsApplyV2BlockedResponse["blockerReasonCounts"] = {};
+      for (const blocker of plan.blockers) {
+        blockerReasonCounts[blocker.reason] =
+          (blockerReasonCounts[blocker.reason] ?? 0) + 1;
+      }
       return jsonResponse(
         {
           status: "blocked",
           stage: "persistence_plan",
           reason: "plan_blocked",
-          blockerReasonCounts: adsPersistenceBlockerReasonCountsV2(plan),
+          blockerReasonCounts,
         },
         409,
         origin,
@@ -905,7 +596,7 @@ export function createAffiliateSyncAdsApplyV2Handler(
       );
     }
 
-    let prepared: PreparedAdsPersistenceExecutionV2;
+    let prepared: PreparedAdsRefreshPersistenceExecutionV2;
     try {
       prepared = await dependencies.prepareExecution(plan, user.id);
     } catch {

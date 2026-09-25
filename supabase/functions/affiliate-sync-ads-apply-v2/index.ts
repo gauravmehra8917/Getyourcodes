@@ -1,12 +1,12 @@
 // Trusted coded-Impact-Ads apply host. The request supplies intent only.
 
-import { AdsPersistencePlannerV2 } from "../_shared/affiliate-sync-v2-ads-persistence/index.ts";
+import { materializeAdsRefreshPersistencePlanV2 } from "../_shared/affiliate-sync-v2-ads-persistence/ads-persistence-refresh-materializer.ts";
 import { DEFAULT_IMPACT_ADS_FETCH_LIMITS_V2 } from "../_shared/affiliate-sync-v2-ads/index.ts";
 import { createAuthenticatedEdgeClient } from "../_shared/edge-supabase.ts";
 import { decryptCredentialsWebCrypto } from "../_shared/integration-crypto.ts";
 import { ImpactAdsApplyTransportHost } from "./ads-transport-host.ts";
 import { createAffiliateSyncAdsApplyV2Handler } from "./handler.ts";
-import { prepareAdsPersistenceExecutionV2 } from "./persistence-execution.ts";
+import { prepareAdsRefreshPersistenceExecutionV2 } from "./persistence-refresh-execution.ts";
 import { SupabaseAdsApplyV2DataSource } from "./supabase-persistence-boundary.ts";
 
 const handler = createAffiliateSyncAdsApplyV2Handler({
@@ -34,9 +34,9 @@ const handler = createAffiliateSyncAdsApplyV2Handler({
         DEFAULT_IMPACT_ADS_FETCH_LIMITS_V2.maxResponseBytes,
       ),
     }),
-  persistencePlan: (input) => AdsPersistencePlannerV2.plan(input),
+  persistencePlan: (input) => materializeAdsRefreshPersistencePlanV2(input),
   prepareExecution: (plan, triggeredBy) =>
-    prepareAdsPersistenceExecutionV2(plan, triggeredBy),
+    prepareAdsRefreshPersistenceExecutionV2(plan, triggeredBy),
   now: () => new Date(),
   siteUrl: Deno.env.get("SITE_URL") ?? null,
 });

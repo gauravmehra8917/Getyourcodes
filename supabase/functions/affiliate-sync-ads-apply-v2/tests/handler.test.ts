@@ -1,3 +1,8 @@
+import { materializeAdsRefreshPersistencePlanV2 } from "../../_shared/affiliate-sync-v2-ads-persistence/ads-persistence-refresh-materializer.ts";
+import {
+  providerManagedOfferStateFromProjectionV2,
+  providerManagedStoreStateFromProjectionV2,
+} from "../../_shared/affiliate-sync-v2-ads-persistence/provider-managed-state.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -7,15 +12,14 @@ import {
 } from "../../_shared/affiliate-sync-v2-ads/index.ts";
 import {
   type AdsCatalogPlanningContextV2,
-  AdsPersistencePlannerV2,
 } from "../../_shared/affiliate-sync-v2-ads-persistence/index.ts";
 import type { StoredIntegrationV2 } from "../../_shared/affiliate-sync-v2-host/types.ts";
 import { createAffiliateSyncAdsApplyV2Handler } from "../handler.ts";
 import {
-  adsPersistenceRpcArgsV2,
-  prepareAdsPersistenceExecutionV2,
-  type PreparedAdsPersistenceExecutionV2,
-} from "../persistence-execution.ts";
+  adsRefreshPersistenceRpcArgsV2,
+  prepareAdsRefreshPersistenceExecutionV2,
+  type PreparedAdsRefreshPersistenceExecutionV2,
+} from "../persistence-refresh-execution.ts";
 import type {
   AdsApplyV2DataSource,
   AdsApplyV2HostDependencies,
@@ -121,14 +125,14 @@ function emptyCatalog(): AdsCatalogPlanningContextV2 {
 class FakeDataSource implements AdsApplyV2DataSource {
   readonly operations: string[] = [];
   readonly roleIds: string[] = [];
-  readonly rpcCalls: PreparedAdsPersistenceExecutionV2[] = [];
+  readonly rpcCalls: PreparedAdsRefreshPersistenceExecutionV2[] = [];
   roleResults: Array<boolean | Error> = [true, true];
   integration: StoredIntegrationV2 | null = structuredClone(integration);
   ciphertext: string | null = CIPHERTEXT;
   catalog: AdsCatalogPlanningContextV2 = emptyCatalog();
   throwAt: "integration" | "credential" | "catalog" | null = null;
   rpcImplementation: (
-    prepared: PreparedAdsPersistenceExecutionV2,
+    prepared: PreparedAdsRefreshPersistenceExecutionV2,
   ) => Promise<AdsApplyV2RpcTransportResult> = async (prepared) => ({
     kind: "response",
     value: validRpcValue(prepared),
@@ -162,7 +166,7 @@ class FakeDataSource implements AdsApplyV2DataSource {
     return this.catalog;
   }
   async applyPersistencePlan(
-    prepared: PreparedAdsPersistenceExecutionV2,
+    prepared: PreparedAdsRefreshPersistenceExecutionV2,
   ): Promise<AdsApplyV2RpcTransportResult> {
     this.operations.push("rpc:apply_affiliate_persistence_plan_v2");
     this.rpcCalls.push(prepared);
@@ -178,15 +182,19 @@ function evidenceUuid(kind: "store" | "offer", index: number): string {
 }
 
 function validRpcValue(
-  prepared: PreparedAdsPersistenceExecutionV2,
+  prepared: PreparedAdsRefreshPersistenceExecutionV2,
   status: "committed" | "replayed_existing" = "committed",
 ): Record<string, unknown> {
-  const args = adsPersistenceRpcArgsV2(prepared);
+  const args = adsRefreshPersistenceRpcArgsV2(prepared);
   const stores = args._store_instructions.map((instruction, index) => ({
     instructionOrdinal: instruction.instructionOrdinal,
     entityKind: "store",
     plannedAction: instruction.action,
-    outcome: instruction.action === "create" ? "created" : "noop_existing",
+    outcome: instruction.action === "create"
+      ? "created"
+      : instruction.action === "update_existing"
+      ? "updated_existing"
+      : "noop_existing",
     provider: "impact",
     providerEntityNamespace: "campaign",
     providerEntityId: instruction.providerEntityId,
@@ -206,7 +214,11 @@ function validRpcValue(
     instructionOrdinal: instruction.instructionOrdinal,
     entityKind: "offer",
     plannedAction: instruction.action,
-    outcome: instruction.action === "create" ? "created" : "noop_existing",
+    outcome: instruction.action === "create"
+      ? "created"
+      : instruction.action === "update_existing"
+      ? "updated_existing"
+      : "noop_existing",
     provider: "impact",
     providerEntityNamespace: "ad",
     providerEntityId: instruction.providerEntityId,
@@ -232,16 +244,20 @@ function validRpcValue(
     }));
   const actual = {
     storesCreated: createdStores.length,
-    storesNoopExisting: stores.length - createdStores.length,
+    storesUpdatedExisting:
+      stores.filter((entry) => entry.outcome === "updated_existing").length,
+    storesNoopExisting:
+      stores.filter((entry) => entry.outcome === "noop_existing").length,
     offersCreated: createdOffers.length,
-    offersNoopExisting: offers.length - createdOffers.length,
+    offersUpdatedExisting:
+      offers.filter((entry) => entry.outcome === "updated_existing").length,
+    offersNoopExisting:
+      offers.filter((entry) => entry.outcome === "noop_existing").length,
     ledgerRows: ledger.length,
   };
   return {
     status,
     runId: RUN_ID,
-    provider: args._provider,
-    integrationId: args._integration_id,
     persistenceContractVersion: args._persistence_contract_version,
     planFingerprintAlgorithm: args._plan_fingerprint_algorithm,
     planFingerprint: args._plan_fingerprint,
@@ -310,13 +326,13 @@ function harness(input: {
     persistencePlan(planInput) {
       activity.plans += 1;
       if (input.plannerError) throw new Error(SECRET_ERROR);
-      return AdsPersistencePlannerV2.plan(planInput);
+      return materializeAdsRefreshPersistencePlanV2(planInput);
     },
     async prepareExecution(plan, triggeredBy) {
       activity.preparations += 1;
       assert.equal(triggeredBy, ADMIN_ID);
       if (input.preparationError) throw new Error(SECRET_ERROR);
-      return await prepareAdsPersistenceExecutionV2(plan, triggeredBy);
+      return await prepareAdsRefreshPersistenceExecutionV2(plan, triggeredBy);
     },
     now: () => new Date(EVALUATION),
     siteUrl: input.siteUrl === undefined
@@ -358,6 +374,53 @@ function request(
   });
 }
 
+// Derive catalog facts from the real create projection, never a fabricated capability.
+// The seed host uses only FixtureTransport and FakeDataSource (no database/provider).
+async function providerOwnedCatalog(): Promise<AdsCatalogPlanningContextV2> {
+  const seed = harness();
+  assert.equal((await seed.handler(request())).status, 200);
+  const args = adsRefreshPersistenceRpcArgsV2(seed.source.rpcCalls[0]!);
+  const store = args._store_instructions[0]!;
+  const offer = args._offer_instructions[0]!;
+  assert.equal(store.action, "create");
+  assert.equal(offer.action, "create");
+  return {
+    stores: [{
+      storeId: EXISTING_STORE_ID,
+      slug: store.projection.slugCandidate,
+      provider: "impact",
+      providerEntityNamespace: "campaign",
+      providerEntityId: CAMPAIGN_ID,
+      importOrigin: "provider",
+      lifecycleManaged: true,
+      providerManagedState: providerManagedStoreStateFromProjectionV2(
+        store.projection,
+      ),
+    }],
+    offers: [{
+      offerId: EXISTING_OFFER_ID,
+      storeId: EXISTING_STORE_ID,
+      provider: "impact",
+      providerEntityNamespace: "ad",
+      providerEntityId: AD_ID,
+      couponType: "code",
+      providerManagedState: providerManagedOfferStateFromProjectionV2(
+        offer.projection,
+      ),
+    }],
+  };
+}
+
+async function updatingSource(): Promise<FakeDataSource> {
+  const source = new FakeDataSource();
+  source.catalog = await providerOwnedCatalog();
+  source.catalog.stores[0]!.providerManagedState!.affiliateUrl =
+    "https://track.example/old-sensitive";
+  source.catalog.offers[0]!.providerManagedState!.couponCode =
+    "old-code-sensitive";
+  return source;
+}
+
 async function bodyOf(response: Response): Promise<Record<string, unknown>> {
   return await response.json() as Record<string, unknown>;
 }
@@ -391,6 +454,10 @@ function serializedLeaksSecret(value: unknown): boolean {
     "track.example",
     "landing.example",
     SECRET_ERROR,
+    "old-code-sensitive",
+    "old-sensitive",
+    "expectedCurrent",
+    "desiredManagedState",
   ].some((secret) => serialized.includes(secret));
 }
 
@@ -480,6 +547,24 @@ test("strict authentication and first admin check precede request/provider work"
 
 test("request is closed intent only and rejects executable or unknown material", async () => {
   const invalidBodies: unknown[] = [
+    ...[
+      "persistenceContractVersion",
+      "expectedCurrent",
+      "desiredManagedState",
+      "expectedExistingStoreId",
+      "existingOfferId",
+      "providerEntityId",
+      "expectedCounts",
+      "planFingerprint",
+      "evaluationTimestamp",
+      "storeInstructions",
+      "offerInstructions",
+    ].map((key) => ({
+      integrationId: INTEGRATION_ID,
+      execute: true,
+      mode: "full",
+      [key]: "untrusted",
+    })),
     { integrationId: INTEGRATION_ID, execute: false, mode: "full" },
     { integrationId: INTEGRATION_ID, execute: true },
     {
@@ -551,14 +636,16 @@ test("successful full execution owns retrieval, planning, second admin check and
   assert.equal(adsUrl.pathname, `/Mediapartners/${ACCOUNT_SID}/Ads`);
   assert.equal(adsUrl.searchParams.get("Type"), "COUPON");
   assert.equal(fixture.source.rpcCalls.length, 1);
-  const rpcArgs = adsPersistenceRpcArgsV2(fixture.source.rpcCalls[0]!);
+  const rpcArgs = adsRefreshPersistenceRpcArgsV2(fixture.source.rpcCalls[0]!);
   assert.equal(
     rpcArgs._store_instructions[0]?.providerEntityNamespace,
     "campaign",
   );
   assert.equal(rpcArgs._offer_instructions[0]?.providerEntityNamespace, "ad");
+  assert.equal(rpcArgs._persistence_contract_version, "v2-a11-ads-2");
+  assert.equal(rpcArgs._offer_instructions[0]?.action, "create");
   assert.equal(
-    rpcArgs._offer_instructions[0]?.projection?.couponCode,
+    rpcArgs._offer_instructions[0].projection?.couponCode,
     COUPON_CODE,
   );
 
@@ -573,13 +660,16 @@ test("successful full execution owns retrieval, planning, second admin check and
       expected: rpcArgs._expected_counts,
       actual: {
         storesCreated: 1,
+        storesUpdatedExisting: 0,
         storesNoopExisting: 0,
         offersCreated: 1,
+        offersUpdatedExisting: 0,
         offersNoopExisting: 0,
         ledgerRows: 2,
       },
     },
     created: { stores: 1, coupons: 1 },
+    updated: { stores: 0, coupons: 0 },
     noops: { stores: 0, coupons: 0 },
     ledgerRows: 2,
   });
@@ -590,7 +680,7 @@ test("jsonb key reordering in expected counts remains valid", async () => {
   const source = new FakeDataSource();
   source.rpcImplementation = async (prepared) => {
     const value = validRpcValue(prepared);
-    const expected = adsPersistenceRpcArgsV2(prepared)._expected_counts;
+    const expected = adsRefreshPersistenceRpcArgsV2(prepared)._expected_counts;
     const counts = value.counts as Record<string, unknown>;
     counts.expected = {
       writableEntities: expected.writableEntities,
@@ -601,12 +691,14 @@ test("jsonb key reordering in expected counts remains valid", async () => {
         noopHeld: expected.offers.noopHeld,
         noopExisting: expected.offers.noopExisting,
         create: expected.offers.create,
+        updateExisting: expected.offers.updateExisting,
       },
       stores: {
         noopUnmatched: expected.stores.noopUnmatched,
         blockedAmbiguous: expected.stores.blockedAmbiguous,
         noopExisting: expected.stores.noopExisting,
         create: expected.stores.create,
+        updateExisting: expected.stores.updateExisting,
       },
     };
     return { kind: "response", value };
@@ -631,36 +723,21 @@ test("parser-valid provider timestamps without seconds reach persistence", async
   const fixture = harness({ transport });
   const response = await fixture.handler(request());
   assert.equal(response.status, 200);
-  const args = adsPersistenceRpcArgsV2(fixture.source.rpcCalls[0]!);
+  const args = adsRefreshPersistenceRpcArgsV2(fixture.source.rpcCalls[0]!);
+  assert.equal(args._offer_instructions[0]?.action, "create");
   assert.equal(
-    args._offer_instructions[0]?.projection?.metadata.dealStartDate,
+    args._offer_instructions[0].projection?.metadata.dealStartDate,
     "2026-05-01T12:34Z",
   );
   assert.equal(
-    args._offer_instructions[0]?.projection?.metadata.dealEndDate,
+    args._offer_instructions[0].projection?.metadata.dealEndDate,
     "2026-12-31T23:59z",
   );
 });
 
 test("exact existing canary is a valid zero-create NOOP execution", async () => {
   const source = new FakeDataSource();
-  source.catalog = {
-    stores: [{
-      storeId: EXISTING_STORE_ID,
-      slug: "curated-sensitive-store",
-      provider: "impact",
-      providerEntityNamespace: "campaign",
-      providerEntityId: CAMPAIGN_ID,
-    }],
-    offers: [{
-      offerId: EXISTING_OFFER_ID,
-      storeId: EXISTING_STORE_ID,
-      provider: "impact",
-      providerEntityNamespace: "ad",
-      providerEntityId: AD_ID,
-      couponType: "code",
-    }],
-  };
+  source.catalog = await providerOwnedCatalog();
   const fixture = harness({ source });
   const response = await fixture.handler(request({
     integrationId: INTEGRATION_ID,
@@ -676,6 +753,146 @@ test("exact existing canary is a valid zero-create NOOP execution", async () => 
   assert.deepEqual(result.noops, { stores: 1, coupons: 1 });
   assert.equal(JSON.stringify(result).includes(AD_ID), false);
   assert.equal(source.rpcCalls.length, 1);
+});
+
+test("genuine Ads-1 base/materializer/finalizer/preparer chain executes and validates Ads-2 UPDATE", async () => {
+  for (const status of ["committed", "replayed_existing"] as const) {
+    const source = await updatingSource();
+    source.rpcImplementation = async (prepared) => ({
+      kind: "response",
+      value: validRpcValue(prepared, status),
+    });
+    const fixture = harness({ source });
+    const response = await fixture.handler(request());
+    assert.equal(response.status, 200);
+    assert.equal(source.rpcCalls.length, 1);
+    const args = adsRefreshPersistenceRpcArgsV2(source.rpcCalls[0]!);
+    assert.equal(args._persistence_contract_version, "v2-a11-ads-2");
+    assert.equal(args._triggered_by, ADMIN_ID);
+    assert.equal(args._store_instructions[0]?.action, "update_existing");
+    assert.equal(args._offer_instructions[0]?.action, "update_existing");
+    assert.equal(args._expected_counts.stores.updateExisting, 1);
+    assert.equal(args._expected_counts.offers.updateExisting, 1);
+    assert.deepEqual(source.operations.slice(-2), [
+      "read:user_roles",
+      "rpc:apply_affiliate_persistence_plan_v2",
+    ]);
+    const result = await bodyOf(response);
+    assert.equal(result.status, status);
+    assert.deepEqual(result.updated, { stores: 1, coupons: 1 });
+    assert.deepEqual(result.created, { stores: 0, coupons: 0 });
+    assert.deepEqual(result.noops, { stores: 0, coupons: 0 });
+    assert.equal(serializedLeaksSecret(result), false);
+    assert.equal(fixture.activity.preparations, 1);
+  }
+});
+
+test("Ads-2 ownership blockers cause zero preparation/RPC and no historical Ads-1 fallback", async () => {
+  for (
+    const [origin, lifecycleManaged] of [[null, true], [
+      "provider",
+      false,
+    ]] as const
+  ) {
+    const source = await updatingSource();
+    source.catalog.stores[0]!.importOrigin = origin;
+    source.catalog.stores[0]!.lifecycleManaged = lifecycleManaged;
+    const fixture = harness({ source });
+    const response = await fixture.handler(request());
+    assert.equal(response.status, 409);
+    const result = await bodyOf(response);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.stage, "persistence_plan");
+    assert.deepEqual(Object.keys(result).sort(), [
+      "blockerReasonCounts",
+      "reason",
+      "stage",
+      "status",
+    ]);
+    assert.equal(serializedLeaksSecret(result), false);
+    assert.equal(fixture.activity.preparations, 0);
+    assert.equal(source.rpcCalls.length, 0);
+    assert.equal(source.roleIds.length, 1);
+  }
+});
+
+test("Ads-2 substituted evidence fails closed with one attempt and no managed-state exposure", async () => {
+  const mutations: Array<(value: Record<string, unknown>) => void> = [
+    (value) => {
+      value.planFingerprint = "0".repeat(64);
+    },
+    (value) => {
+      value.persistenceContractVersion = "v2-a11-ads-1";
+    },
+    (value) => {
+      (value.ledger as Array<Record<string, unknown>>)[1]!.entityId = ADMIN_ID;
+    },
+    (value) => {
+      (value.ledger as Array<Record<string, unknown>>)[1]!.expectedEntityId =
+        ADMIN_ID;
+    },
+    (value) => {
+      (value.ledger as Array<Record<string, unknown>>)[1]!.parentEntityId =
+        ADMIN_ID;
+    },
+    (value) => {
+      (value.ledger as Array<Record<string, unknown>>)[1]!
+        .parentProviderEntityId = "wrong-parent";
+    },
+    (value) => {
+      (value.counts as { actual: Record<string, number> }).actual
+        .offersUpdatedExisting = 0;
+    },
+    (value) => {
+      (value.ledger as Array<Record<string, unknown>>)[1]!.outcome =
+        "noop_existing";
+    },
+  ];
+  for (const mutate of mutations) {
+    const source = await updatingSource();
+    source.rpcImplementation = async (prepared) => {
+      const value = structuredClone(validRpcValue(prepared));
+      mutate(value);
+      return { kind: "response", value };
+    };
+    const response = await harness({ source }).handler(request());
+    assert.equal(response.status, 502);
+    const result = await bodyOf(response);
+    assert.deepEqual(result, {
+      status: "indeterminate",
+      stage: "rpc_apply",
+      reason: "outcome_unknown",
+    });
+    assert.equal(serializedLeaksSecret(result), false);
+    assert.equal(source.rpcCalls.length, 1);
+  }
+});
+
+test("Ads-2 bounded transaction errors retain only approved stage/reason literals", async () => {
+  for (
+    const [stage, reason] of [
+      ["store_update", "ownership_not_provider_managed"],
+      ["store_update", "stale_store_state"],
+      ["offer_update", "stale_offer_state"],
+      ["evidence_validation", "run_coherence_mismatch"],
+    ]
+  ) {
+    const source = new FakeDataSource();
+    source.rpcImplementation = async () => ({
+      kind: "response",
+      value: { status: "blocked", stage, reason },
+    });
+    const response = await harness({ source }).handler(request());
+    assert.equal(response.status, 409);
+    assert.deepEqual(await bodyOf(response), {
+      status: "blocked",
+      stage: "rpc_apply",
+      reason: "rpc_blocked",
+      rpcStage: stage,
+      rpcReason: reason,
+    });
+    assert.equal(source.rpcCalls.length, 1);
+  }
 });
 
 test("unknown, no-code and conflicting canaries are bounded zero-write blockers", async () => {
@@ -790,6 +1007,9 @@ test("transport uncertainty and malformed RPC evidence remain indeterminate and 
   for (
     const rpcImplementation of [
       async () => ({ kind: "transport_error" as const }),
+      async () => {
+        throw new Error(SECRET_ERROR);
+      },
       async () => ({
         kind: "response" as const,
         value: { status: "committed", secret: SECRET_ERROR },
@@ -808,6 +1028,7 @@ test("transport uncertainty and malformed RPC evidence remain indeterminate and 
       reason: "outcome_unknown",
     });
     assert.equal(serializedLeaksSecret(result), false);
+    assert.equal(source.rpcCalls.length, 1);
   }
 });
 

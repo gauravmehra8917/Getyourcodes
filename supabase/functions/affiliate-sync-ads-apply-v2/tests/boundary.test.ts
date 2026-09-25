@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
 import test from "node:test";
+import {
+  adsRefreshPersistenceRpcArgsV2,
+  type ApplyAffiliateAdsRefreshPersistencePlanV2Args,
+  type PreparedAdsRefreshPersistenceExecutionV2,
+} from "../persistence-refresh-execution.ts";
+import type { AdsApplyV2DataSource } from "../types.ts";
 
 const ROOT = resolve(import.meta.dirname ?? ".", "../../../..");
 const ENTRY = resolve(
@@ -56,6 +62,7 @@ test("Ads Apply executable closure has zero V1 execution dependency", () => {
     "ImportPipeline",
     "ImportExecutor",
     "public.import_apply",
+    "affiliate_sync_v2_apply_ads_refresh_plan_internal",
   ];
   for (const [file, source] of closure) {
     const normalized = file.replaceAll("\\", "/");
@@ -93,8 +100,63 @@ test("host boundary exposes one named transactional RPC and no direct mutation q
     1,
   );
   assert.match(source, /"apply_affiliate_persistence_plan_v2"/);
+  assert.match(source, /prepared: PreparedAdsRefreshPersistenceExecutionV2/);
+  assert.match(source, /adsRefreshPersistenceRpcArgsV2\(prepared\)/);
+  assert.ok(
+    source.indexOf("adsRefreshPersistenceRpcArgsV2(prepared)") <
+      source.indexOf("this.db.rpc("),
+  );
   for (const mutation of [".insert(", ".update(", ".upsert(", ".delete("]) {
     assert.equal(source.includes(mutation), false);
+  }
+});
+
+test("active entry uses approved refresh materialization, preparation and result validation only", () => {
+  const entry = readFileSync(ENTRY, "utf8");
+  const handler = readFileSync(resolve(HOST_ROOT, "handler.ts"), "utf8");
+  assert.match(
+    entry,
+    /persistencePlan: \(input\) => materializeAdsRefreshPersistencePlanV2\(input\)/,
+  );
+  assert.match(
+    entry,
+    /prepareAdsRefreshPersistenceExecutionV2\(plan, triggeredBy\)/,
+  );
+  assert.match(
+    handler,
+    /parseAdsRefreshPersistenceSuccessV2\(value, prepared\)/,
+  );
+  assert.doesNotMatch(
+    entry + handler,
+    /prepareAdsPersistenceExecutionV2|adsPersistenceRpcArgsV2/,
+  );
+  assert.ok(
+    handler.indexOf('if (plan.status === "blocked")') <
+      handler.indexOf("dependencies.prepareExecution(plan, user.id)"),
+  );
+});
+
+test("plain RPC args are not capabilities and forged objects fail the exact boundary accessor", () => {
+  type BoundaryInput = Parameters<
+    AdsApplyV2DataSource["applyPersistencePlan"]
+  >[0];
+  const onlyOpaque: BoundaryInput extends
+    PreparedAdsRefreshPersistenceExecutionV2 ? true : false = true;
+  const argsAssignable: ApplyAffiliateAdsRefreshPersistencePlanV2Args extends
+    BoundaryInput ? true : false = false;
+  const objectAssignable: Record<string, unknown> extends BoundaryInput ? true
+    : false = false;
+  assert.equal(onlyOpaque, true);
+  assert.equal(argsAssignable, false);
+  assert.equal(objectAssignable, false);
+  for (
+    const forged of [{}, { rpcArgs: {} }, {
+      _persistence_contract_version: "v2-a11-ads-2",
+    }]
+  ) {
+    assert.throws(() =>
+      Reflect.apply(adsRefreshPersistenceRpcArgsV2, undefined, [forged])
+    );
   }
 });
 
