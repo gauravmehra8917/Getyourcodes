@@ -9,154 +9,74 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
-import { Route as StoresRouteImport } from './routes/stores'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as SearchRouteImport } from './routes/search'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as McpRouteImport } from './routes/mcp'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as DealsRouteImport } from './routes/deals'
-import { Route as CouponsRouteImport } from './routes/coupons'
-import { Route as ContactRouteImport } from './routes/contact'
-import { Route as CategoriesRouteImport } from './routes/categories'
-import { Route as BlogRouteImport } from './routes/blog'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AnalyticsRouteImport } from './routes/analytics'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as AboutRouteImport } from './routes/about'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
-import { Route as ApiChatRouteImport } from './routes/api/chat'
-import { Route as AdminUsersRouteImport } from './routes/admin.users'
-import { Route as AdminTranslationsRouteImport } from './routes/admin.translations'
-import { Route as AdminThemeRouteImport } from './routes/admin.theme'
-import { Route as AdminSubscribersRouteImport } from './routes/admin.subscribers'
-import { Route as AdminSubcategoriesRouteImport } from './routes/admin.subcategories'
-import { Route as AdminStoresRouteImport } from './routes/admin.stores'
-import { Route as AdminSlidersRouteImport } from './routes/admin.sliders'
-import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
-import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
-import { Route as AdminReportsRouteImport } from './routes/admin.reports'
-import { Route as AdminPublishingPoliciesRouteImport } from './routes/admin.publishing-policies'
-import { Route as AdminPostsRouteImport } from './routes/admin.posts'
-import { Route as AdminPagesRouteImport } from './routes/admin.pages'
-import { Route as AdminNewslettersRouteImport } from './routes/admin.newsletters'
-import { Route as AdminMenusRouteImport } from './routes/admin.menus'
-import { Route as AdminIntegrationsRouteImport } from './routes/admin.integrations'
-import { Route as AdminHeadManagerRouteImport } from './routes/admin.head-manager'
-import { Route as AdminEtemplatesRouteImport } from './routes/admin.etemplates'
-import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
-import { Route as AdminCommentsRouteImport } from './routes/admin.comments'
-import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
-import { Route as AdminBlogCategoriesRouteImport } from './routes/admin.blog-categories'
-import { Route as AdminAdsRouteImport } from './routes/admin.ads'
-import { Route as AdminActivityRouteImport } from './routes/admin.activity'
-import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
-import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BlogRouteImport } from './routes/blog'
+import { Route as CategoriesRouteImport } from './routes/categories'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CouponsRouteImport } from './routes/coupons'
+import { Route as DealsRouteImport } from './routes/deals'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as McpRouteImport } from './routes/mcp'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as StoresRouteImport } from './routes/stores'
+import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
-import { Route as AdminSubcategoriesIndexRouteImport } from './routes/admin.subcategories.index'
-import { Route as AdminStoresIndexRouteImport } from './routes/admin.stores.index'
-import { Route as AdminPostsIndexRouteImport } from './routes/admin.posts.index'
-import { Route as AdminCouponsIndexRouteImport } from './routes/admin.coupons.index'
-import { Route as AdminSubcategoriesNewRouteImport } from './routes/admin.subcategories.new'
-import { Route as AdminSubcategoriesIdRouteImport } from './routes/admin.subcategories.$id'
-import { Route as AdminStoresNewRouteImport } from './routes/admin.stores.new'
-import { Route as AdminStoresIdRouteImport } from './routes/admin.stores.$id'
-import { Route as AdminPostsNewRouteImport } from './routes/admin.posts.new'
-import { Route as AdminPostsIdRouteImport } from './routes/admin.posts.$id'
-import { Route as AdminCouponsNewRouteImport } from './routes/admin.coupons.new'
-import { Route as AdminCouponsIdRouteImport } from './routes/admin.coupons.$id'
-import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminActivityRouteImport } from './routes/admin.activity'
+import { Route as AdminAdsRouteImport } from './routes/admin.ads'
+import { Route as AdminBlogCategoriesRouteImport } from './routes/admin.blog-categories'
+import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
+import { Route as AdminCommentsRouteImport } from './routes/admin.comments'
+import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
+import { Route as AdminEtemplatesRouteImport } from './routes/admin.etemplates'
+import { Route as AdminHeadManagerRouteImport } from './routes/admin.head-manager'
+import { Route as AdminIntegrationsRouteImport } from './routes/admin.integrations'
+import { Route as AdminMenusRouteImport } from './routes/admin.menus'
+import { Route as AdminNewslettersRouteImport } from './routes/admin.newsletters'
+import { Route as AdminPagesRouteImport } from './routes/admin.pages'
+import { Route as AdminPostsRouteImport } from './routes/admin.posts'
+import { Route as AdminPublishingPoliciesRouteImport } from './routes/admin.publishing-policies'
+import { Route as AdminReportsRouteImport } from './routes/admin.reports'
+import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminSlidersRouteImport } from './routes/admin.sliders'
+import { Route as AdminStoresRouteImport } from './routes/admin.stores'
+import { Route as AdminSubcategoriesRouteImport } from './routes/admin.subcategories'
+import { Route as AdminSubscribersRouteImport } from './routes/admin.subscribers'
+import { Route as AdminThemeRouteImport } from './routes/admin.theme'
+import { Route as AdminTranslationsRouteImport } from './routes/admin.translations'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as AdminCouponsIndexRouteImport } from './routes/admin.coupons.index'
+import { Route as AdminCouponsIdRouteImport } from './routes/admin.coupons.$id'
+import { Route as AdminCouponsNewRouteImport } from './routes/admin.coupons.new'
+import { Route as AdminPostsIndexRouteImport } from './routes/admin.posts.index'
+import { Route as AdminPostsIdRouteImport } from './routes/admin.posts.$id'
+import { Route as AdminPostsNewRouteImport } from './routes/admin.posts.new'
+import { Route as AdminStoresIndexRouteImport } from './routes/admin.stores.index'
+import { Route as AdminStoresIdRouteImport } from './routes/admin.stores.$id'
+import { Route as AdminStoresNewRouteImport } from './routes/admin.stores.new'
+import { Route as AdminSubcategoriesIndexRouteImport } from './routes/admin.subcategories.index'
+import { Route as AdminSubcategoriesIdRouteImport } from './routes/admin.subcategories.$id'
+import { Route as AdminSubcategoriesNewRouteImport } from './routes/admin.subcategories.new'
 
-const UnsubscribeRoute = UnsubscribeRouteImport.update({
-  id: '/unsubscribe',
-  path: '/unsubscribe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StoresRoute = StoresRouteImport.update({
-  id: '/stores',
-  path: '/stores',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SearchRoute = SearchRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const McpRoute = McpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DealsRoute = DealsRouteImport.update({
-  id: '/deals',
-  path: '/deals',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CouponsRoute = CouponsRouteImport.update({
-  id: '/coupons',
-  path: '/coupons',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContactRoute = ContactRouteImport.update({
-  id: '/contact',
-  path: '/contact',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CategoriesRoute = CategoriesRouteImport.update({
-  id: '/categories',
-  path: '/categories',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BlogRoute = BlogRouteImport.update({
-  id: '/blog',
-  path: '/blog',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalyticsRoute = AnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SlugRoute = SlugRouteImport.update({
@@ -168,139 +88,111 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogRoute = BlogRouteImport.update({
+  id: '/blog',
+  path: '/blog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CategoriesRoute = CategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CouponsRoute = CouponsRouteImport.update({
+  id: '/coupons',
+  path: '/coupons',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DealsRoute = DealsRouteImport.update({
+  id: '/deals',
+  path: '/deals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StoresRoute = StoresRouteImport.update({
+  id: '/stores',
+  path: '/stores',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UnsubscribeRoute = UnsubscribeRouteImport.update({
+  id: '/unsubscribe',
+  path: '/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AdminRoute,
-} as any)
-const BlogSlugRoute = BlogSlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => BlogRoute,
-} as any)
-const ApiChatRoute = ApiChatRouteImport.update({
-  id: '/api/chat',
-  path: '/api/chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminTranslationsRoute = AdminTranslationsRouteImport.update({
-  id: '/translations',
-  path: '/translations',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminThemeRoute = AdminThemeRouteImport.update({
-  id: '/theme',
-  path: '/theme',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSubscribersRoute = AdminSubscribersRouteImport.update({
-  id: '/subscribers',
-  path: '/subscribers',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSubcategoriesRoute = AdminSubcategoriesRouteImport.update({
-  id: '/subcategories',
-  path: '/subcategories',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminStoresRoute = AdminStoresRouteImport.update({
-  id: '/stores',
-  path: '/stores',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSlidersRoute = AdminSlidersRouteImport.update({
-  id: '/sliders',
-  path: '/sliders',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSettingsRoute = AdminSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminReviewsRoute = AdminReviewsRouteImport.update({
-  id: '/reviews',
-  path: '/reviews',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminReportsRoute = AdminReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPublishingPoliciesRoute = AdminPublishingPoliciesRouteImport.update({
-  id: '/publishing-policies',
-  path: '/publishing-policies',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPostsRoute = AdminPostsRouteImport.update({
-  id: '/posts',
-  path: '/posts',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPagesRoute = AdminPagesRouteImport.update({
-  id: '/pages',
-  path: '/pages',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminNewslettersRoute = AdminNewslettersRouteImport.update({
-  id: '/newsletters',
-  path: '/newsletters',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminMenusRoute = AdminMenusRouteImport.update({
-  id: '/menus',
-  path: '/menus',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminIntegrationsRoute = AdminIntegrationsRouteImport.update({
-  id: '/integrations',
-  path: '/integrations',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminHeadManagerRoute = AdminHeadManagerRouteImport.update({
-  id: '/head-manager',
-  path: '/head-manager',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminEtemplatesRoute = AdminEtemplatesRouteImport.update({
-  id: '/etemplates',
-  path: '/etemplates',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminCouponsRoute = AdminCouponsRouteImport.update({
-  id: '/coupons',
-  path: '/coupons',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminCommentsRoute = AdminCommentsRouteImport.update({
-  id: '/comments',
-  path: '/comments',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
-  id: '/categories',
-  path: '/categories',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminBlogCategoriesRoute = AdminBlogCategoriesRouteImport.update({
-  id: '/blog-categories',
-  path: '/blog-categories',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminAdsRoute = AdminAdsRouteImport.update({
-  id: '/ads',
-  path: '/ads',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminActivityRoute = AdminActivityRouteImport.update({
@@ -308,82 +200,135 @@ const AdminActivityRoute = AdminActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => AdminRoute,
 } as any)
-const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => AuthenticatedRouteRoute,
+const AdminAdsRoute = AdminAdsRouteImport.update({
+  id: '/ads',
+  path: '/ads',
+  getParentRoute: () => AdminRoute,
 } as any)
-const Char91DotwellKnownChar93OauthProtectedResourceRoute =
-  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
-    id: '/.well-known/oauth-protected-resource',
-    path: '/.well-known/oauth-protected-resource',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const Char91DotmcpChar93ListToolsRoute =
-  Char91DotmcpChar93ListToolsRouteImport.update({
-    id: '/.mcp/list-tools',
-    path: '/.mcp/list-tools',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const AdminSubcategoriesIndexRoute = AdminSubcategoriesIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminSubcategoriesRoute,
+const AdminBlogCategoriesRoute = AdminBlogCategoriesRouteImport.update({
+  id: '/blog-categories',
+  path: '/blog-categories',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminStoresIndexRoute = AdminStoresIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminStoresRoute,
+const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminPostsIndexRoute = AdminPostsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminPostsRoute,
+const AdminCommentsRoute = AdminCommentsRouteImport.update({
+  id: '/comments',
+  path: '/comments',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminCouponsIndexRoute = AdminCouponsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminCouponsRoute,
+const AdminCouponsRoute = AdminCouponsRouteImport.update({
+  id: '/coupons',
+  path: '/coupons',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminSubcategoriesNewRoute = AdminSubcategoriesNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AdminSubcategoriesRoute,
+const AdminEtemplatesRoute = AdminEtemplatesRouteImport.update({
+  id: '/etemplates',
+  path: '/etemplates',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminSubcategoriesIdRoute = AdminSubcategoriesIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AdminSubcategoriesRoute,
+const AdminHeadManagerRoute = AdminHeadManagerRouteImport.update({
+  id: '/head-manager',
+  path: '/head-manager',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminStoresNewRoute = AdminStoresNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AdminStoresRoute,
+const AdminIntegrationsRoute = AdminIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminStoresIdRoute = AdminStoresIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AdminStoresRoute,
+const AdminMenusRoute = AdminMenusRouteImport.update({
+  id: '/menus',
+  path: '/menus',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminPostsNewRoute = AdminPostsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AdminPostsRoute,
+const AdminNewslettersRoute = AdminNewslettersRouteImport.update({
+  id: '/newsletters',
+  path: '/newsletters',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminPostsIdRoute = AdminPostsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AdminPostsRoute,
+const AdminPagesRoute = AdminPagesRouteImport.update({
+  id: '/pages',
+  path: '/pages',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminCouponsNewRoute = AdminCouponsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AdminCouponsRoute,
+const AdminPostsRoute = AdminPostsRouteImport.update({
+  id: '/posts',
+  path: '/posts',
+  getParentRoute: () => AdminRoute,
 } as any)
-const AdminCouponsIdRoute = AdminCouponsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AdminCouponsRoute,
+const AdminPublishingPoliciesRoute = AdminPublishingPoliciesRouteImport.update({
+  id: '/publishing-policies',
+  path: '/publishing-policies',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSlidersRoute = AdminSlidersRouteImport.update({
+  id: '/sliders',
+  path: '/sliders',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminStoresRoute = AdminStoresRouteImport.update({
+  id: '/stores',
+  path: '/stores',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubcategoriesRoute = AdminSubcategoriesRouteImport.update({
+  id: '/subcategories',
+  path: '/subcategories',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubscribersRoute = AdminSubscribersRouteImport.update({
+  id: '/subscribers',
+  path: '/subscribers',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminThemeRoute = AdminThemeRouteImport.update({
+  id: '/theme',
+  path: '/theme',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTranslationsRoute = AdminTranslationsRouteImport.update({
+  id: '/translations',
+  path: '/translations',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => BlogRoute,
+} as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
   Char91DotmcpChar93InvokeToolToolRouteImport.update({
@@ -391,10 +336,65 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
-const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
-  id: '/.lovable/oauth/consent',
-  path: '/.lovable/oauth/consent',
-  getParentRoute: () => rootRouteImport,
+const AdminCouponsIndexRoute = AdminCouponsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminCouponsRoute,
+} as any)
+const AdminCouponsIdRoute = AdminCouponsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminCouponsRoute,
+} as any)
+const AdminCouponsNewRoute = AdminCouponsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AdminCouponsRoute,
+} as any)
+const AdminPostsIndexRoute = AdminPostsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminPostsRoute,
+} as any)
+const AdminPostsIdRoute = AdminPostsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminPostsRoute,
+} as any)
+const AdminPostsNewRoute = AdminPostsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AdminPostsRoute,
+} as any)
+const AdminStoresIndexRoute = AdminStoresIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminStoresRoute,
+} as any)
+const AdminStoresIdRoute = AdminStoresIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminStoresRoute,
+} as any)
+const AdminStoresNewRoute = AdminStoresNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AdminStoresRoute,
+} as any)
+const AdminSubcategoriesIndexRoute = AdminSubcategoriesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminSubcategoriesRoute,
+} as any)
+const AdminSubcategoriesIdRoute = AdminSubcategoriesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminSubcategoriesRoute,
+} as any)
+const AdminSubcategoriesNewRoute = AdminSubcategoriesNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AdminSubcategoriesRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -813,123 +813,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/unsubscribe': {
-      id: '/unsubscribe'
-      path: '/unsubscribe'
-      fullPath: '/unsubscribe'
-      preLoaderRoute: typeof UnsubscribeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/stores': {
-      id: '/stores'
-      path: '/stores'
-      fullPath: '/stores'
-      preLoaderRoute: typeof StoresRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/search': {
-      id: '/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof SearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mcp': {
-      id: '/mcp'
-      path: '/mcp'
-      fullPath: '/mcp'
-      preLoaderRoute: typeof McpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/deals': {
-      id: '/deals'
-      path: '/deals'
-      fullPath: '/deals'
-      preLoaderRoute: typeof DealsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/coupons': {
-      id: '/coupons'
-      path: '/coupons'
-      fullPath: '/coupons'
-      preLoaderRoute: typeof CouponsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/contact': {
-      id: '/contact'
-      path: '/contact'
-      fullPath: '/contact'
-      preLoaderRoute: typeof ContactRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/categories': {
-      id: '/categories'
-      path: '/categories'
-      fullPath: '/categories'
-      preLoaderRoute: typeof CategoriesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/blog': {
-      id: '/blog'
-      path: '/blog'
-      fullPath: '/blog'
-      preLoaderRoute: typeof BlogRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analytics': {
-      id: '/analytics'
-      path: '/analytics'
-      fullPath: '/analytics'
-      preLoaderRoute: typeof AnalyticsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$slug': {
@@ -946,214 +834,123 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/': {
-      id: '/admin/'
-      path: '/'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/blog/$slug': {
-      id: '/blog/$slug'
-      path: '/$slug'
-      fullPath: '/blog/$slug'
-      preLoaderRoute: typeof BlogSlugRouteImport
-      parentRoute: typeof BlogRoute
-    }
-    '/api/chat': {
-      id: '/api/chat'
-      path: '/api/chat'
-      fullPath: '/api/chat'
-      preLoaderRoute: typeof ApiChatRouteImport
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/users': {
-      id: '/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRoute
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/translations': {
-      id: '/admin/translations'
-      path: '/translations'
-      fullPath: '/admin/translations'
-      preLoaderRoute: typeof AdminTranslationsRouteImport
-      parentRoute: typeof AdminRoute
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/theme': {
-      id: '/admin/theme'
-      path: '/theme'
-      fullPath: '/admin/theme'
-      preLoaderRoute: typeof AdminThemeRouteImport
-      parentRoute: typeof AdminRoute
+    '/blog': {
+      id: '/blog'
+      path: '/blog'
+      fullPath: '/blog'
+      preLoaderRoute: typeof BlogRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/subscribers': {
-      id: '/admin/subscribers'
-      path: '/subscribers'
-      fullPath: '/admin/subscribers'
-      preLoaderRoute: typeof AdminSubscribersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/subcategories': {
-      id: '/admin/subcategories'
-      path: '/subcategories'
-      fullPath: '/admin/subcategories'
-      preLoaderRoute: typeof AdminSubcategoriesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/stores': {
-      id: '/admin/stores'
-      path: '/stores'
-      fullPath: '/admin/stores'
-      preLoaderRoute: typeof AdminStoresRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/sliders': {
-      id: '/admin/sliders'
-      path: '/sliders'
-      fullPath: '/admin/sliders'
-      preLoaderRoute: typeof AdminSlidersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/settings': {
-      id: '/admin/settings'
-      path: '/settings'
-      fullPath: '/admin/settings'
-      preLoaderRoute: typeof AdminSettingsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/reviews': {
-      id: '/admin/reviews'
-      path: '/reviews'
-      fullPath: '/admin/reviews'
-      preLoaderRoute: typeof AdminReviewsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/reports': {
-      id: '/admin/reports'
-      path: '/reports'
-      fullPath: '/admin/reports'
-      preLoaderRoute: typeof AdminReportsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/publishing-policies': {
-      id: '/admin/publishing-policies'
-      path: '/publishing-policies'
-      fullPath: '/admin/publishing-policies'
-      preLoaderRoute: typeof AdminPublishingPoliciesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/posts': {
-      id: '/admin/posts'
-      path: '/posts'
-      fullPath: '/admin/posts'
-      preLoaderRoute: typeof AdminPostsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/pages': {
-      id: '/admin/pages'
-      path: '/pages'
-      fullPath: '/admin/pages'
-      preLoaderRoute: typeof AdminPagesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/newsletters': {
-      id: '/admin/newsletters'
-      path: '/newsletters'
-      fullPath: '/admin/newsletters'
-      preLoaderRoute: typeof AdminNewslettersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/menus': {
-      id: '/admin/menus'
-      path: '/menus'
-      fullPath: '/admin/menus'
-      preLoaderRoute: typeof AdminMenusRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/integrations': {
-      id: '/admin/integrations'
-      path: '/integrations'
-      fullPath: '/admin/integrations'
-      preLoaderRoute: typeof AdminIntegrationsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/head-manager': {
-      id: '/admin/head-manager'
-      path: '/head-manager'
-      fullPath: '/admin/head-manager'
-      preLoaderRoute: typeof AdminHeadManagerRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/etemplates': {
-      id: '/admin/etemplates'
-      path: '/etemplates'
-      fullPath: '/admin/etemplates'
-      preLoaderRoute: typeof AdminEtemplatesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/coupons': {
-      id: '/admin/coupons'
-      path: '/coupons'
-      fullPath: '/admin/coupons'
-      preLoaderRoute: typeof AdminCouponsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/comments': {
-      id: '/admin/comments'
-      path: '/comments'
-      fullPath: '/admin/comments'
-      preLoaderRoute: typeof AdminCommentsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/categories': {
-      id: '/admin/categories'
+    '/categories': {
+      id: '/categories'
       path: '/categories'
-      fullPath: '/admin/categories'
-      preLoaderRoute: typeof AdminCategoriesRouteImport
-      parentRoute: typeof AdminRoute
+      fullPath: '/categories'
+      preLoaderRoute: typeof CategoriesRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/blog-categories': {
-      id: '/admin/blog-categories'
-      path: '/blog-categories'
-      fullPath: '/admin/blog-categories'
-      preLoaderRoute: typeof AdminBlogCategoriesRouteImport
-      parentRoute: typeof AdminRoute
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/ads': {
-      id: '/admin/ads'
-      path: '/ads'
-      fullPath: '/admin/ads'
-      preLoaderRoute: typeof AdminAdsRouteImport
-      parentRoute: typeof AdminRoute
+    '/coupons': {
+      id: '/coupons'
+      path: '/coupons'
+      fullPath: '/coupons'
+      preLoaderRoute: typeof CouponsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/activity': {
-      id: '/admin/activity'
-      path: '/activity'
-      fullPath: '/admin/activity'
-      preLoaderRoute: typeof AdminActivityRouteImport
-      parentRoute: typeof AdminRoute
+    '/deals': {
+      id: '/deals'
+      path: '/deals'
+      fullPath: '/deals'
+      preLoaderRoute: typeof DealsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/account': {
-      id: '/_authenticated/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AuthenticatedAccountRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/.well-known/oauth-protected-resource': {
-      id: '/.well-known/oauth-protected-resource'
-      path: '/.well-known/oauth-protected-resource'
-      fullPath: '/.well-known/oauth-protected-resource'
-      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stores': {
+      id: '/stores'
+      path: '/stores'
+      fullPath: '/stores'
+      preLoaderRoute: typeof StoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/unsubscribe': {
+      id: '/unsubscribe'
+      path: '/unsubscribe'
+      fullPath: '/unsubscribe'
+      preLoaderRoute: typeof UnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.mcp/list-tools': {
@@ -1163,81 +960,228 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/subcategories/': {
-      id: '/admin/subcategories/'
-      path: '/'
-      fullPath: '/admin/subcategories/'
-      preLoaderRoute: typeof AdminSubcategoriesIndexRouteImport
-      parentRoute: typeof AdminSubcategoriesRoute
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/stores/': {
-      id: '/admin/stores/'
-      path: '/'
-      fullPath: '/admin/stores/'
-      preLoaderRoute: typeof AdminStoresIndexRouteImport
-      parentRoute: typeof AdminStoresRoute
+    '/_authenticated/account': {
+      id: '/_authenticated/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/admin/posts/': {
-      id: '/admin/posts/'
+    '/admin/': {
+      id: '/admin/'
       path: '/'
-      fullPath: '/admin/posts/'
-      preLoaderRoute: typeof AdminPostsIndexRouteImport
-      parentRoute: typeof AdminPostsRoute
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/activity': {
+      id: '/admin/activity'
+      path: '/activity'
+      fullPath: '/admin/activity'
+      preLoaderRoute: typeof AdminActivityRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/ads': {
+      id: '/admin/ads'
+      path: '/ads'
+      fullPath: '/admin/ads'
+      preLoaderRoute: typeof AdminAdsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/blog-categories': {
+      id: '/admin/blog-categories'
+      path: '/blog-categories'
+      fullPath: '/admin/blog-categories'
+      preLoaderRoute: typeof AdminBlogCategoriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/categories': {
+      id: '/admin/categories'
+      path: '/categories'
+      fullPath: '/admin/categories'
+      preLoaderRoute: typeof AdminCategoriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/comments': {
+      id: '/admin/comments'
+      path: '/comments'
+      fullPath: '/admin/comments'
+      preLoaderRoute: typeof AdminCommentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/coupons': {
+      id: '/admin/coupons'
+      path: '/coupons'
+      fullPath: '/admin/coupons'
+      preLoaderRoute: typeof AdminCouponsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/etemplates': {
+      id: '/admin/etemplates'
+      path: '/etemplates'
+      fullPath: '/admin/etemplates'
+      preLoaderRoute: typeof AdminEtemplatesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/head-manager': {
+      id: '/admin/head-manager'
+      path: '/head-manager'
+      fullPath: '/admin/head-manager'
+      preLoaderRoute: typeof AdminHeadManagerRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/integrations': {
+      id: '/admin/integrations'
+      path: '/integrations'
+      fullPath: '/admin/integrations'
+      preLoaderRoute: typeof AdminIntegrationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/menus': {
+      id: '/admin/menus'
+      path: '/menus'
+      fullPath: '/admin/menus'
+      preLoaderRoute: typeof AdminMenusRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/newsletters': {
+      id: '/admin/newsletters'
+      path: '/newsletters'
+      fullPath: '/admin/newsletters'
+      preLoaderRoute: typeof AdminNewslettersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/pages': {
+      id: '/admin/pages'
+      path: '/pages'
+      fullPath: '/admin/pages'
+      preLoaderRoute: typeof AdminPagesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/posts': {
+      id: '/admin/posts'
+      path: '/posts'
+      fullPath: '/admin/posts'
+      preLoaderRoute: typeof AdminPostsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/publishing-policies': {
+      id: '/admin/publishing-policies'
+      path: '/publishing-policies'
+      fullPath: '/admin/publishing-policies'
+      preLoaderRoute: typeof AdminPublishingPoliciesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reviews': {
+      id: '/admin/reviews'
+      path: '/reviews'
+      fullPath: '/admin/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/sliders': {
+      id: '/admin/sliders'
+      path: '/sliders'
+      fullPath: '/admin/sliders'
+      preLoaderRoute: typeof AdminSlidersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/stores': {
+      id: '/admin/stores'
+      path: '/stores'
+      fullPath: '/admin/stores'
+      preLoaderRoute: typeof AdminStoresRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subcategories': {
+      id: '/admin/subcategories'
+      path: '/subcategories'
+      fullPath: '/admin/subcategories'
+      preLoaderRoute: typeof AdminSubcategoriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscribers': {
+      id: '/admin/subscribers'
+      path: '/subscribers'
+      fullPath: '/admin/subscribers'
+      preLoaderRoute: typeof AdminSubscribersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/theme': {
+      id: '/admin/theme'
+      path: '/theme'
+      fullPath: '/admin/theme'
+      preLoaderRoute: typeof AdminThemeRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/translations': {
+      id: '/admin/translations'
+      path: '/translations'
+      fullPath: '/admin/translations'
+      preLoaderRoute: typeof AdminTranslationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof BlogRoute
+    }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/coupons/': {
       id: '/admin/coupons/'
       path: '/'
       fullPath: '/admin/coupons/'
       preLoaderRoute: typeof AdminCouponsIndexRouteImport
-      parentRoute: typeof AdminCouponsRoute
-    }
-    '/admin/subcategories/new': {
-      id: '/admin/subcategories/new'
-      path: '/new'
-      fullPath: '/admin/subcategories/new'
-      preLoaderRoute: typeof AdminSubcategoriesNewRouteImport
-      parentRoute: typeof AdminSubcategoriesRoute
-    }
-    '/admin/subcategories/$id': {
-      id: '/admin/subcategories/$id'
-      path: '/$id'
-      fullPath: '/admin/subcategories/$id'
-      preLoaderRoute: typeof AdminSubcategoriesIdRouteImport
-      parentRoute: typeof AdminSubcategoriesRoute
-    }
-    '/admin/stores/new': {
-      id: '/admin/stores/new'
-      path: '/new'
-      fullPath: '/admin/stores/new'
-      preLoaderRoute: typeof AdminStoresNewRouteImport
-      parentRoute: typeof AdminStoresRoute
-    }
-    '/admin/stores/$id': {
-      id: '/admin/stores/$id'
-      path: '/$id'
-      fullPath: '/admin/stores/$id'
-      preLoaderRoute: typeof AdminStoresIdRouteImport
-      parentRoute: typeof AdminStoresRoute
-    }
-    '/admin/posts/new': {
-      id: '/admin/posts/new'
-      path: '/new'
-      fullPath: '/admin/posts/new'
-      preLoaderRoute: typeof AdminPostsNewRouteImport
-      parentRoute: typeof AdminPostsRoute
-    }
-    '/admin/posts/$id': {
-      id: '/admin/posts/$id'
-      path: '/$id'
-      fullPath: '/admin/posts/$id'
-      preLoaderRoute: typeof AdminPostsIdRouteImport
-      parentRoute: typeof AdminPostsRoute
-    }
-    '/admin/coupons/new': {
-      id: '/admin/coupons/new'
-      path: '/new'
-      fullPath: '/admin/coupons/new'
-      preLoaderRoute: typeof AdminCouponsNewRouteImport
       parentRoute: typeof AdminCouponsRoute
     }
     '/admin/coupons/$id': {
@@ -1247,19 +1191,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCouponsIdRouteImport
       parentRoute: typeof AdminCouponsRoute
     }
-    '/.mcp/invoke-tool/$tool': {
-      id: '/.mcp/invoke-tool/$tool'
-      path: '/.mcp/invoke-tool/$tool'
-      fullPath: '/.mcp/invoke-tool/$tool'
-      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
-      parentRoute: typeof rootRouteImport
+    '/admin/coupons/new': {
+      id: '/admin/coupons/new'
+      path: '/new'
+      fullPath: '/admin/coupons/new'
+      preLoaderRoute: typeof AdminCouponsNewRouteImport
+      parentRoute: typeof AdminCouponsRoute
     }
-    '/.lovable/oauth/consent': {
-      id: '/.lovable/oauth/consent'
-      path: '/.lovable/oauth/consent'
-      fullPath: '/.lovable/oauth/consent'
-      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
-      parentRoute: typeof rootRouteImport
+    '/admin/posts/': {
+      id: '/admin/posts/'
+      path: '/'
+      fullPath: '/admin/posts/'
+      preLoaderRoute: typeof AdminPostsIndexRouteImport
+      parentRoute: typeof AdminPostsRoute
+    }
+    '/admin/posts/$id': {
+      id: '/admin/posts/$id'
+      path: '/$id'
+      fullPath: '/admin/posts/$id'
+      preLoaderRoute: typeof AdminPostsIdRouteImport
+      parentRoute: typeof AdminPostsRoute
+    }
+    '/admin/posts/new': {
+      id: '/admin/posts/new'
+      path: '/new'
+      fullPath: '/admin/posts/new'
+      preLoaderRoute: typeof AdminPostsNewRouteImport
+      parentRoute: typeof AdminPostsRoute
+    }
+    '/admin/stores/': {
+      id: '/admin/stores/'
+      path: '/'
+      fullPath: '/admin/stores/'
+      preLoaderRoute: typeof AdminStoresIndexRouteImport
+      parentRoute: typeof AdminStoresRoute
+    }
+    '/admin/stores/$id': {
+      id: '/admin/stores/$id'
+      path: '/$id'
+      fullPath: '/admin/stores/$id'
+      preLoaderRoute: typeof AdminStoresIdRouteImport
+      parentRoute: typeof AdminStoresRoute
+    }
+    '/admin/stores/new': {
+      id: '/admin/stores/new'
+      path: '/new'
+      fullPath: '/admin/stores/new'
+      preLoaderRoute: typeof AdminStoresNewRouteImport
+      parentRoute: typeof AdminStoresRoute
+    }
+    '/admin/subcategories/': {
+      id: '/admin/subcategories/'
+      path: '/'
+      fullPath: '/admin/subcategories/'
+      preLoaderRoute: typeof AdminSubcategoriesIndexRouteImport
+      parentRoute: typeof AdminSubcategoriesRoute
+    }
+    '/admin/subcategories/$id': {
+      id: '/admin/subcategories/$id'
+      path: '/$id'
+      fullPath: '/admin/subcategories/$id'
+      preLoaderRoute: typeof AdminSubcategoriesIdRouteImport
+      parentRoute: typeof AdminSubcategoriesRoute
+    }
+    '/admin/subcategories/new': {
+      id: '/admin/subcategories/new'
+      path: '/new'
+      fullPath: '/admin/subcategories/new'
+      preLoaderRoute: typeof AdminSubcategoriesNewRouteImport
+      parentRoute: typeof AdminSubcategoriesRoute
     }
   }
 }
