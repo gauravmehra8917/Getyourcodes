@@ -77,9 +77,18 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
+      // A browser may close a navigation or HMR request before SSR finishes.
+      // Node reports that normal disconnect as "Error: aborted" (ECONNRESET);
+      // do not turn it into a logged SSR failure or render an error page.
+      if (request.signal.aborted) {
+        return new Response(null, { status: 499 });
+      }
       const normalized = await normalizeCatastrophicSsrResponse(response);
       return applyCacheHeaders(request, normalized);
     } catch (error) {
+      if (request.signal.aborted) {
+        return new Response(null, { status: 499 });
+      }
       console.error(error);
       return new Response(renderErrorPage(), {
         status: 500,
