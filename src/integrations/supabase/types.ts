@@ -460,6 +460,50 @@ export type Database = {
           },
         ]
       }
+      affiliate_store_category_mappings: {
+        Row: {
+          category_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          normalized_provider_category_key: string
+          priority: number
+          provider: string
+          provider_category_label: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          normalized_provider_category_key: string
+          priority?: number
+          provider: string
+          provider_category_label: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          normalized_provider_category_key?: string
+          priority?: number
+          provider?: string
+          provider_category_label?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_store_category_mappings_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_categories: {
         Row: {
           created_at: string
@@ -1523,6 +1567,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      affiliate_sync_ads_v2_refresh_records_updated: {
+        Args: { _counts: Json }
+        Returns: number
+      }
+      affiliate_sync_ads_v2_valid_refresh_expected_counts: {
+        Args: { _counts: Json }
+        Returns: boolean
+      }
+      affiliate_sync_ads_v2_valid_refresh_persistence_counts: {
+        Args: { _counts: Json }
+        Returns: boolean
+      }
       affiliate_sync_v2_apply_ads_plan_internal: {
         Args: {
           _evaluation_timestamp: string
@@ -1589,6 +1645,15 @@ export type Database = {
           _provider: string
           _store_instructions: Json
           _triggered_by: string
+        }
+        Returns: Json
+      }
+      apply_affiliate_store_category_canary_v1: {
+        Args: {
+          p_campaign_id: string
+          p_category_id: string
+          p_provider_category_keys: string[]
+          p_store_id: string
         }
         Returns: Json
       }
