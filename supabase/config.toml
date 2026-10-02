@@ -21,3 +21,7 @@ verify_jwt = false
 
 [functions.affiliate-sync-ads-apply-v2]
 verify_jwt = false
+
+[functions.affiliate-store-category-preview-v1]
+# Category preview explicitly verifies the user JWT and admin role before reads.
+verify_jwt = false
