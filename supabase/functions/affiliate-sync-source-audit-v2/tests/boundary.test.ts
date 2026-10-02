@@ -206,3 +206,23 @@ test("function config opts into explicit in-host JWT verification only", () => {
     1,
   );
 });
+
+test("taxonomy helper has no runtime imports or host, provider, database or persistence capabilities", () => {
+  const helper = resolve(HOST_ROOT, "StoreCategoryTaxonomyAudit.ts");
+  const closure = productionClosure();
+  assert.equal(closure.has(helper), true);
+  const source = readFileSync(helper, "utf8");
+  assert.deepEqual(runtimeImportsOf(source), []);
+  for (
+    const prohibited of [
+      /\bfetch\s*\(/,
+      /\bDeno\b/,
+      /\bSupabase\b/,
+      /\bcredentials?\b/i,
+      /\.\s*(?:from|insert|update|upsert|delete|rpc)\s*\(/,
+      /affiliate-sync-v2-ads/,
+      /ImpactCouponAdsAuditClient/,
+      /Persistence/,
+    ]
+  ) assert.equal(prohibited.test(source), false, String(prohibited));
+});

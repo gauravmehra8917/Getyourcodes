@@ -13,6 +13,7 @@ import {
   ImpactCouponAdsAuditClient,
 } from "./ImpactCouponAdsAuditClient.ts";
 import { resolveCouponAdsAuditConfigV2 } from "./impact-audit-configuration.ts";
+import { summarizeStoreCategoryTaxonomyV2 } from "./StoreCategoryTaxonomyAudit.ts";
 import type {
   CouponAdsCoverageAuditV2,
   CouponAdsCoverageHostResponseV2,
@@ -21,10 +22,16 @@ import type {
   SourceAuditV2ErrorCode,
   SourceAuditV2ErrorResponse,
   SourceAuditV2HostDependencies,
+  SourceAuditV2Mode,
   SourceAuditV2RequestBody,
+  StoreCategoryTaxonomyHostResponseV2,
 } from "./types.ts";
 import type { ImpactHostCredentialsV2 } from "../_shared/affiliate-sync-v2-host/types.ts";
-import { COUPON_ADS_AUDIT_MODE, SOURCE_AUDIT_VERSION_V2 } from "./types.ts";
+import {
+  COUPON_ADS_AUDIT_MODE,
+  SOURCE_AUDIT_VERSION_V2,
+  STORE_CATEGORY_TAXONOMY_AUDIT_MODE,
+} from "./types.ts";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -89,7 +96,11 @@ function corsHeaders(origin: string | null, allowed: boolean): HeadersInit {
 }
 
 function jsonResponse(
-  body: CouponAdsCoverageHostResponseV2 | SourceAuditV2ErrorResponse | null,
+  body:
+    | CouponAdsCoverageHostResponseV2
+    | StoreCategoryTaxonomyHostResponseV2
+    | SourceAuditV2ErrorResponse
+    | null,
   status: number,
   origin: string | null,
   allowed: boolean,
@@ -124,7 +135,7 @@ function strictBearer(authorization: string): string | null {
 
 function exactRequest(value: unknown): {
   integrationId: string;
-  audit: typeof COUPON_ADS_AUDIT_MODE;
+  audit: SourceAuditV2Mode;
 } | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const keys = Object.keys(value).sort();
@@ -135,11 +146,12 @@ function exactRequest(value: unknown): {
   if (
     typeof body.integrationId !== "string" ||
     !UUID_PATTERN.test(body.integrationId) ||
-    body.audit !== COUPON_ADS_AUDIT_MODE
+    (body.audit !== COUPON_ADS_AUDIT_MODE &&
+      body.audit !== STORE_CATEGORY_TAXONOMY_AUDIT_MODE)
   ) return null;
   return {
     integrationId: body.integrationId.toLowerCase(),
-    audit: COUPON_ADS_AUDIT_MODE,
+    audit: body.audit,
   };
 }
 
@@ -301,6 +313,19 @@ export function createAffiliateSyncSourceAuditV2Handler(
     ) return failed("campaign_fetch_failed", 502, origin, true);
     if (rateFloorReached(transport)) {
       return failed("campaign_fetch_failed", 502, origin, true);
+    }
+
+    if (parsed.audit === STORE_CATEGORY_TAXONOMY_AUDIT_MODE) {
+      const response: StoreCategoryTaxonomyHostResponseV2 = {
+        host: {
+          version: SOURCE_AUDIT_VERSION_V2,
+          readOnly: true,
+          integrationId: parsed.integrationId,
+          audit: STORE_CATEGORY_TAXONOMY_AUDIT_MODE,
+        },
+        audit: summarizeStoreCategoryTaxonomyV2(campaignResult.records),
+      };
+      return jsonResponse(response, 200, origin, true);
     }
 
     transport.resetRateSnapshot();
