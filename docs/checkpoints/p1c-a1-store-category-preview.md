@@ -15,8 +15,9 @@ versions, fingerprints, import runs and ledgers are unchanged.
 Pure category helpers live in
 `supabase/functions/_shared/affiliate-store-category-v1/`. Store identity requires
 exactly one store with `provider = 'impact'`, namespace `campaign` and the exact
-CampaignId. Opaque string IDs are never trimmed or case-folded. Positive safe
-integer IDs are represented as their exact decimal string. Names, AdvertiserId,
+CampaignId. P1C-A1.1 reuses `toOpaqueAdProviderIdV2` unchanged: string IDs are
+trimmed, empty strings rejected, and all finite numbers converted with `String`.
+Canonical IDs are compared exactly without case folding. Names, AdvertiserId,
 domains, slugs and URLs are never identity fallbacks. Missing identity is held;
 multiple matching stores are `ambiguous_store`.
 
@@ -122,7 +123,9 @@ Success shape:
       "unknownStore": 0,
       "invalidSource": 0,
       "distinctUnmappedLabels": 0
-    }
+    },
+    "unmappedLabels": [],
+    "unmappedLabelsTruncated": false
   }
 }
 ```
@@ -130,9 +133,18 @@ Success shape:
 Counts describe Campaign observations, not distinct stores. `ambiguous` is the
 sum of mapping and store ambiguity. `distinctUnmappedLabels` counts normalized
 labels across decisions classified `unmapped`; empty taxonomy contributes zero.
-No provider labels, Campaign/store/category IDs, credentials, configuration,
-provider pages, URLs or exception details are returned. Errors expose only the
-fixed `host` marker and `error: {code, message}`.
+P1C-A1.1 also returns `result.unmappedLabels`, each containing only
+`{label, key, campaignCount}`. Each key is counted once per unmapped Campaign,
+with the lexically smallest original label selected using the same code-unit
+comparison as extraction. Observations sort by normalized key and are capped at
+100 entries. `unmappedLabelsTruncated` is true only when the total distinct-key
+count exceeds 100; the summary retains the total before truncation. Existing
+taxonomy limits still bound labels and keys. Mapped/assignable, manual, unknown,
+ambiguous and invalid decisions contribute no observations.
+
+No Campaign/store/category IDs, credentials, configuration, unrestricted raw
+payloads, provider response metadata, URLs or exception details are returned.
+Errors expose only the fixed `host` marker and `error: {code, message}`.
 
 There is no category apply endpoint/RPC, store update, coupon update, import run,
 ledger write, integration update, scheduler or automatic backfill. The legacy
@@ -164,7 +176,7 @@ writes/RPC/legacy persistence and verifies byte equality against the exact base
 for existing Ads source and every historical migration. All provider tests use
 fixture transports; no live Impact call occurs.
 
-Final results: focused tests **41 passed, 0 failed**; complete Edge suite **584
+Original P1C-A1 results: focused tests **41 passed, 0 failed**; complete Edge suite **584
 tests, 582 passed, 0 failed, 2 skipped**; raw repository-wide Node run **625 tests,
 619 passed, 4 failed, 2 skipped**. Application TypeScript, Edge runtime and new
 test TypeScript, focused lint, formatting and `git diff --check` pass. Repository
@@ -186,6 +198,24 @@ node --test src/lib/affiliate-sync-ads-apply-v2.client.test.ts src/lib/catalog-v
 npm run lint
 ```
 
-No migration SQL was executed, no production data or configuration was changed,
-and no function was deployed or invoked against production. No merge or push
-was performed.
+At the original P1C-A1 checkpoint, no migration SQL was executed, no production
+data or configuration was changed, and no function was deployed or invoked
+against production. No merge or push was performed during that implementation.
+
+## P1C-A1.1 hardening checkpoint
+
+Starting checkpoint: `fd6bb87715184c043868b1d340ac9bcd853e9b8c`, whose parent is
+the original base `199498695fd7edbd05fb10b875f0a0a7aaad023c`.
+The follow-up only reuses the immutable Ads ID helper and adds bounded unmapped
+label observations and regression coverage. The mapping migration and protected
+Ads files remain byte-identical. No persistence, SQL execution, live Impact call,
+deployment or merge is introduced. This follow-up is committed separately and
+pushed to `origin/p1-store-category-auto-mapping` for independent review.
+
+Hardening verification: **53 focused tests passed, 0 failed**. Complete Edge
+suite: **596 tests, 594 passed, 0 failed, 2 existing skips**. Edge/runtime and test
+typechecks, application TypeScript, focused lint, formatting and
+`git diff --check` passed. The protected-file boundary check compares Ads source
+and historical migrations against the original base, and also compares the
+mapping migration against the reviewed P1C-A1 checkpoint. No category/store/
+coupon mutation path exists in the preview runtime.

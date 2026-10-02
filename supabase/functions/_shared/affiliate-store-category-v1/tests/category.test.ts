@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractCampaignCategories, normalizeCategoryLabel } from "../taxonomy.ts";
+import {
+  canonicalCampaignId,
+  extractCampaignCategories,
+  normalizeCategoryLabel,
+} from "../taxonomy.ts";
+import { toOpaqueAdProviderIdV2 } from "../../affiliate-sync-v2-ads/ad-models.ts";
 import { planStoreCategories, summarizeCategoryPlan } from "../planner.ts";
 import type { CategoryPlanningInput } from "../planner.ts";
 import { parseCategoryCampaignPage } from "../campaign-client.ts";
@@ -259,7 +264,7 @@ test("unavailable categories and malformed mapping facts cannot fall through to 
   }
 });
 
-test("summary is aggregate only and counts distinct normalized unmapped labels", () => {
+test("summary counts distinct normalized unmapped labels and includes bounded observations", () => {
   const input = facts({ CampaignId: "campaign-1", Categories: ["Unknown", "UNKNOWN"] });
   const summary = summarizeCategoryPlan(input, planStoreCategories(input));
   assert.deepEqual(summary, {
@@ -274,6 +279,176 @@ test("summary is aggregate only and counts distinct normalized unmapped labels",
     unknownStore: 0,
     invalidSource: 0,
     distinctUnmappedLabels: 1,
+    unmappedLabels: [{ label: "UNKNOWN", key: "unknown", campaignCount: 1 }],
+    unmappedLabelsTruncated: false,
   });
   assert.equal(JSON.stringify(summary).includes(STORE), false);
+});
+
+test("category Campaign canonicalization exactly matches the immutable Ads V2 helper", () => {
+  for (const value of [
+    "campaign-1",
+    " \tcampaign-1\n",
+    "",
+    " \t\n",
+    "CaseSensitive",
+    "id with space",
+    "x".repeat(300),
+    123,
+    0,
+    -42,
+    1.5,
+    1e21,
+    Number.MAX_VALUE,
+    -0,
+    NaN,
+    Infinity,
+    -Infinity,
+    null,
+    undefined,
+    {},
+    [],
+    true,
+  ]) {
+    const expected = toOpaqueAdProviderIdV2(value);
+    assert.equal(canonicalCampaignId(value), expected);
+    assert.equal(
+      extractCampaignCategories({ CampaignId: value, Category: "Fashion" }).campaignId,
+      expected,
+    );
+  }
+});
+
+test("surrounding whitespace cannot cause Campaign/store identity drift", () => {
+  const input = facts({ CampaignId: " \tcampaign-1\n", Category: "Fashion" });
+  assert.equal(input.campaigns[0]!.campaignId, "campaign-1");
+  assert.deepEqual(planStoreCategories(input), planStoreCategories(facts()));
+  const parsed = parseCategoryCampaignPage(
+    JSON.stringify({ Campaigns: [{ CampaignId: " campaign-1 ", Category: "Fashion" }] }),
+  );
+  assert.equal(parsed.ok, true);
+  if (parsed.ok) assert.equal(parsed.records[0]!.campaignId, "campaign-1");
+});
+
+test("all finite numeric identities use the Ads V2 canonical string for exact store matching", () => {
+  for (const value of [123, 0, -42, 1.5, 1e21, Number.MAX_VALUE, -0]) {
+    const input = facts({ CampaignId: value, Category: "Fashion" });
+    input.stores = [{ ...input.stores[0]!, providerEntityId: toOpaqueAdProviderIdV2(value)! }];
+    assert.equal(planStoreCategories(input)[0]!.action, "assign");
+  }
+});
+
+function multipleCampaignFacts(records: readonly unknown[]): CategoryPlanningInput {
+  const input = facts();
+  input.campaigns = records.map(extractCampaignCategories);
+  input.stores = input.campaigns.map((campaign, index) => ({
+    ...input.stores[0]!,
+    id: `00000000-0000-4000-8000-${(index + 1).toString(16).padStart(12, "0")}`,
+    providerEntityId: campaign.campaignId!,
+  }));
+  return input;
+}
+
+test("unmapped observations aggregate each key once per Campaign with a stable label and sort", () => {
+  const records = [
+    {
+      CampaignId: "c1",
+      Categories: [" travel ", "TRAVEL", "Travel"],
+      Category: "Travel",
+      Vertical: "Hotels",
+    },
+    { CampaignId: "c2", Categories: ["Travel", " hotels "] },
+    { CampaignId: "c3", Category: "Books" },
+  ];
+  const input = multipleCampaignFacts(records);
+  const before = structuredClone(input);
+  const summary = summarizeCategoryPlan(input, planStoreCategories(input));
+  assert.equal(summary.distinctUnmappedLabels, 3);
+  assert.deepEqual(summary.unmappedLabels, [
+    { label: "Books", key: "books", campaignCount: 1 },
+    { label: "Hotels", key: "hotels", campaignCount: 2 },
+    { label: "TRAVEL", key: "travel", campaignCount: 2 },
+  ]);
+  assert.equal(summary.unmappedLabelsTruncated, false);
+  const reversed = multipleCampaignFacts([...records].reverse());
+  assert.deepEqual(summarizeCategoryPlan(reversed, planStoreCategories(reversed)), summary);
+  assert.deepEqual(input, before);
+});
+
+test("only unmapped decisions contribute observations; assigned, manual, unknown, invalid and ambiguous are excluded", () => {
+  const input = multipleCampaignFacts([
+    { CampaignId: "unmapped", Category: "Travel" },
+    { CampaignId: "assigned", Categories: ["Fashion", "Other Label"] },
+    { CampaignId: "manual", Category: "Manual Label" },
+    { CampaignId: "unknown", Category: "Unknown Label" },
+    { CampaignId: "invalid", Categories: ["Invalid Label", false] },
+    { CampaignId: "ambiguous", Categories: ["Fashion", "Clothing"] },
+  ]);
+  input.stores = input.stores
+    .filter((store) => store.providerEntityId !== "unknown")
+    .map((store) =>
+      store.providerEntityId === "manual" ? { ...store, categoryId: OTHER } : store,
+    );
+  input.mappings = [
+    ...input.mappings,
+    { ...input.mappings[0]!, normalizedProviderCategoryKey: "clothing", categoryId: OTHER },
+  ];
+  const decisions = planStoreCategories(input);
+  assert.deepEqual(
+    decisions.map((decision) => decision.action),
+    [
+      "unmapped",
+      "assign",
+      "noop_existing_category",
+      "unknown_store",
+      "invalid_source",
+      "ambiguous_mapping",
+    ],
+  );
+  const summary = summarizeCategoryPlan(input, decisions);
+  assert.equal(summary.distinctUnmappedLabels, 1);
+  assert.deepEqual(summary.unmappedLabels, [{ label: "Travel", key: "travel", campaignCount: 1 }]);
+});
+
+test("unmapped list caps at 100 sorted keys while retaining the total distinct count", () => {
+  for (const size of [99, 100, 101, 120]) {
+    const records = Array.from({ length: size }, (_, i) => ({
+      CampaignId: `c-${i}`,
+      Category: `Label ${i.toString().padStart(3, "0")}`,
+    }));
+    const input = multipleCampaignFacts([...records].reverse());
+    const summary = summarizeCategoryPlan(input, planStoreCategories(input));
+    assert.equal(summary.distinctUnmappedLabels, size);
+    assert.equal(summary.unmappedLabels.length, Math.min(100, size));
+    assert.equal(summary.unmappedLabelsTruncated, size > 100);
+    assert.equal(summary.unmappedLabels[0]!.key, "label 000");
+    assert.equal(
+      summary.unmappedLabels.at(-1)!.key,
+      `label ${String(Math.min(100, size) - 1).padStart(3, "0")}`,
+    );
+  }
+});
+
+test("empty unmapped evidence always returns an empty list and false truncation", () => {
+  for (const input of [
+    facts(),
+    facts({ CampaignId: "campaign-1" }),
+    { ...facts(), campaigns: [], stores: [] },
+  ]) {
+    const summary = summarizeCategoryPlan(input, planStoreCategories(input));
+    assert.deepEqual(summary.unmappedLabels, []);
+    assert.equal(summary.unmappedLabelsTruncated, false);
+    assert.equal(summary.distinctUnmappedLabels, 0);
+  }
+});
+
+test("unmapped label/key sizes remain bounded by taxonomy validation", () => {
+  const input = multipleCampaignFacts([
+    { CampaignId: "bounded", Category: "İ".repeat(160) },
+    { CampaignId: "oversized", Category: "x".repeat(161) },
+  ]);
+  const summary = summarizeCategoryPlan(input, planStoreCategories(input));
+  assert.equal(summary.unmappedLabels.length, 1);
+  assert.equal(summary.unmappedLabels[0]!.label.length, 160);
+  assert.equal(summary.unmappedLabels[0]!.key.length, 320);
 });

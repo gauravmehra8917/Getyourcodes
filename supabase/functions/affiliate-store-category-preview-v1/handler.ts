@@ -215,12 +215,18 @@ export function createCategoryPreviewHandler(deps: CategoryPreviewDependencies) 
         return fail("campaign_fetch_failed", 502);
       }
       const facts = { campaigns: fetched.records, stores, categoryIds, mappings };
+      const { unmappedLabels, unmappedLabelsTruncated, ...summary } = summarizeCategoryPlan(
+        facts,
+        planStoreCategories(facts),
+      );
       return respond(
         {
           host: { version: CATEGORY_PREVIEW_VERSION, readOnly: true, integrationId },
           result: {
             complete: true,
-            summary: summarizeCategoryPlan(facts, planStoreCategories(facts)),
+            summary,
+            unmappedLabels,
+            unmappedLabelsTruncated,
           },
         },
         200,

@@ -7,6 +7,7 @@ import test from "node:test";
 
 const ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 const BASE = "199498695fd7edbd05fb10b875f0a0a7aaad023c";
+const CHECKPOINT = "fd6bb87715184c043868b1d340ac9bcd853e9b8c";
 const ENTRY = resolve(ROOT, "supabase/functions/affiliate-store-category-preview-v1/index.ts");
 const MIGRATION = "supabase/migrations/20261002120000_affiliate_store_category_mappings.sql";
 
@@ -125,6 +126,11 @@ test("protected refresh/Ads source and every historical migration remain byte-pr
     const expected = execFileSync("git", ["show", `${BASE}:${path}`], { cwd: ROOT });
     assert.deepEqual(readFileSync(resolve(ROOT, path)), expected, path);
   }
+  assert.deepEqual(
+    readFileSync(resolve(ROOT, MIGRATION)),
+    execFileSync("git", ["show", `${CHECKPOINT}:${MIGRATION}`], { cwd: ROOT }),
+    "Hardening must preserve the reviewed category mapping migration",
+  );
   const names = execFileSync("git", ["diff", "--name-only", BASE], { cwd: ROOT, encoding: "utf8" })
     .trim()
     .split("\n")

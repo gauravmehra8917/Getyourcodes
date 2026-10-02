@@ -188,6 +188,8 @@ test("success uses authenticated admin trust order and returns only aggregate ca
   const body = await response.json();
   assert.deepEqual(body.host, { version: "p1c-a1-v1", readOnly: true, integrationId: ID });
   assert.equal(body.result.summary.assignable, 1);
+  assert.deepEqual(body.result.unmappedLabels, []);
+  assert.equal(body.result.unmappedLabelsTruncated, false);
   for (const secret of ["private-", STORE, CATEGORY, "Fashion", "Authorization", "ciphertext"]) {
     assert.equal(JSON.stringify(body).includes(secret), false, secret);
   }
@@ -200,6 +202,8 @@ test("non-null store category is protected during preview", async () => {
   const body = await response.json();
   assert.equal(body.result.summary.alreadyCategorized, 1);
   assert.equal(body.result.summary.assignable, 0);
+  assert.deepEqual(body.result.unmappedLabels, []);
+  assert.equal(body.result.unmappedLabelsTruncated, false);
 });
 
 test("malformed provider records are counted without payload disclosure or assignment", async () => {
@@ -380,4 +384,152 @@ test("catalog overflow fails before secrets and transport", async () => {
   h.source.readCategoryIds = async () => Array(10_001).fill(CATEGORY);
   assert.equal((await h.handler(request())).status, 500);
   assert.equal(h.operations.includes("ciphertext"), false);
+});
+
+test("preview Campaign identities match Ads canonical strings including whitespace and numbers", async () => {
+  for (const campaignId of [" private-campaign ", 123, -1.5]) {
+    const h = harness({ body: { Campaigns: [{ CampaignId: campaignId, Category: "Fashion" }] } });
+    h.source.readStores = async () => [
+      {
+        id: STORE,
+        provider: "impact",
+        providerEntityNamespace: "campaign",
+        providerEntityId: typeof campaignId === "string" ? campaignId.trim() : String(campaignId),
+        categoryId: null,
+      },
+    ];
+    const response = await h.handler(request());
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).result.summary.assignable, 1);
+  }
+});
+
+test("admin preview returns bounded unmapped observations without IDs, secrets or provider metadata", async () => {
+  const h = harness({
+    body: {
+      "@page": 1,
+      "@numpages": 1,
+      "@pagesize": 100,
+      Private: "private-raw-payload",
+      Campaigns: [
+        {
+          CampaignId: "private-campaign",
+          Categories: [" travel ", "Travel", "Travel"],
+          Credential: "private-provider-secret",
+          TrackingLink: "private-affiliate-url",
+          AdvertiserId: "private-advertiser",
+        },
+        {
+          CampaignId: "private-campaign-2",
+          Categories: ["TRAVEL", "Hotels"],
+          CampaignName: "private-name",
+        },
+      ],
+    },
+  });
+  h.source.readStores = async () =>
+    ["private-campaign", "private-campaign-2"].map((providerEntityId) => ({
+      id: STORE,
+      provider: "impact",
+      providerEntityNamespace: "campaign",
+      providerEntityId,
+      categoryId: null,
+    }));
+  const response = await h.handler(request());
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(body.result.unmappedLabels, [
+    { label: "Hotels", key: "hotels", campaignCount: 1 },
+    { label: "TRAVEL", key: "travel", campaignCount: 2 },
+  ]);
+  assert.equal(body.result.unmappedLabelsTruncated, false);
+  assert.equal(body.result.summary.distinctUnmappedLabels, 2);
+  assert.deepEqual(Object.keys(body.result).sort(), [
+    "complete",
+    "summary",
+    "unmappedLabels",
+    "unmappedLabelsTruncated",
+  ]);
+  for (const forbidden of [
+    "private-",
+    STORE,
+    CATEGORY,
+    USER,
+    "@page",
+    "@numpages",
+    "@pagesize",
+    "Authorization",
+    "ciphertext",
+    "baseUrl",
+    "endpointConfiguration",
+    "CampaignId",
+    "providerEntityId",
+  ]) {
+    assert.equal(JSON.stringify(body).includes(forbidden), false, forbidden);
+  }
+  const unauthorized = harness({ admin: false, taxonomy: "Travel" });
+  const rejected = await unauthorized.handler(request());
+  assert.equal(rejected.status, 403);
+  assert.equal((await rejected.text()).includes("unmappedLabels"), false);
+  assert.equal(unauthorized.requests.length, 0);
+});
+
+test("public preview caps observations at 100 while reporting the full distinct total", async () => {
+  for (const size of [100, 101]) {
+    const campaigns = Array.from({ length: size }, (_, index) => ({
+      CampaignId: `private-${index}`,
+      Category: `Label ${String(index).padStart(3, "0")}`,
+    }));
+    const h = harness({ body: { Campaigns: [...campaigns].reverse() } });
+    h.source.readStores = async () =>
+      campaigns.map((campaign) => ({
+        id: STORE,
+        provider: "impact",
+        providerEntityNamespace: "campaign",
+        providerEntityId: campaign.CampaignId,
+        categoryId: null,
+      }));
+    const response = await h.handler(request());
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.result.summary.distinctUnmappedLabels, size);
+    assert.equal(body.result.unmappedLabels.length, 100);
+    assert.equal(body.result.unmappedLabelsTruncated, size > 100);
+    assert.deepEqual(body.result.unmappedLabels[0], {
+      label: "Label 000",
+      key: "label 000",
+      campaignCount: 1,
+    });
+    assert.deepEqual(body.result.unmappedLabels[99], {
+      label: "Label 099",
+      key: "label 099",
+      campaignCount: 1,
+    });
+  }
+});
+
+test("public unmapped work excludes manually categorized and assignable stores", async () => {
+  const h = harness({
+    body: {
+      Campaigns: [
+        { CampaignId: "private-campaign", Category: "Manual Category" },
+        { CampaignId: "private-campaign-2", Categories: ["Fashion", "Other Label"] },
+      ],
+    },
+  });
+  h.source.readStores = async () =>
+    ["private-campaign", "private-campaign-2"].map((providerEntityId, index) => ({
+      id: STORE,
+      provider: "impact",
+      providerEntityNamespace: "campaign",
+      providerEntityId,
+      categoryId: index === 0 ? CATEGORY : null,
+    }));
+  const response = await h.handler(request());
+  const body = await response.json();
+  assert.equal(body.result.summary.alreadyCategorized, 1);
+  assert.equal(body.result.summary.assignable, 1);
+  assert.equal(body.result.summary.distinctUnmappedLabels, 0);
+  assert.deepEqual(body.result.unmappedLabels, []);
+  assert.equal(body.result.unmappedLabelsTruncated, false);
 });

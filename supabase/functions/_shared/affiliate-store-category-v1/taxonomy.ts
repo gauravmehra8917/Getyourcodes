@@ -1,3 +1,5 @@
+import { toOpaqueAdProviderIdV2 } from "../affiliate-sync-v2-ads/ad-models.ts";
+
 export interface ProviderCategoryLabel {
   label: string;
   key: string;
@@ -12,19 +14,9 @@ export interface CampaignCategoryFact {
 export const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** IDs are opaque: do not trim, case-fold, or substitute an AdvertiserId. */
-export function exactCampaignId(value: unknown): string | null {
-  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
-    return String(value);
-  }
-  return typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 256 &&
-    value.trim() === value &&
-    !/\s/u.test(value) &&
-    ![...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
-    ? value
-    : null;
+/** Use the immutable Ads identity rule; never substitute an AdvertiserId. */
+export function canonicalCampaignId(value: unknown): string | null {
+  return toOpaqueAdProviderIdV2(value);
 }
 
 /** No punctuation removal, separator splitting, fuzzy matching or inference. */
@@ -51,7 +43,7 @@ export function extractCampaignCategories(value: unknown): CampaignCategoryFact 
     return { campaignId: null, labels: [], invalid: true };
   }
   const record = value as Record<string, unknown>;
-  const campaignId = exactCampaignId(record.CampaignId);
+  const campaignId = canonicalCampaignId(record.CampaignId);
   let invalid = campaignId === null;
   const labels = new Map<string, ProviderCategoryLabel>();
   for (const field of ["Categories", "Category", "Vertical", "Verticals"]) {

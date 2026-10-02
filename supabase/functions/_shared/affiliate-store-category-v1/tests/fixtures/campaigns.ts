@@ -17,5 +17,5 @@ export const malformedCampaigns = [
   { CampaignId: "campaign-1", Category: "Fashion\u0000" },
   { CampaignId: "campaign-1", Category: "x".repeat(161) },
   { CampaignId: "campaign-1", Categories: Array(33).fill("Fashion") },
-  { CampaignId: " campaign-1", Category: "Fashion" },
+  { CampaignId: NaN, Category: "Fashion" },
 ] as const;

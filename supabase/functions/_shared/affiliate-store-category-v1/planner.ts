@@ -1,4 +1,4 @@
-import { exactCampaignId, normalizeCategoryLabel, UUID_PATTERN } from "./taxonomy.ts";
+import { canonicalCampaignId, normalizeCategoryLabel, UUID_PATTERN } from "./taxonomy.ts";
 import type { CampaignCategoryFact } from "./taxonomy.ts";
 
 export interface StoreCategoryFact {
@@ -48,7 +48,7 @@ export function planStoreCategories(input: CategoryPlanningInput): CategoryDecis
   return input.campaigns.map((campaign): CategoryDecision => {
     if (
       campaign.campaignId === null ||
-      exactCampaignId(campaign.campaignId) !== campaign.campaignId
+      canonicalCampaignId(campaign.campaignId) !== campaign.campaignId
     ) {
       return { action: "invalid_source" };
     }
@@ -116,11 +116,28 @@ export function summarizeCategoryPlan(
 ) {
   const count = (action: CategoryDecision["action"]) =>
     decisions.filter((d) => d.action === action).length;
-  const unmappedKeys = new Set<string>();
+  const observations = new Map<string, { label: string; key: string; campaignCount: number }>();
   input.campaigns.forEach((campaign, index) => {
     if (decisions[index]?.action !== "unmapped") return;
-    for (const label of campaign.labels) unmappedKeys.add(label.key);
+    const campaignKeys = new Set<string>();
+    for (const label of campaign.labels) {
+      const normalized = normalizeCategoryLabel(label.label);
+      if (!normalized || normalized.key !== label.key) continue;
+      const observation = observations.get(label.key) ?? {
+        label: normalized.label,
+        key: normalized.key,
+        campaignCount: 0,
+      };
+      // Same representative rule as extraction: smallest original label by code-unit order.
+      if (normalized.label < observation.label) observation.label = normalized.label;
+      if (!campaignKeys.has(label.key)) observation.campaignCount += 1;
+      campaignKeys.add(label.key);
+      observations.set(label.key, observation);
+    }
   });
+  const unmappedLabels = [...observations.values()]
+    .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .slice(0, 100);
   const exactStoresMatched = input.campaigns.filter(
     (campaign) =>
       campaign.campaignId !== null &&
@@ -142,6 +159,8 @@ export function summarizeCategoryPlan(
     ambiguousStore: count("ambiguous_store"),
     unknownStore: count("unknown_store"),
     invalidSource: count("invalid_source"),
-    distinctUnmappedLabels: unmappedKeys.size,
+    distinctUnmappedLabels: observations.size,
+    unmappedLabels,
+    unmappedLabelsTruncated: observations.size > 100,
   };
 }
