@@ -138,9 +138,11 @@ test("protected refresh/Ads source and every historical migration remain byte-pr
   for (const path of names)
     assert.ok(
       path === MIGRATION ||
+        path === "supabase/migrations/20261002130000_affiliate_store_category_canary_apply.sql" ||
         path === "supabase/config.toml" ||
         path.startsWith("supabase/functions/_shared/affiliate-store-category-v1/") ||
         path.startsWith("supabase/functions/affiliate-store-category-preview-v1/") ||
+        path.startsWith("supabase/functions/affiliate-store-category-apply-v1/") ||
         path.startsWith("docs/checkpoints/"),
       path,
     );

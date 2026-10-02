@@ -25,3 +25,7 @@ verify_jwt = false
 [functions.affiliate-store-category-preview-v1]
 # Category preview explicitly verifies the user JWT and admin role before reads.
 verify_jwt = false
+
+[functions.affiliate-store-category-apply-v1]
+# Category canary explicitly verifies the user JWT and admin role before reads.
+verify_jwt = false
