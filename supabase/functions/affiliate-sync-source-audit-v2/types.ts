@@ -7,6 +7,12 @@ import type {
 
 export const SOURCE_AUDIT_VERSION_V2 = "v2-a11-s2a-1" as const;
 export const COUPON_ADS_AUDIT_MODE = "coupon_ads_coverage" as const;
+export const STORE_CATEGORY_TAXONOMY_AUDIT_MODE =
+  "store_category_taxonomy" as const;
+
+export type SourceAuditV2Mode =
+  | typeof COUPON_ADS_AUDIT_MODE
+  | typeof STORE_CATEGORY_TAXONOMY_AUDIT_MODE;
 
 export interface SourceAuditV2RequestBody {
   integrationId?: unknown;
@@ -127,6 +133,51 @@ export interface CouponAdsCoverageHostResponseV2 {
     audit: typeof COUPON_ADS_AUDIT_MODE;
   };
   audit: CouponAdsCoverageAuditV2;
+}
+
+export type StoreCategoryTaxonomyFieldV2 =
+  | "Categories"
+  | "Category"
+  | "Vertical"
+  | "Verticals";
+
+export interface StoreCategoryTaxonomyFieldCoverageV2 {
+  /** Excludes absent, undefined, null and empty-string fields. */
+  present: number;
+  validString: number;
+  validArray: number;
+  malformed: number;
+}
+
+export interface StoreCategoryTaxonomyLabelV2 {
+  label: string;
+  key: string;
+  campaignCount: number;
+}
+
+export interface StoreCategoryTaxonomyAuditV2 {
+  complete: true;
+  campaignsEvaluated: number;
+  campaignsWithUsableTaxonomy: number;
+  campaignsWithoutTaxonomy: number;
+  invalidTaxonomyCampaigns: number;
+  distinctLabels: number;
+  labels: StoreCategoryTaxonomyLabelV2[];
+  labelsTruncated: boolean;
+  fieldCoverage: Record<
+    StoreCategoryTaxonomyFieldV2,
+    StoreCategoryTaxonomyFieldCoverageV2
+  >;
+}
+
+export interface StoreCategoryTaxonomyHostResponseV2 {
+  host: {
+    version: typeof SOURCE_AUDIT_VERSION_V2;
+    readOnly: true;
+    integrationId: string;
+    audit: typeof STORE_CATEGORY_TAXONOMY_AUDIT_MODE;
+  };
+  audit: StoreCategoryTaxonomyAuditV2;
 }
 
 export type SourceAuditV2ErrorCode =
