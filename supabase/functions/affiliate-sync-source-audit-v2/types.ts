@@ -9,14 +9,18 @@ export const SOURCE_AUDIT_VERSION_V2 = "v2-a11-s2a-1" as const;
 export const COUPON_ADS_AUDIT_MODE = "coupon_ads_coverage" as const;
 export const STORE_CATEGORY_TAXONOMY_AUDIT_MODE =
   "store_category_taxonomy" as const;
+export const STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE =
+  "store_category_taxonomy_page" as const;
 
 export type SourceAuditV2Mode =
   | typeof COUPON_ADS_AUDIT_MODE
-  | typeof STORE_CATEGORY_TAXONOMY_AUDIT_MODE;
+  | typeof STORE_CATEGORY_TAXONOMY_AUDIT_MODE
+  | typeof STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE;
 
 export interface SourceAuditV2RequestBody {
   integrationId?: unknown;
   audit?: unknown;
+  page?: unknown;
 }
 
 export interface SourceAuditV2DataSource {
@@ -177,6 +181,22 @@ export interface StoreCategoryTaxonomyHostResponseV2 {
     integrationId: string;
     audit: typeof STORE_CATEGORY_TAXONOMY_AUDIT_MODE;
   };
+  audit: StoreCategoryTaxonomyAuditV2;
+}
+
+export interface StoreCategoryTaxonomyPageHostResponseV2 {
+  host: {
+    version: typeof SOURCE_AUDIT_VERSION_V2;
+    readOnly: true;
+    integrationId: string;
+    audit: typeof STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE;
+  };
+  page: {
+    requested: number;
+    recordsEvaluated: number;
+    hasMore: boolean;
+  };
+  /** Complete for this page only; hasMore describes the remaining crawl. */
   audit: StoreCategoryTaxonomyAuditV2;
 }
 

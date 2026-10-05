@@ -25,12 +25,14 @@ import type {
   SourceAuditV2Mode,
   SourceAuditV2RequestBody,
   StoreCategoryTaxonomyHostResponseV2,
+  StoreCategoryTaxonomyPageHostResponseV2,
 } from "./types.ts";
 import type { ImpactHostCredentialsV2 } from "../_shared/affiliate-sync-v2-host/types.ts";
 import {
   COUPON_ADS_AUDIT_MODE,
   SOURCE_AUDIT_VERSION_V2,
   STORE_CATEGORY_TAXONOMY_AUDIT_MODE,
+  STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE,
 } from "./types.ts";
 
 const UUID_PATTERN =
@@ -99,6 +101,7 @@ function jsonResponse(
   body:
     | CouponAdsCoverageHostResponseV2
     | StoreCategoryTaxonomyHostResponseV2
+    | StoreCategoryTaxonomyPageHostResponseV2
     | SourceAuditV2ErrorResponse
     | null,
   status: number,
@@ -133,19 +136,42 @@ function strictBearer(authorization: string): string | null {
   return match?.[1] ?? null;
 }
 
-function exactRequest(value: unknown): {
-  integrationId: string;
-  audit: SourceAuditV2Mode;
-} | null {
+function exactRequest(value: unknown):
+  | {
+    integrationId: string;
+    audit: Exclude<
+      SourceAuditV2Mode,
+      typeof STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE
+    >;
+  }
+  | {
+    integrationId: string;
+    audit: typeof STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE;
+    page: number;
+  }
+  | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const keys = Object.keys(value).sort();
-  if (
-    keys.length !== 2 || keys[0] !== "audit" || keys[1] !== "integrationId"
-  ) return null;
   const body = value as SourceAuditV2RequestBody;
   if (
     typeof body.integrationId !== "string" ||
-    !UUID_PATTERN.test(body.integrationId) ||
+    !UUID_PATTERN.test(body.integrationId)
+  ) return null;
+  if (body.audit === STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE) {
+    if (
+      keys.length !== 3 || keys[0] !== "audit" ||
+      keys[1] !== "integrationId" || keys[2] !== "page" ||
+      typeof body.page !== "number" || !Number.isInteger(body.page) ||
+      body.page < 1 || body.page > 50
+    ) return null;
+    return {
+      integrationId: body.integrationId.toLowerCase(),
+      audit: body.audit,
+      page: body.page,
+    };
+  }
+  if (
+    keys.length !== 2 || keys[0] !== "audit" || keys[1] !== "integrationId" ||
     (body.audit !== COUPON_ADS_AUDIT_MODE &&
       body.audit !== STORE_CATEGORY_TAXONOMY_AUDIT_MODE)
   ) return null;
@@ -286,6 +312,27 @@ export function createAffiliateSyncSourceAuditV2Handler(
         : failed("invalid_integration_config", 422, origin, true);
     }
 
+    let campaignsInitialUrl = resolved.campaignsInitialUrl;
+    let campaignLimits = resolved.campaignLimits;
+    if (parsed.audit === STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE) {
+      const pageUrl = new URL(resolved.campaignsInitialUrl);
+      const pageSizes = pageUrl.searchParams.getAll("PageSize");
+      const pageSize = Number(pageSizes[0]);
+      if (
+        pageSizes.length !== 1 || !/^\d+$/.test(pageSizes[0]!) ||
+        !Number.isSafeInteger(pageSize) || pageSize < 1
+      ) return failed("invalid_integration_config", 422, origin, true);
+      // Only Page changes; PageSize and all other trusted query parameters stay.
+      pageUrl.searchParams.set("Page", String(parsed.page));
+      campaignsInitialUrl = pageUrl.toString();
+      campaignLimits = {
+        ...resolved.campaignLimits,
+        maxPages: 1,
+        maxRecords: pageSize,
+        maxAttempts: 1,
+      };
+    }
+
     let transport: ImpactAuditTransportV2;
     try {
       transport = dependencies.createImpactTransport(
@@ -301,18 +348,45 @@ export function createAffiliateSyncSourceAuditV2Handler(
       campaignResult = await new ImpactClientV2({
         transport: campaignRateGuardedTransport(transport),
         continuationPolicy: resolved.continuationPolicy,
-        limits: resolved.campaignLimits,
+        limits: campaignLimits,
         requestTimeoutMs: resolved.requestTimeoutMs,
-      }).fetchCampaigns(resolved.campaignsInitialUrl, request.signal);
+      }).fetchCampaigns(campaignsInitialUrl, request.signal);
     } catch {
       return failed("campaign_fetch_failed", 502, origin, true);
     }
+    const diagnostics = campaignResult.diagnostics;
+    const pagedTaxonomy =
+      parsed.audit === STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE;
     if (
-      campaignResult.diagnostics.stopReason !== "completed" ||
-      campaignResult.diagnostics.parseFailureReason !== null
+      (diagnostics.stopReason !== "completed" &&
+        !(pagedTaxonomy && diagnostics.stopReason === "page_limit")) ||
+      diagnostics.parseFailureReason !== null ||
+      (pagedTaxonomy && (
+        diagnostics.pagesFetched !== 1 || diagnostics.pages.length !== 1 ||
+        diagnostics.pages[0]?.accepted !== true ||
+        diagnostics.pageErrors.length !== 0
+      ))
     ) return failed("campaign_fetch_failed", 502, origin, true);
     if (rateFloorReached(transport)) {
       return failed("campaign_fetch_failed", 502, origin, true);
+    }
+
+    if (parsed.audit === STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE) {
+      const response: StoreCategoryTaxonomyPageHostResponseV2 = {
+        host: {
+          version: SOURCE_AUDIT_VERSION_V2,
+          readOnly: true,
+          integrationId: parsed.integrationId,
+          audit: STORE_CATEGORY_TAXONOMY_PAGE_AUDIT_MODE,
+        },
+        page: {
+          requested: parsed.page,
+          recordsEvaluated: campaignResult.records.length,
+          hasMore: diagnostics.stopReason === "page_limit",
+        },
+        audit: summarizeStoreCategoryTaxonomyV2(campaignResult.records),
+      };
+      return jsonResponse(response, 200, origin, true);
     }
 
     if (parsed.audit === STORE_CATEGORY_TAXONOMY_AUDIT_MODE) {
