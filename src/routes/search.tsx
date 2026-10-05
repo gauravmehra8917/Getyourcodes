@@ -6,17 +6,18 @@ import { z } from "zod";
 import { sb, trackSearch, type Store, type Coupon, type Category } from "@/lib/db";
 import { StoreCard } from "@/components/store-card";
 import { CouponCard } from "@/components/coupon-card";
-import {
-  applyPublicOfferVisibility,
-  excludeLifecycleHiddenStores,
-} from "@/lib/catalog-visibility";
+import { normalizeSearchTerm } from "@/lib/search-normalization";
+import { applyPublicOfferVisibility, excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
 
 export const Route = createFileRoute("/search")({
   validateSearch: z.object({ q: z.string().optional().default("") }),
   head: () => ({
     meta: [
       { title: "Search coupons & stores — Getyourcodes" },
-      { name: "description", content: "Search verified coupons, stores and categories on Getyourcodes." },
+      {
+        name: "description",
+        content: "Search verified coupons, stores and categories on Getyourcodes.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -27,17 +28,18 @@ function SearchPage() {
   const { q: initialQ } = Route.useSearch();
   const navigate = Route.useNavigate();
   const [q, setQ] = useState(initialQ);
+  const normalizedQ = normalizeSearchTerm(initialQ);
 
   useEffect(() => {
-    if (initialQ.trim()) trackSearch(initialQ, "search");
-  }, [initialQ]);
-
+    if (normalizedQ) void trackSearch(normalizedQ, "search");
+  }, [normalizedQ]);
 
   const results = useQuery({
-    queryKey: ["search", initialQ],
-    enabled: initialQ.length > 0,
+    queryKey: ["search", normalizedQ],
+    enabled: normalizedQ.length > 0,
     queryFn: async () => {
-      const term = `%${initialQ}%`;
+      if (!normalizedQ) return { stores: [], coupons: [], categories: [] };
+      const term = `%${normalizedQ}%`;
       const [stores, coupons, categories] = await Promise.all([
         excludeLifecycleHiddenStores(sb.from("stores").select("*")).ilike("name", term).limit(12),
         applyPublicOfferVisibility(
@@ -49,7 +51,9 @@ function SearchPage() {
       ]);
       return {
         stores: (stores.data ?? []) as Store[],
-        coupons: (coupons.data ?? []) as (Coupon & { stores: Pick<Store, "name" | "slug" | "logo_url"> })[],
+        coupons: (coupons.data ?? []) as (Coupon & {
+          stores: Pick<Store, "name" | "slug" | "logo_url">;
+        })[],
         categories: (categories.data ?? []) as Category[],
       };
     },
@@ -60,7 +64,10 @@ function SearchPage() {
       <h1 className="font-display text-3xl font-bold">Search</h1>
       <form
         className="mt-6"
-        onSubmit={(e) => { e.preventDefault(); navigate({ search: { q: q.trim() } }); }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          navigate({ search: { q: normalizeSearchTerm(q) } });
+        }}
       >
         <div className="relative">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -76,8 +83,12 @@ function SearchPage() {
         </div>
       </form>
 
-      {!initialQ && <p className="mt-10 text-center text-muted-foreground">Start typing to search.</p>}
-      {initialQ && results.isLoading && <p className="mt-10 text-center text-muted-foreground">Searching…</p>}
+      {!normalizedQ && (
+        <p className="mt-10 text-center text-muted-foreground">Start typing to search.</p>
+      )}
+      {normalizedQ && results.isLoading && (
+        <p className="mt-10 text-center text-muted-foreground">Searching…</p>
+      )}
 
       {results.data && (
         <div className="mt-10 space-y-10">
@@ -85,7 +96,9 @@ function SearchPage() {
             <section>
               <h2 className="mb-4 font-display text-xl font-semibold">Stores</h2>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                {results.data.stores.map((s) => <StoreCard key={s.id} store={s} />)}
+                {results.data.stores.map((s) => (
+                  <StoreCard key={s.id} store={s} />
+                ))}
               </div>
             </section>
           )}
@@ -94,7 +107,12 @@ function SearchPage() {
               <h2 className="mb-4 font-display text-xl font-semibold">Categories</h2>
               <div className="flex flex-wrap gap-2">
                 {results.data.categories.map((c) => (
-                  <Link key={c.id} to="/$slug" params={{ slug: `${c.slug}-offers` }} className="rounded-full border border-border bg-card px-4 py-2 text-sm hover:border-primary">
+                  <Link
+                    key={c.id}
+                    to="/$slug"
+                    params={{ slug: `${c.slug}-offers` }}
+                    className="rounded-full border border-border bg-card px-4 py-2 text-sm hover:border-primary"
+                  >
                     {c.name}
                   </Link>
                 ))}
@@ -105,12 +123,17 @@ function SearchPage() {
             <section>
               <h2 className="mb-4 font-display text-xl font-semibold">Coupons</h2>
               <div className="grid gap-3">
-                {results.data.coupons.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}
+                {results.data.coupons.map((c) => (
+                  <CouponCard key={c.id} coupon={c} store={c.stores} />
+                ))}
               </div>
             </section>
           )}
-          {results.data.stores.length + results.data.coupons.length + results.data.categories.length === 0 && (
-            <p className="text-center text-muted-foreground">No results for "{initialQ}".</p>
+          {results.data.stores.length +
+            results.data.coupons.length +
+            results.data.categories.length ===
+            0 && (
+            <p className="text-center text-muted-foreground">No results for "{normalizedQ}".</p>
           )}
         </div>
       )}

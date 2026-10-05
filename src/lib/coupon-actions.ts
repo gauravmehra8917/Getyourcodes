@@ -22,12 +22,13 @@ export function categorySlug(slug: string) {
 export async function activateCoupon(
   coupon: Pick<Coupon, "id" | "coupon_type" | "affiliate_url">,
 ): Promise<"opened" | "reveal"> {
-  await trackClick(coupon.id, typeof window !== "undefined" ? window.location.pathname : "");
   if (coupon.coupon_type === "deal") {
     if (coupon.affiliate_url) window.open(coupon.affiliate_url, "_blank", "noopener,noreferrer");
-    return "opened";
   }
-  return "reveal";
+  void trackClick(coupon.id, typeof window !== "undefined" ? window.location.pathname : "").catch(
+    () => undefined,
+  );
+  return coupon.coupon_type === "deal" ? "opened" : "reveal";
 }
 
 const CONVERSATIONAL = [
