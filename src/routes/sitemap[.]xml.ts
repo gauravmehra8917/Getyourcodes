@@ -34,6 +34,9 @@ const STATIC_SLUG_TO_PATH: Record<string, string> = {
   deals: "/deals",
   about: "/about",
   contact: "/contact",
+  privacy: "/privacy",
+  terms: "/terms",
+  "affiliate-disclosure": "/affiliate-disclosure",
 };
 
 export const Route = createFileRoute("/sitemap.xml")({

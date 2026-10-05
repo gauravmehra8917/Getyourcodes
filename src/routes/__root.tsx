@@ -156,6 +156,12 @@ function RootComponent() {
   const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
   return (
     <QueryClientProvider client={queryClient}>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-primary-foreground focus:shadow-lg focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+      >
+        Skip to main content
+      </a>
       {isAdmin ? (
         <div className="admin-shell min-h-screen">
           <Outlet />
@@ -164,7 +170,7 @@ function RootComponent() {
         <AssistantProvider>
           <div className="flex min-h-screen flex-col">
             <SiteHeader />
-            <main className="flex-1">
+            <main id="main-content" tabIndex={-1} className="flex-1">
               <Outlet />
             </main>
             <SiteFooter />
