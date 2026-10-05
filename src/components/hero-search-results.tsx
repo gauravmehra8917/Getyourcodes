@@ -5,26 +5,24 @@ import { sb, type Category, type Coupon, type Store } from "@/lib/db";
 import { categorySlug } from "@/lib/coupon-actions";
 import { CouponCard } from "@/components/coupon-card";
 import { StoreCard } from "@/components/store-card";
-import {
-  applyPublicOfferVisibility,
-  excludeLifecycleHiddenStores,
-} from "@/lib/catalog-visibility";
+import { normalizeSearchTerm } from "@/lib/search-normalization";
+import { applyPublicOfferVisibility, excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
 
 type CouponWithStore = Coupon & { stores: Pick<Store, "name" | "slug" | "logo_url"> };
 
 export function useDirectSearch(term: string) {
+  const normalizedTerm = normalizeSearchTerm(term);
   return useQuery({
-    queryKey: ["hero-search", term],
-    enabled: term.length > 0,
+    queryKey: ["hero-search", normalizedTerm],
+    enabled: normalizedTerm.length > 0,
     staleTime: 60 * 1000,
     queryFn: async () => {
-      const like = `%${term}%`;
+      if (!normalizedTerm) return { stores: [], coupons: [], categories: [] };
+      const like = `%${normalizedTerm}%`;
       const [stores, coupons, categories] = await Promise.all([
         excludeLifecycleHiddenStores(sb.from("stores").select("*")).ilike("name", like).limit(6),
         applyPublicOfferVisibility(
-          sb
-            .from("coupons")
-            .select("*, stores!inner(name, slug, logo_url)"),
+          sb.from("coupons").select("*, stores!inner(name, slug, logo_url)"),
         )
           .or(`title.ilike.${like},coupon_code.ilike.${like}`)
           .limit(6),
@@ -48,7 +46,7 @@ type Props = {
 export function HeroSearchResults({ term, onAskDealio, onClear }: Props) {
   const { data, isLoading } = useDirectSearch(term);
 
-  if (!term) return null;
+  if (!normalizeSearchTerm(term)) return null;
 
   if (isLoading) {
     return (
@@ -58,7 +56,8 @@ export function HeroSearchResults({ term, onAskDealio, onClear }: Props) {
     );
   }
 
-  const total = (data?.stores.length ?? 0) + (data?.coupons.length ?? 0) + (data?.categories.length ?? 0);
+  const total =
+    (data?.stores.length ?? 0) + (data?.coupons.length ?? 0) + (data?.categories.length ?? 0);
 
   if (total === 0) {
     return (
@@ -79,13 +78,22 @@ export function HeroSearchResults({ term, onAskDealio, onClear }: Props) {
     <div className="mt-4 space-y-6 rounded-3xl border border-border bg-card p-5 text-left sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {total} result{total === 1 ? "" : "s"} for <span className="font-semibold text-foreground">“{term}”</span>
+          {total} result{total === 1 ? "" : "s"} for{" "}
+          <span className="font-semibold text-foreground">“{term}”</span>
         </p>
         <div className="flex gap-2">
-          <button type="button" onClick={onAskDealio} className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={onAskDealio}
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
             Ask Dealio
           </button>
-          <button type="button" onClick={onClear} className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
             Clear
           </button>
         </div>
@@ -95,7 +103,9 @@ export function HeroSearchResults({ term, onAskDealio, onClear }: Props) {
         <section>
           <h3 className="mb-3 text-sm font-semibold text-foreground">Stores</h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {data!.stores.map((s) => <StoreCard key={s.id} store={s} />)}
+            {data!.stores.map((s) => (
+              <StoreCard key={s.id} store={s} />
+            ))}
           </div>
         </section>
       )}
@@ -122,7 +132,9 @@ export function HeroSearchResults({ term, onAskDealio, onClear }: Props) {
         <section>
           <h3 className="mb-3 text-sm font-semibold text-foreground">Coupons & deals</h3>
           <div className="grid gap-3">
-            {data!.coupons.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}
+            {data!.coupons.map((c) => (
+              <CouponCard key={c.id} coupon={c} store={c.stores} />
+            ))}
           </div>
         </section>
       )}
