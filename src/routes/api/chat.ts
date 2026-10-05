@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { convertToModelMessages, streamText, tool, stepCountIs, type UIMessage } from "ai";
+import { convertToModelMessages, streamText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
-import {
-  applyPublicOfferVisibility,
-  excludeLifecycleHiddenStores,
-} from "@/lib/catalog-visibility";
+import { prepareChatRequest } from "@/lib/chat-request.server";
+import { normalizeSearchTerm } from "@/lib/search-normalization";
+import { applyPublicOfferVisibility, excludeLifecycleHiddenStores } from "@/lib/catalog-visibility";
 
 const SYSTEM_PROMPT = `You are Dealio, an AI Deal Discovery Assistant for the Getyourcodes coupon site.
 
@@ -29,16 +28,31 @@ function getPublicClient() {
   });
 }
 
+function normalizeToolSearch(value: string): string {
+  // Remove PostgREST expression delimiters before interpolating an OR filter.
+  return normalizeSearchTerm(value.replace(/[(),."\\]/g, " "));
+}
+
+const SEARCH_FAILED = { error: "search_failed", results: [] };
+
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const key = process.env.LOVABLE_API_KEY;
-        if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
+        const messages = await prepareChatRequest(request, async (jwt) => {
+          const { data, error } = await getPublicClient().auth.getUser(jwt);
+          return !error && !!data.user;
+        });
+        if (messages instanceof Response) return messages;
 
-        const { messages } = (await request.json()) as { messages: UIMessage[] };
-        if (!Array.isArray(messages)) {
-          return new Response("messages required", { status: 400 });
+        const key = process.env.LOVABLE_API_KEY;
+        if (!key) return new Response("Chat unavailable", { status: 500 });
+
+        let modelMessages;
+        try {
+          modelMessages = await convertToModelMessages(messages);
+        } catch {
+          return new Response("Bad Request", { status: 400 });
         }
 
         const gateway = createLovableAiGatewayProvider(key);
@@ -47,8 +61,9 @@ export const Route = createFileRoute("/api/chat")({
         const result = streamText({
           model: gateway("google/gemini-3-flash-preview"),
           system: SYSTEM_PROMPT,
-          messages: await convertToModelMessages(messages),
-          stopWhen: stepCountIs(50),
+          messages: modelMessages,
+          stopWhen: stepCountIs(6),
+          abortSignal: request.signal,
           tools: {
             searchCoupons: tool({
               description:
@@ -62,26 +77,31 @@ export const Route = createFileRoute("/api/chat")({
                 limit: z.number().int().min(1).max(20).optional(),
               }),
               execute: async ({ query, couponType, limit }) => {
-                const max = limit ?? 12;
-                let q = applyPublicOfferVisibility(
-                  supabase
-                    .from("coupons")
-                    .select("id,title,description,coupon_code,coupon_type,affiliate_url,expiry_date,created_at,stores!inner(name,slug,logo_url)"),
-                )
-                  .order("created_at", { ascending: false })
-                  .limit(max);
+                const terms = normalizeToolSearch(query);
+                if (!/[\p{L}\p{N}]/u.test(terms)) return { results: [] };
+                try {
+                  const max = limit ?? 12;
+                  let q = applyPublicOfferVisibility(
+                    supabase
+                      .from("coupons")
+                      .select(
+                        "id,title,description,coupon_code,coupon_type,affiliate_url,expiry_date,created_at,stores!inner(name,slug,logo_url)",
+                      ),
+                  )
+                    .order("created_at", { ascending: false })
+                    .limit(max);
 
-                if (couponType && couponType !== "any") q = q.eq("coupon_type", couponType);
+                  if (couponType && couponType !== "any") q = q.eq("coupon_type", couponType);
 
-                const terms = query.trim();
-                if (terms) {
-                  const like = `%${terms.replace(/[%_]/g, "")}%`;
+                  const like = `%${terms}%`;
                   q = q.or(`title.ilike.${like},description.ilike.${like}`);
-                }
 
-                const { data, error } = await q;
-                if (error) return { error: error.message, results: [] };
-                return { results: data ?? [] };
+                  const { data, error } = await q;
+                  if (error) return SEARCH_FAILED;
+                  return { results: data ?? [] };
+                } catch {
+                  return SEARCH_FAILED;
+                }
               },
             }),
             searchStores: tool({
@@ -92,20 +112,29 @@ export const Route = createFileRoute("/api/chat")({
                 limit: z.number().int().min(1).max(10).optional(),
               }),
               execute: async ({ name, limit }) => {
-                const like = `%${name.replace(/[%_]/g, "")}%`;
-                const { data, error } = await excludeLifecycleHiddenStores(supabase
-                  .from("stores")
-                  .select("id,name,slug,description,logo_url,featured"))
-                  .ilike("name", like)
-                  .limit(limit ?? 5);
-                if (error) return { error: error.message, results: [] };
-                return { results: data ?? [] };
+                const terms = normalizeToolSearch(name);
+                if (!/[\p{L}\p{N}]/u.test(terms)) return { results: [] };
+                try {
+                  const like = `%${terms}%`;
+                  const { data, error } = await excludeLifecycleHiddenStores(
+                    supabase.from("stores").select("id,name,slug,description,logo_url,featured"),
+                  )
+                    .ilike("name", like)
+                    .limit(limit ?? 5);
+                  if (error) return SEARCH_FAILED;
+                  return { results: data ?? [] };
+                } catch {
+                  return SEARCH_FAILED;
+                }
               },
             }),
           },
         });
 
-        return result.toUIMessageStreamResponse({ originalMessages: messages });
+        return result.toUIMessageStreamResponse({
+          originalMessages: messages,
+          onError: () => "Chat request failed",
+        });
       },
     },
   },
