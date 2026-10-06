@@ -4,7 +4,7 @@ import { Globe, Tag, Truck } from "lucide-react";
 import { sb, type Store, type Coupon, type Category } from "@/lib/db";
 import { CouponCard } from "@/components/coupon-card";
 import { StoreCard } from "@/components/store-card";
-import { abs, clip, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { abs, clip, seoText, seoRobots, selfCanonical, SITE_NAME, SITE_URL } from "@/lib/seo";
 import {
   applyCurrentOfferWindow,
   applyPublicOfferVisibility,
@@ -22,20 +22,26 @@ export const Route = createFileRoute("/$slug")({
       const storeSlug = slug.slice(0, -"-coupons".length);
       const { data: store } = await excludeLifecycleHiddenStores(
         sb.from("stores").select("*, categories(name, slug)"),
-      ).eq("slug", storeSlug).maybeSingle();
+      )
+        .eq("slug", storeSlug)
+        .maybeSingle();
       if (!store) throw notFound();
       const { data: coupons } = await applyCurrentOfferWindow(
-        sb
-          .from("coupons")
-          .select("*")
-          .eq("store_id", store.id)
-          .eq("status", "active"),
+        sb.from("coupons").select("*").eq("store_id", store.id).eq("status", "active"),
       ).order("created_at", { ascending: false });
-      return { kind: "store", store: store as Store & { categories?: { name: string; slug: string } | null }, coupons: (coupons ?? []) as Coupon[] };
+      return {
+        kind: "store",
+        store: store as Store & { categories?: { name: string; slug: string } | null },
+        coupons: (coupons ?? []) as Coupon[],
+      };
     }
     if (slug.endsWith("-offers")) {
       const catSlug = slug.slice(0, -"-offers".length);
-      const { data: category } = await sb.from("categories").select("*").eq("slug", catSlug).maybeSingle();
+      const { data: category } = await sb
+        .from("categories")
+        .select("*")
+        .eq("slug", catSlug)
+        .maybeSingle();
       if (!category) throw notFound();
       return { kind: "category", category: category as Category };
     }
@@ -45,10 +51,16 @@ export const Route = createFileRoute("/$slug")({
     if (!loaderData) return { meta: [] };
     if (loaderData.kind === "store") {
       const s = loaderData.store as Store & { categories?: { name: string; slug: string } | null };
-      const url = abs(`/${s.slug}-coupons`);
-      const title = `${s.name} Coupons, Promo Codes & Deals — ${SITE_NAME}`;
-      const desc = clip(`Verified ${s.name} coupon codes and deals${s.description ? `. ${s.description}` : "."} Save more on every order at ${s.name}.`);
+      const url = selfCanonical(s.seo_canonical_url, `/${s.slug}-coupons`);
+      const title = seoText(s.seo_title, `${s.name} Coupons, Promo Codes & Deals — ${SITE_NAME}`);
+      const desc = seoText(
+        s.seo_description,
+        clip(
+          `Verified ${s.name} coupon codes and deals${s.description ? `. ${s.description}` : "."} Save more on every order at ${s.name}.`,
+        ),
+      );
       const image = s.logo_url ?? undefined;
+      const socialImage = seoText(s.seo_og_image, image ?? "");
       const coupons = loaderData.coupons;
       const cat = s.categories ?? null;
 
@@ -57,7 +69,16 @@ export const Route = createFileRoute("/$slug")({
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-          ...(cat ? [{ "@type": "ListItem", position: 2, name: cat.name, item: abs(`/${cat.slug}-offers`) }] : []),
+          ...(cat
+            ? [
+                {
+                  "@type": "ListItem",
+                  position: 2,
+                  name: cat.name,
+                  item: abs(`/${cat.slug}-offers`),
+                },
+              ]
+            : []),
           { "@type": "ListItem", position: cat ? 3 : 2, name: s.name, item: url },
         ],
       };
@@ -71,21 +92,35 @@ export const Route = createFileRoute("/$slug")({
         seller: { "@type": "Organization", name: s.name, ...(image ? { logo: image } : {}) },
         availability: "https://schema.org/InStock",
         ...(c.expiry_date ? { validThrough: c.expiry_date } : {}),
-        ...(c.coupon_code ? { priceSpecification: { "@type": "UnitPriceSpecification", priceCurrency: "USD", price: 0 } } : {}),
+        ...(c.coupon_code
+          ? {
+              priceSpecification: {
+                "@type": "UnitPriceSpecification",
+                priceCurrency: "USD",
+                price: 0,
+              },
+            }
+          : {}),
         category: cat?.name ?? undefined,
       }));
 
       return {
         meta: [
-          { title }, { name: "description", content: desc },
-          { name: "robots", content: "index,follow" },
+          { title },
+          { name: "description", content: desc },
+          { name: "robots", content: seoRobots(s.seo_robots) },
           { property: "og:title", content: title },
           { property: "og:description", content: desc },
           { property: "og:type", content: "website" },
           { property: "og:url", content: url },
           { name: "twitter:title", content: title },
           { name: "twitter:description", content: desc },
-          ...(image ? [{ property: "og:image", content: image }, { name: "twitter:image", content: image }] : []),
+          ...(socialImage
+            ? [
+                { property: "og:image", content: socialImage },
+                { name: "twitter:image", content: socialImage },
+              ]
+            : []),
           { name: "twitter:card", content: "summary_large_image" },
         ],
         links: [{ rel: "canonical", href: url }],
@@ -102,14 +137,21 @@ export const Route = createFileRoute("/$slug")({
             }),
           },
           { type: "application/ld+json", children: JSON.stringify(breadcrumb) },
-          ...offers.map((o) => ({ type: "application/ld+json" as const, children: JSON.stringify(o) })),
+          ...offers.map((o) => ({
+            type: "application/ld+json" as const,
+            children: JSON.stringify(o),
+          })),
         ],
       };
     }
     const c = loaderData.category;
-    const url = abs(`/${c.slug}-offers`);
-    const title = `${c.name} Coupons, Offers & Discounts — ${SITE_NAME}`;
-    const desc = clip(`Top ${c.name} coupons, promo codes and deals updated daily. Shop the best ${c.name.toLowerCase()} offers at ${SITE_NAME}.`);
+    const url = selfCanonical(c.seo_canonical_url, `/${c.slug}-offers`);
+    const title = seoText(c.seo_title, `${c.name} Coupons, Offers & Discounts — ${SITE_NAME}`);
+    const generatedDescription = clip(
+      `Top ${c.name} coupons, promo codes and deals updated daily. Shop the best ${c.name.toLowerCase()} offers at ${SITE_NAME}.`,
+    );
+    const desc = seoText(c.seo_description, generatedDescription);
+    const socialImage = seoText(c.seo_og_image, "");
     const breadcrumb = {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
@@ -120,14 +162,21 @@ export const Route = createFileRoute("/$slug")({
     };
     return {
       meta: [
-        { title }, { name: "description", content: desc },
-        { name: "robots", content: "index,follow" },
+        { title },
+        { name: "description", content: desc },
+        { name: "robots", content: seoRobots(c.seo_robots) },
         { property: "og:title", content: title },
         { property: "og:description", content: desc },
         { property: "og:type", content: "website" },
         { property: "og:url", content: url },
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: desc },
+        ...(socialImage
+          ? [
+              { property: "og:image", content: socialImage },
+              { name: "twitter:image", content: socialImage },
+            ]
+          : []),
         { name: "twitter:card", content: "summary_large_image" },
       ],
       links: [{ rel: "canonical", href: url }],
@@ -139,7 +188,7 @@ export const Route = createFileRoute("/$slug")({
             "@type": "CollectionPage",
             name: `${c.name} Offers`,
             url,
-            description: desc,
+            description: generatedDescription,
           }),
         },
         { type: "application/ld+json", children: JSON.stringify(breadcrumb) },
@@ -151,7 +200,12 @@ export const Route = createFileRoute("/$slug")({
     <div className="py-24 text-center">
       <h1 className="font-display text-3xl font-bold">Not found</h1>
       <p className="mt-2 text-muted-foreground">This store or category doesn't exist.</p>
-      <Link to="/" className="mt-6 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Back home</Link>
+      <Link
+        to="/"
+        className="mt-6 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+      >
+        Back home
+      </Link>
     </div>
   ),
 });
@@ -167,7 +221,8 @@ function bestOfferId(list: Coupon[]): string | null {
   let best: { id: string; score: number } | null = null;
   for (const c of list) {
     const v = typeof c.discount_value === "number" ? c.discount_value : 0;
-    const score = c.discount_type === "percentage" ? v * 2 : c.discount_type === "fixed" ? v : v ? 1 : 0;
+    const score =
+      c.discount_type === "percentage" ? v * 2 : c.discount_type === "fixed" ? v : v ? 1 : 0;
     if (score > 0 && (!best || score > best.score)) best = { id: c.id, score };
   }
   return best?.id ?? null;
@@ -182,15 +237,31 @@ function StorePage({ store, coupons }: { store: Store; coupons: Coupon[] }) {
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
       <header className="flex flex-col items-start gap-5 rounded-3xl border border-border bg-gradient-to-br from-primary-soft to-accent/40 p-6 sm:flex-row sm:items-center sm:p-8">
         {store.logo_url ? (
-          <img src={store.logo_url} alt={`${store.name} logo`} width={80} height={80} fetchPriority="high" decoding="async" className="h-20 w-20 rounded-2xl border border-border bg-card object-contain p-2" />
+          <img
+            src={store.logo_url}
+            alt={`${store.name} logo`}
+            width={80}
+            height={80}
+            fetchPriority="high"
+            decoding="async"
+            className="h-20 w-20 rounded-2xl border border-border bg-card object-contain p-2"
+          />
         ) : (
-          <div className="grid h-20 w-20 place-items-center rounded-2xl bg-card text-primary"><Tag className="h-8 w-8" /></div>
+          <div className="grid h-20 w-20 place-items-center rounded-2xl bg-card text-primary">
+            <Tag className="h-8 w-8" />
+          </div>
         )}
         <div className="flex-1">
-          <h1 className="font-display text-3xl font-bold sm:text-4xl">{store.name} Coupons & Promo Codes</h1>
-          {store.description && <p className="mt-2 max-w-2xl text-muted-foreground">{store.description}</p>}
+          <h1 className="font-display text-3xl font-bold sm:text-4xl">
+            {store.name} Coupons & Promo Codes
+          </h1>
+          {store.description && (
+            <p className="mt-2 max-w-2xl text-muted-foreground">{store.description}</p>
+          )}
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span className="rounded-full bg-card px-3 py-1 font-medium text-foreground">{coupons.length} active offers</span>
+            <span className="rounded-full bg-card px-3 py-1 font-medium text-foreground">
+              {coupons.length} active offers
+            </span>
             {store.country && (
               <span className="inline-flex items-center gap-1 rounded-full bg-card px-3 py-1">
                 <Globe className="h-3.5 w-3.5" /> {store.country}
@@ -209,18 +280,28 @@ function StorePage({ store, coupons }: { store: Store; coupons: Coupon[] }) {
       {codes.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 font-display text-2xl font-bold">Active coupon codes</h2>
-          <div className="grid gap-3">{codes.map((c) => <CouponCard key={c.id} coupon={c} store={store} best={c.id === best} />)}</div>
+          <div className="grid gap-3">
+            {codes.map((c) => (
+              <CouponCard key={c.id} coupon={c} store={store} best={c.id === best} />
+            ))}
+          </div>
         </section>
       )}
       {deals.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 font-display text-2xl font-bold">Deals</h2>
-          <div className="grid gap-3">{deals.map((c) => <CouponCard key={c.id} coupon={c} store={store} best={c.id === best} />)}</div>
+          <div className="grid gap-3">
+            {deals.map((c) => (
+              <CouponCard key={c.id} coupon={c} store={store} best={c.id === best} />
+            ))}
+          </div>
         </section>
       )}
 
       {coupons.length === 0 && (
-        <p className="mt-10 rounded-2xl border border-dashed border-border bg-secondary/30 p-10 text-center text-muted-foreground">No active offers right now. Check back soon!</p>
+        <p className="mt-10 rounded-2xl border border-dashed border-border bg-secondary/30 p-10 text-center text-muted-foreground">
+          No active offers right now. Check back soon!
+        </p>
       )}
     </div>
   );
@@ -230,8 +311,10 @@ function CategoryPage({ category }: { category: Category }) {
   const stores = useQuery({
     queryKey: ["category-stores", category.id],
     queryFn: async () => {
-      const { data } = await excludeLifecycleHiddenStores(sb.from("stores").select("*"))
-        .eq("category_id", category.id);
+      const { data } = await excludeLifecycleHiddenStores(sb.from("stores").select("*")).eq(
+        "category_id",
+        category.id,
+      );
       return (data ?? []) as Store[];
     },
   });
@@ -239,9 +322,7 @@ function CategoryPage({ category }: { category: Category }) {
     queryKey: ["category-coupons", category.id],
     queryFn: async () => {
       const { data } = await applyPublicOfferVisibility(
-        sb
-          .from("coupons")
-          .select("*, stores!inner(id, name, slug, logo_url, category_id)"),
+        sb.from("coupons").select("*, stores!inner(id, name, slug, logo_url, category_id)"),
       )
         .eq("stores.category_id", category.id)
         .order("created_at", { ascending: false })
@@ -255,14 +336,18 @@ function CategoryPage({ category }: { category: Category }) {
       <header className="rounded-3xl border border-border bg-gradient-to-br from-primary-soft to-accent/40 p-8">
         <p className="text-sm font-medium uppercase tracking-wide text-primary">Category</p>
         <h1 className="mt-1 font-display text-3xl font-bold sm:text-4xl">{category.name} Offers</h1>
-        <p className="mt-2 text-muted-foreground">Top {category.name.toLowerCase()} coupons and deals updated daily.</p>
+        <p className="mt-2 text-muted-foreground">
+          Top {category.name.toLowerCase()} coupons and deals updated daily.
+        </p>
       </header>
 
       {stores.data && stores.data.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 font-display text-2xl font-bold">Stores in {category.name}</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-            {stores.data.map((s) => <StoreCard key={s.id} store={s} />)}
+            {stores.data.map((s) => (
+              <StoreCard key={s.id} store={s} />
+            ))}
           </div>
         </section>
       )}
@@ -270,12 +355,18 @@ function CategoryPage({ category }: { category: Category }) {
       {coupons.data && coupons.data.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-4 font-display text-2xl font-bold">Latest offers</h2>
-          <div className="grid gap-3">{coupons.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} />)}</div>
+          <div className="grid gap-3">
+            {coupons.data.map((c) => (
+              <CouponCard key={c.id} coupon={c} store={c.stores} />
+            ))}
+          </div>
         </section>
       )}
 
-      {(!stores.data?.length && !coupons.data?.length) && (
-        <p className="mt-10 rounded-2xl border border-dashed border-border bg-secondary/30 p-10 text-center text-muted-foreground">No offers yet in this category.</p>
+      {!stores.data?.length && !coupons.data?.length && (
+        <p className="mt-10 rounded-2xl border border-dashed border-border bg-secondary/30 p-10 text-center text-muted-foreground">
+          No offers yet in this category.
+        </p>
       )}
     </div>
   );

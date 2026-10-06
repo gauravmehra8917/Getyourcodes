@@ -3,6 +3,7 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { isRequestAbort } from "./lib/request-abort";
+import { applySecurityHeaders } from "./lib/security-headers";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -44,7 +45,8 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 // other static files get a shorter TTL with SWR. HTML/SSR documents are
 // never cached so users always see the latest deploy.
 const IMMUTABLE_PATH_PREFIXES = ["/_build/", "/assets/", "/_server/assets/"];
-const STATIC_EXTENSIONS = /\.(?:js|mjs|css|woff2?|ttf|otf|eot|png|jpe?g|gif|webp|avif|svg|ico|mp4|webm|ogg|mp3|wav|wasm|map)$/i;
+const STATIC_EXTENSIONS =
+  /\.(?:js|mjs|css|woff2?|ttf|otf|eot|png|jpe?g|gif|webp|avif|svg|ico|mp4|webm|ogg|mp3|wav|wasm|map)$/i;
 
 function applyCacheHeaders(request: Request, response: Response): Response {
   if (!response.ok && response.status !== 304) return response;
@@ -84,19 +86,22 @@ export default {
       // Node reports that normal disconnect as "Error: aborted" (ECONNRESET);
       // do not turn it into a logged SSR failure or render an error page.
       if (request.signal.aborted) {
-        return new Response(null, { status: 499 });
+        return applySecurityHeaders(request, new Response(null, { status: 499 }));
       }
       const normalized = await normalizeCatastrophicSsrResponse(response);
-      return applyCacheHeaders(request, normalized);
+      return applySecurityHeaders(request, applyCacheHeaders(request, normalized));
     } catch (error) {
       if (request.signal.aborted || isRequestAbort(error)) {
-        return new Response(null, { status: 499 });
+        return applySecurityHeaders(request, new Response(null, { status: 499 }));
       }
       console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return applySecurityHeaders(
+        request,
+        new Response(renderErrorPage(), {
+          status: 500,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      );
     }
   },
 };

@@ -9,7 +9,8 @@ const BUILD_DATE = new Date().toISOString().slice(0, 10);
 type Entry = { path: string; lastmod?: string | null };
 
 // Exclude temp/test/draft/deleted slugs from the sitemap.
-const EXCLUDE_SLUG = /(^|[-_/])(test|draft|temp|tmp|deleted|demo|sample|preview|staging)([-_/]|$)|\d{10,}/i;
+const EXCLUDE_SLUG =
+  /(^|[-_/])(test|draft|temp|tmp|deleted|demo|sample|preview|staging)([-_/]|$)|\d{10,}/i;
 const isCleanSlug = (slug: string | null | undefined): slug is string =>
   !!slug && !EXCLUDE_SLUG.test(slug);
 
@@ -22,12 +23,10 @@ const isValidLastmod = (value: string | null | undefined): string | null => {
   return d.toISOString().slice(0, 10);
 };
 
-const toLastmod = (value: string | null | undefined) =>
-  isValidLastmod(value) ?? BUILD_DATE;
+const toLastmod = (value: string | null | undefined) => isValidLastmod(value) ?? BUILD_DATE;
 
 const STATIC_SLUG_TO_PATH: Record<string, string> = {
   home: "/",
-  search: "/search",
   blog: "/blog",
   categories: "/categories",
   stores: "/stores",
@@ -35,35 +34,32 @@ const STATIC_SLUG_TO_PATH: Record<string, string> = {
   deals: "/deals",
   about: "/about",
   contact: "/contact",
+  privacy: "/privacy",
+  terms: "/terms",
+  "affiliate-disclosure": "/affiliate-disclosure",
 };
 
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const entries: Entry[] = Object.values(STATIC_SLUG_TO_PATH).map(
-          (path) => ({ path }),
-        );
+        const entries: Entry[] = Object.values(STATIC_SLUG_TO_PATH).map((path) => ({ path }));
 
         try {
-          const [
-            { data: stores },
-            { data: categories },
-            { data: posts },
-            { data: pages },
-          ] = await Promise.all([
-            excludeLifecycleHiddenStores(supabaseAdmin.from("stores").select("slug, created_at")),
-            supabaseAdmin.from("categories").select("slug, created_at"),
-            supabaseAdmin
-              .from("posts")
-              .select("slug, updated_at, published_at")
-              .eq("status", "published"),
-            supabaseAdmin
-              .from("pages")
-              .select("slug, updated_at, published")
-              .eq("published", true)
-              .in("slug", Object.keys(STATIC_SLUG_TO_PATH)),
-          ]);
+          const [{ data: stores }, { data: categories }, { data: posts }, { data: pages }] =
+            await Promise.all([
+              excludeLifecycleHiddenStores(supabaseAdmin.from("stores").select("slug, created_at")),
+              supabaseAdmin.from("categories").select("slug, created_at"),
+              supabaseAdmin
+                .from("posts")
+                .select("slug, updated_at, published_at")
+                .eq("status", "published"),
+              supabaseAdmin
+                .from("pages")
+                .select("slug, updated_at, published")
+                .eq("published", true)
+                .in("slug", Object.keys(STATIC_SLUG_TO_PATH)),
+            ]);
 
           (pages ?? []).forEach((p) => {
             const path = STATIC_SLUG_TO_PATH[p.slug];

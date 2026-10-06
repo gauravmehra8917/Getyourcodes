@@ -77,7 +77,9 @@ Deno.serve(async (req) => {
     const today = new Date().toISOString().slice(0, 10);
     const { data: couponsRaw, error: couponsErr } = await admin
       .from("coupons")
-      .select("id,title,description,coupon_code,coupon_type,affiliate_url,expiry_date,created_at,store:stores(name,slug)")
+      .select(
+        "id,title,description,coupon_code,coupon_type,affiliate_url,expiry_date,created_at,store:stores(name,slug)",
+      )
       .eq("status", "active")
       .gt("created_at", since)
       .or(`expiry_date.is.null,expiry_date.gte.${today}`)
@@ -127,7 +129,9 @@ Deno.serve(async (req) => {
       const missing = [
         !RESEND_API_KEY && "RESEND_API_KEY",
         !NEWSLETTER_FROM_EMAIL && "NEWSLETTER_FROM_EMAIL",
-      ].filter(Boolean).join(", ");
+      ]
+        .filter(Boolean)
+        .join(", ");
       const msg = `Missing required secret(s): ${missing}`;
       await admin.from("newsletter_logs").insert({
         subscribers_count: subscribers.length,
@@ -235,7 +239,10 @@ function renderNewsletterHtml(coupons: Coupon[], unsubscribeToken: string): stri
   const items = coupons
     .map((c) => {
       const storeName = c.store?.name ?? "Store";
-      const storeHref = c.store?.slug ? `${SITE_URL}/${c.store.slug}` : SITE_URL;
+      const slug = c.store?.slug;
+      const storeHref = slug
+        ? `${SITE_URL}/${slug.endsWith("-coupons") ? slug : `${slug}-coupons`}`
+        : SITE_URL;
       const ctaHref = c.affiliate_url ?? storeHref;
       const codeBlock = c.coupon_code
         ? `<div style="margin-top:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef2ff;color:#3730a3;display:inline-block;padding:6px 10px;border-radius:6px;font-weight:600;letter-spacing:.02em">${esc(c.coupon_code)}</div>`
