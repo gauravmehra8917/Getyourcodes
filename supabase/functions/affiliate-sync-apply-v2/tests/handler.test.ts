@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   type AffiliateSyncPreviewInputV2,
   type AffiliateSyncPreviewV2,
+  hasImpactPromotionRedemptionCodeV2,
   type ImpactProviderFetchInputV2,
   type ImpactProviderFetchResultV2,
   type ImpactStreamFetchDiagnosticsV2,
@@ -16,8 +17,14 @@ import {
 import type {
   StoredIntegrationV2,
 } from "../../affiliate-sync-preview-v2/types.ts";
-import type { CatalogPlanningContextV2 } from "../catalog-planning-context.ts";
-import { createAffiliateSyncApplyV2Handler } from "../handler.ts";
+import {
+  type CatalogPlanningContextV2,
+  mapCatalogPlanningContextV2,
+} from "../catalog-planning-context.ts";
+import {
+  createAffiliateSyncApplyV2Handler,
+  parseApplyV2Request,
+} from "../handler.ts";
 import {
   persistenceRpcArgs,
   PLAN_FINGERPRINT_ALGORITHM_V2,
@@ -295,8 +302,7 @@ function validRpcValue(
       ? evidenceUuid("offer", index)
       : instruction.existingOfferId!,
     expectedEntityId: instruction.existingOfferId,
-    parentProviderEntityNamespace:
-      instruction.parentProviderEntityNamespace,
+    parentProviderEntityNamespace: instruction.parentProviderEntityNamespace,
     parentProviderEntityId: instruction.parentProviderEntityId,
     parentEntityId: storeEntities.get(instruction.parentProviderEntityId)!,
     offerKind: instruction.kind,
@@ -2180,4 +2186,663 @@ test("RPC transport ambiguity is indeterminate and is never retried", async () =
     assert.equal(result.dataSource.rpcCalls.length, 1);
     assert.equal(serializedHasSecret(responseBody), false);
   }
+});
+
+function dealsRequest(
+  mode: "canary" | "full",
+  extra: Record<string, unknown> = {},
+): Request {
+  return applyRequest({
+    body: {
+      integrationId: INTEGRATION_ID,
+      execute: true,
+      scope: "deals",
+      mode,
+      ...extra,
+    },
+  });
+}
+
+function mixedDealsFetch(
+  coupons = 13,
+  deals = 135,
+): ImpactProviderFetchResultV2 {
+  const fetched = healthyFetch();
+  const source = fetched.acceptedPromotions[0]!;
+  fetched.acceptedPromotions = Array.from(
+    { length: coupons + deals },
+    (_, index) => ({
+      ...source,
+      promotionId: `promotion-${String(index).padStart(3, "0")}`,
+      genericRedemptionCode: index < coupons ? `CODE-${index}` : null,
+      provenance: { ...source.provenance, recordIndex: index },
+    }),
+  );
+  fetched.fetchDiagnostics.promotions = streamDiagnostics(
+    "promotions",
+    coupons + deals,
+  );
+  return fetched;
+}
+
+function dealsFixture(
+  fetched = mixedDealsFetch(),
+  options: Omit<FixtureOptions, "retrieve"> = {},
+) {
+  const result = fixture({
+    ...options,
+    retrieve: () => Promise.resolve(fetched),
+  });
+  result.dataSource.publishingPolicy = {
+    enabled: true,
+    minimumCouponsPerStore: 0,
+    maximumCouponsPerStore: 20,
+    minimumDealsPerStore: 0,
+    maximumDealsPerStore: 18,
+  };
+  return result;
+}
+
+function refreshPlanMaterial(plan: PersistencePlanV2): PersistencePlanV2 {
+  plan.canonicalPlanMaterial = {
+    ...plan.canonicalPlanMaterial,
+    storeInstructions: plan.storeInstructions,
+    offerInstructions: plan.offerInstructions,
+    counts: plan.counts,
+  };
+  plan.canonicalPlanMaterialString = JSON.stringify(plan.canonicalPlanMaterial);
+  return plan;
+}
+
+test("request parsing preserves the historical command and accepts exactly deals canary/full", () => {
+  const historical = { integrationId: INTEGRATION_ID, execute: true };
+  assert.deepEqual(parseApplyV2Request(historical), historical);
+  for (const mode of ["full", "canary"] as const) {
+    const command = { ...historical, scope: "deals", mode };
+    assert.deepEqual(parseApplyV2Request(command), command);
+  }
+  const uppercase = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
+  assert.deepEqual(
+    parseApplyV2Request({ integrationId: uppercase, execute: true }),
+    {
+      integrationId: uppercase.toLowerCase(),
+      execute: true,
+    },
+  );
+});
+
+test("unknown or partial scope/mode and extra deals request keys fail before provider work", async () => {
+  const base = { integrationId: INTEGRATION_ID, execute: true };
+  const invalid = [
+    { ...base, scope: "deals" },
+    { ...base, mode: "full" },
+    ...["coupons", "all", "Deals", null, false].map((scope) => ({
+      ...base,
+      scope,
+      mode: "full",
+    })),
+    ...["preview", "FULL", "", null, false].map((mode) => ({
+      ...base,
+      scope: "deals",
+      mode,
+    })),
+    ...["plan", "provider", "promotionId", "maxDealsPerStore", "extra"].map((
+      key,
+    ) => ({
+      ...base,
+      scope: "deals",
+      mode: "canary",
+      [key]: PROVIDER_RAW_SECRET,
+    })),
+    { ...base, execute: false, scope: "deals", mode: "full" },
+    { ...base, integrationId: "invalid", scope: "deals", mode: "full" },
+  ];
+  for (const command of invalid) {
+    assert.equal(parseApplyV2Request(command), null);
+    const result = dealsFixture();
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+      applyRequest({ body: command }),
+    );
+    await assertFixedFailure(response, 400, "response", "invalid_request");
+    assert.deepEqual(result.activity.retrievalInputs, []);
+    assert.equal(result.dataSource.rpcCalls.length, 0);
+  }
+});
+
+test("shared GenericRedemptionCode classification agrees with normalization and deals filtering", async () => {
+  const fetched = mixedDealsFetch(0, 6);
+  const codes = [null, "", " \t\n ", "SAVE", " SAVE ", "0"];
+  fetched.acceptedPromotions.forEach((promotion, index) => {
+    promotion.genericRedemptionCode = codes[index]!;
+    promotion.promotionTitle = index < 3
+      ? "Coupon code SAVE discount"
+      : "No-code deal";
+    promotion.description = index < 3 ? "Enter a promo code" : "No code needed";
+  });
+  const result = dealsFixture(fetched);
+  const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+    dealsRequest("full"),
+  );
+  assert.equal(response.status, 200);
+  const complete = PreviewPlanner.plan(result.activity.previewInputs[0]!);
+  const expectedCoupons = fetched.acceptedPromotions.filter(
+    hasImpactPromotionRedemptionCodeV2,
+  );
+  const expectedDeals = fetched.acceptedPromotions.filter((promotion) =>
+    !hasImpactPromotionRedemptionCodeV2(promotion)
+  );
+  assert.equal(expectedCoupons.length, 3);
+  assert.equal(expectedDeals.length, 3);
+  assert.deepEqual(
+    complete.normalizedCoupons.map((offer) => offer.raw),
+    expectedCoupons,
+  );
+  assert.deepEqual(
+    complete.normalizedDeals.map((offer) => offer.raw),
+    expectedDeals,
+  );
+  assert.deepEqual(
+    result.activity.previewInputs[1]!.acceptedPromotions,
+    expectedDeals,
+  );
+});
+
+test("full deals apply filters 13 coupons/135 deals before persistence and honors the synthetic 18 cap", async () => {
+  const fetched = mixedDealsFetch();
+  const original = structuredClone(fetched);
+  const result = dealsFixture(fetched);
+  const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+    dealsRequest("full"),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(result.activity.persistenceInputs.length, 1);
+  const preview = result.activity.persistenceInputs[0]!.preview;
+  assert.equal(preview.normalizedCoupons.length, 0);
+  assert.equal(preview.normalizedDeals.length, 135);
+  assert.equal(preview.publishingPolicy.selectedDeals.length, 18);
+  assert.equal(preview.publishingPolicy.heldDeals.length, 117);
+  const args = persistenceRpcArgs(result.dataSource.rpcCalls[0]!);
+  assert.equal(args._offer_instructions.length, 18);
+  assert.equal(args._expected_counts.offers.noopHeld, 117);
+  for (const instruction of args._offer_instructions) {
+    assert.equal(instruction.kind, "deal");
+    assert.equal(instruction.provider, "impact");
+    assert.equal(instruction.providerEntityNamespace, "promotion");
+    assert.equal(instruction.projection?.couponType, "deal");
+    assert.equal(instruction.projection?.couponCode, null);
+    assert.equal(instruction.parentProviderEntityNamespace, "campaign");
+    assert.equal(instruction.parentProviderEntityId, "campaign-alpha");
+  }
+  assert.equal(
+    result.activity.previewInputs[1]!.fetchDiagnostics.promotions
+      .rawRecordCount,
+    148,
+  );
+  assert.equal(
+    result.activity.previewInputs[1]!.fetchDiagnostics.promotions
+      .acceptedRecordCount,
+    135,
+  );
+  assert.deepEqual(fetched, original);
+  const safe = await body(response);
+  assert.equal(safe.scope, "deals");
+  assert.equal(safe.mode, "full");
+  assert.equal(safe.createdStores, 1);
+  assert.equal(safe.createdDeals, 18);
+  assert.equal(safe.noopStores, 0);
+  assert.equal(safe.noopDeals, 0);
+  const serialized = JSON.stringify(safe);
+  for (
+    const forbidden of [
+      "promotion-",
+      "campaign-alpha",
+      "advertiser-alpha",
+      "tracking.example",
+      PROVIDER_RAW_SECRET,
+      AUTH_TOKEN,
+    ]
+  ) {
+    assert.equal(serialized.includes(forbidden), false, forbidden);
+  }
+});
+
+test("full deal limit comes from the stored policy, not a hardcoded production count", async () => {
+  const result = dealsFixture(mixedDealsFetch(2, 7));
+  result.dataSource.publishingPolicy!.maximumDealsPerStore = 3;
+  const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+    dealsRequest("full"),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(
+    persistenceRpcArgs(result.dataSource.rpcCalls[0]!)._offer_instructions
+      .length,
+    3,
+  );
+});
+
+test("canary retries choose one policy-selected Deal by exact code-unit identity and one parent", async () => {
+  const fetched = healthyFetchWithTwoEntities();
+  fetched.acceptedPromotions.forEach((promotion, index) => {
+    promotion.genericRedemptionCode = null;
+    promotion.promotionId = index === 0 ? "promotion-a" : "promotion-Z";
+    promotion.promotionTitle = index === 0 ? "AAA title" : "ZZZ title";
+  });
+  const selectedIds: string[] = [];
+  for (const reverse of [false, true, false]) {
+    const evidence = structuredClone(fetched);
+    if (reverse) evidence.acceptedPromotions.reverse();
+    const result = dealsFixture(evidence);
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+      dealsRequest("canary"),
+    );
+    assert.equal(response.status, 200);
+    assert.equal(result.activity.previewInputs.length, 3);
+    assert.equal(
+      result.activity.persistenceInputs[0]!.preview.normalizedDeals.length,
+      1,
+    );
+    assert.equal(result.activity.previewInputs[2]!.acceptedCampaigns.length, 2);
+    const args = persistenceRpcArgs(result.dataSource.rpcCalls[0]!);
+    assert.equal(args._offer_instructions.length, 1);
+    assert.equal(args._store_instructions.length, 1);
+    assert.equal(args._expected_counts.writableOffers, 1);
+    assert.equal(args._expected_counts.writableStores, 1);
+    assert.equal(
+      args._store_instructions[0]!.providerEntityId,
+      "campaign-beta",
+    );
+    selectedIds.push(args._offer_instructions[0]!.providerEntityId);
+    assert.equal((await body(response)).mode, "canary");
+  }
+  assert.deepEqual(selectedIds, ["promotion-Z", "promotion-Z", "promotion-Z"]);
+});
+
+test("canary never selects an eligible Deal held over the publishing cap", async () => {
+  const fetched = mixedDealsFetch(0, 3);
+  fetched.acceptedPromotions[0]!.endDate = "2026-12-30T00:00:00Z";
+  fetched.acceptedPromotions[1]!.endDate = "2026-08-21T00:00:00Z";
+  const result = dealsFixture(fetched);
+  result.dataSource.publishingPolicy!.maximumDealsPerStore = 1;
+  const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+    dealsRequest("canary"),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(
+    persistenceRpcArgs(result.dataSource.rpcCalls[0]!)._offer_instructions[0]!
+      .providerEntityId,
+    "promotion-001",
+  );
+});
+
+test("canary with no selected qualified Deal blocks safely without preparation or RPC", async () => {
+  for (
+    const variant of [
+      "coupon-only",
+      "expired",
+      "unresolved",
+      "unqualified",
+    ] as const
+  ) {
+    const fetched = mixedDealsFetch(
+      variant === "coupon-only" ? 1 : 0,
+      variant === "coupon-only" ? 0 : 1,
+    );
+    if (variant === "expired") {
+      fetched.acceptedPromotions[0]!.endDate = "2020-01-01T00:00:00Z";
+    }
+    if (variant === "unresolved") {
+      fetched.acceptedPromotions[0]!.campaignId = "missing-campaign";
+    }
+    const result = dealsFixture(fetched);
+    if (variant === "unqualified") {
+      result.dataSource.publishingPolicy!.minimumCouponsPerStore = 1;
+    }
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+      dealsRequest("canary"),
+    );
+    assert.equal(response.status, 409, variant);
+    assert.deepEqual(await body(response), {
+      status: "blocked",
+      stage: "preview_plan",
+      reason: "no_eligible_deal",
+      scope: "deals",
+      mode: "canary",
+    });
+    assert.equal(result.activity.preparations.length, 0);
+    assert.equal(result.dataSource.rpcCalls.length, 0);
+  }
+});
+
+test("existing Promotion Deal is noop_existing and an Ad with the same ID is never adopted", async () => {
+  const storeId = "66666666-6666-4666-8666-666666666666";
+  const offerId = "77777777-7777-4777-8777-777777777777";
+  for (const namespace of ["promotion", "ad"] as const) {
+    const result = dealsFixture(mixedDealsFetch(0, 1));
+    result.dataSource.catalog = mapCatalogPlanningContextV2([{
+      id: storeId,
+      slug: "alpha-store",
+      provider: "impact",
+      providerEntityNamespace: "campaign",
+      providerEntityId: "campaign-alpha",
+    }], [{
+      id: offerId,
+      providerEntityNamespace: namespace,
+      providerEntityId: "promotion-000",
+      couponType: namespace === "promotion" ? "deal" : "code",
+    }]);
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+      dealsRequest("canary"),
+    );
+    assert.equal(response.status, 200);
+    const args = persistenceRpcArgs(result.dataSource.rpcCalls[0]!);
+    assert.equal(args._store_instructions.length, 1);
+    assert.equal(args._store_instructions[0]!.action, "noop_existing");
+    assert.equal(args._expected_counts.writableStores, 0);
+    assert.equal(
+      args._offer_instructions[0]!.action,
+      namespace === "promotion" ? "noop_existing" : "create",
+    );
+    assert.equal(
+      args._offer_instructions[0]!.existingOfferId,
+      namespace === "promotion" ? offerId : null,
+    );
+    const safe = await body(response);
+    assert.equal(safe.noopStores, 1);
+    assert.equal(safe.createdDeals, namespace === "promotion" ? 0 : 1);
+    assert.equal(safe.noopDeals, namespace === "promotion" ? 1 : 0);
+  }
+});
+
+test("invalid, expired, future, and unresolved Deals stay nonwritable in full scope", async () => {
+  const fetched = mixedDealsFetch(0, 5);
+  fetched.acceptedPromotions[1]!.endDate = "2020-01-01T00:00:00Z";
+  fetched.acceptedPromotions[2]!.startDate = "2027-01-01T00:00:00Z";
+  fetched.acceptedPromotions[3]!.startDate = "invalid-date";
+  fetched.acceptedPromotions[4]!.campaignId = "missing-campaign";
+  const result = dealsFixture(fetched);
+  const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+    dealsRequest("full"),
+  );
+  assert.equal(response.status, 200);
+  const args = persistenceRpcArgs(result.dataSource.rpcCalls[0]!);
+  assert.deepEqual(
+    args._offer_instructions.map((offer) => offer.providerEntityId),
+    ["promotion-000"],
+  );
+  assert.equal(args._expected_counts.offers.noopHeld, 3);
+  assert.equal(args._expected_counts.offers.noopUnresolved, 1);
+});
+
+test("deals scope retains the canonical duplicate instead of reclassifying a coupon duplicate", async () => {
+  const fetched = mixedDealsFetch(1, 1);
+  fetched.acceptedPromotions.push({
+    ...fetched.acceptedPromotions[0]!,
+    genericRedemptionCode: null,
+    provenance: {
+      ...fetched.acceptedPromotions[0]!.provenance,
+      recordIndex: 2,
+    },
+  });
+  fetched.acceptedPromotions.push({
+    ...fetched.acceptedPromotions[1]!,
+    provenance: {
+      ...fetched.acceptedPromotions[1]!.provenance,
+      recordIndex: 3,
+    },
+  });
+  fetched.fetchDiagnostics.promotions = streamDiagnostics("promotions", 4);
+  const carriers = fetched.fetchDiagnostics.promotions
+    .promotionIdentifierCarrierDiagnostics!;
+  carriers.promotionIdSingular.distinctValidOpaqueValues = 2;
+  const equivalence = fetched.fetchDiagnostics.promotions
+    .promotionIdentityEquivalenceDiagnostics!;
+  equivalence.distinctPromotionIds = 2;
+  equivalence.duplicatePromotionIdRecords = 2;
+  const result = dealsFixture(fetched);
+  const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+    dealsRequest("full"),
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    persistenceRpcArgs(result.dataSource.rpcCalls[0]!)._offer_instructions.map((
+      offer,
+    ) => offer.providerEntityId),
+    ["promotion-001"],
+  );
+});
+
+test("deals modes preserve incomplete and malformed provider fetch blockers before any RPC", async () => {
+  for (const mode of ["canary", "full"] as const) {
+    for (const stream of ["promotions", "campaigns"] as const) {
+      for (const malformed of [false, true]) {
+        const fetched = mixedDealsFetch(0, 1);
+        fetched.fetchDiagnostics[stream].stopReason = malformed
+          ? "malformed_page"
+          : "page_limit";
+        if (malformed) {
+          fetched.fetchDiagnostics[stream].parseFailureReason = "invalid_json";
+        }
+        const result = dealsFixture(fetched);
+        const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+          dealsRequest(mode),
+        );
+        assert.equal(response.status, 502);
+        assert.equal(
+          (await body(response)).reason,
+          malformed ? "malformed_provider_response" : "provider_fetch_failed",
+        );
+        assert.equal(result.activity.previewInputs.length, 0);
+        assert.equal(result.dataSource.rpcCalls.length, 0);
+      }
+    }
+  }
+});
+
+test("identity collapse in complete, deals, or single-canary evidence fails before RPC", async () => {
+  for (const failingPreview of [1, 2, 3]) {
+    let previews = 0;
+    const result = dealsFixture(mixedDealsFetch(1, 2), {
+      previewPlan(input) {
+        const preview = PreviewPlanner.plan(input);
+        if (++previews === failingPreview) {
+          preview.identityIntegrityDiagnostics.identityCollapseDetected = true;
+        }
+        return preview;
+      },
+    });
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+      dealsRequest("canary"),
+    );
+    assert.equal(response.status, 500);
+    assert.equal(result.activity.persistenceInputs.length, 0);
+    assert.equal(result.dataSource.rpcCalls.length, 0);
+  }
+});
+
+test("deals plans preserve manual slug, ambiguous identity, and existing kind blockers", async () => {
+  for (
+    const variant of ["manual-slug", "ambiguous-store", "coupon-kind"] as const
+  ) {
+    const result = dealsFixture(mixedDealsFetch(0, 1));
+    if (variant === "manual-slug") {
+      result.dataSource.catalog.knownStoreSlugs = [{
+        storeId: COLLIDING_STORE_ID,
+        slug: "alpha-store",
+        providerStoreKey: null,
+      }];
+    } else if (variant === "ambiguous-store") {
+      result.dataSource.catalog.existingCatalogSnapshot.stores = [
+        COLLIDING_STORE_ID,
+        ADMIN_ID,
+      ].map((id) => ({
+        id,
+        providerStoreKey: {
+          provider: "impact",
+          namespace: "campaign",
+          id: "campaign-alpha",
+        },
+      }));
+    } else {
+      result.dataSource.catalog.existingCatalogSnapshot.offers = [{
+        id: COLLIDING_STORE_ID,
+        promotionId: "promotion-000",
+      }];
+      result.dataSource.catalog.knownOfferKinds = [{
+        offerId: COLLIDING_STORE_ID,
+        providerEntityNamespace: "promotion",
+        promotionId: "promotion-000",
+        kind: "coupon",
+      }];
+    }
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+      dealsRequest("canary"),
+    );
+    assert.equal(response.status, 409, variant);
+    assert.equal((await body(response)).reason, "plan_blocked");
+    assert.equal(result.activity.preparations.length, 0);
+    assert.equal(result.dataSource.rpcCalls.length, 0);
+  }
+});
+
+test("a valid generic coupon plan accidentally returned in deals scope fails before preparation", async () => {
+  for (const mode of ["canary", "full"] as const) {
+    const result = dealsFixture(mixedDealsFetch(0, 1), {
+      persistencePlan(input) {
+        const fetched = healthyFetch();
+        const preview = PreviewPlanner.plan({
+          ...fetched,
+          existingCatalogSnapshot: emptyCatalog().existingCatalogSnapshot,
+          publishingPolicyConfig: {
+            maxCouponsPerStore: 20,
+            maxDealsPerStore: 18,
+          },
+          storeQualificationConfig: {
+            minimumSelectedCoupons: 0,
+            minimumSelectedDeals: 0,
+            minimumTotalSelectedOffers: 0,
+          },
+          evaluationTimestamp: EVALUATION_TIMESTAMP,
+        });
+        return PersistencePlannerV2.plan({ ...input, preview });
+      },
+    });
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+      dealsRequest(mode),
+    );
+    assert.equal(response.status, 500);
+    assert.equal((await body(response)).reason, "deals_only_invariant_failed");
+    assert.equal(result.activity.preparations.length, 0);
+    assert.equal(result.dataSource.rpcCalls.length, 0);
+  }
+});
+
+test("corrupt deal projection, identity, parent, and counts all fail closed before preparation", async () => {
+  const mutations: Array<(plan: PersistencePlanV2) => void> = [
+    (plan) => {
+      plan.offerInstructions[0]!.kind = "coupon";
+    },
+    (plan) => {
+      plan.offerInstructions[0]!.projection!.couponType = "code";
+    },
+    (plan) => {
+      plan.offerInstructions[0]!.projection!.couponCode = "ACCIDENTAL";
+    },
+    (plan) => {
+      Object.assign(plan.offerInstructions[0]!, {
+        providerEntityNamespace: "ad",
+      });
+    },
+    (plan) => {
+      Object.assign(plan.offerInstructions[0]!, {
+        parentProviderEntityNamespace: "advertiser",
+      });
+    },
+    (plan) => {
+      Object.assign(plan.offerInstructions[0]!, { provider: "other" });
+    },
+    (plan) => {
+      plan.offerInstructions[0]!.providerEntityId = "guessed-deal-id";
+    },
+    (plan) => {
+      plan.counts.writableOffers += 1;
+    },
+  ];
+  for (const mutate of mutations) {
+    const result = dealsFixture(mixedDealsFetch(0, 1), {
+      persistencePlan(input) {
+        const plan = PersistencePlannerV2.plan(input);
+        mutate(plan);
+        return refreshPlanMaterial(plan);
+      },
+    });
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+      dealsRequest("full"),
+    );
+    assert.equal(response.status, 500);
+    assert.equal((await body(response)).reason, "deals_only_invariant_failed");
+    assert.equal(result.activity.preparations.length, 0);
+    assert.equal(result.dataSource.rpcCalls.length, 0);
+  }
+});
+
+test("canary rejects multiple executable Deals or an unnecessary second parent Store", async () => {
+  for (const extra of ["deal", "store"] as const) {
+    const result = dealsFixture(mixedDealsFetch(0, 2), {
+      persistencePlan(input) {
+        const plan = PersistencePlannerV2.plan(input);
+        if (extra === "deal") {
+          const offer = structuredClone(plan.offerInstructions[0]!);
+          offer.promotionId = "promotion-001";
+          offer.providerEntityId = "promotion-001";
+          plan.offerInstructions.push(offer);
+          plan.counts.offers.create += 1;
+          plan.counts.writableOffers += 1;
+        } else {
+          const store = structuredClone(plan.storeInstructions[0]!);
+          Object.assign(store, {
+            providerEntityId: "campaign-beta",
+            providerStoreKey: {
+              provider: "impact",
+              namespace: "campaign",
+              id: "campaign-beta",
+            },
+          });
+          store.projection!.metadata.campaignId = "campaign-beta";
+          store.projection!.slugCandidate = "beta-store";
+          plan.storeInstructions.push(store);
+          plan.counts.stores.create += 1;
+          plan.counts.writableStores += 1;
+        }
+        plan.counts.writableEntities += 1;
+        return refreshPlanMaterial(plan);
+      },
+    });
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+      dealsRequest("canary"),
+    );
+    assert.equal(response.status, 500);
+    assert.equal((await body(response)).reason, "deals_only_invariant_failed");
+    assert.equal(result.dataSource.rpcCalls.length, 0);
+  }
+});
+
+test("a substituted prepared generic coupon execution is blocked at the final RPC boundary", async () => {
+  const result = dealsFixture(mixedDealsFetch(0, 1), {
+    async prepareExecution(plan, triggeredBy) {
+      const clone = structuredClone(plan);
+      clone.offerInstructions[0]!.kind = "coupon";
+      clone.offerInstructions[0]!.projection!.couponType = "code";
+      clone.offerInstructions[0]!.projection!.couponCode = "ACCIDENTAL";
+      return await preparePersistenceExecution(
+        refreshPlanMaterial(clone),
+        triggeredBy,
+      );
+    },
+  });
+  const response = await createAffiliateSyncApplyV2Handler(result.deps)(
+    dealsRequest("canary"),
+  );
+  assert.equal(response.status, 500);
+  assert.equal((await body(response)).reason, "deals_only_invariant_failed");
+  assert.equal(result.dataSource.rpcCalls.length, 0);
 });

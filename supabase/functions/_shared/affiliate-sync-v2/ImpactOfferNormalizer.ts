@@ -119,7 +119,8 @@ function assertCampaignBackedAssociation(association: StoreOfferAssociationV2): 
   }
 }
 
-function hasRedemptionCode(promotion: RawImpactPromotionV2): promotion is RawImpactPromotionV2 & {
+/** Shared authoritative Promotions classification; whitespace-only codes are deals. */
+export function hasImpactPromotionRedemptionCodeV2(promotion: RawImpactPromotionV2): promotion is RawImpactPromotionV2 & {
   genericRedemptionCode: string;
 } {
   return typeof promotion.genericRedemptionCode === "string" && promotion.genericRedemptionCode.trim().length > 0;
@@ -192,7 +193,7 @@ export class ImpactOfferNormalizer {
         raw: promotion,
         provenance: providerProvenance(promotion),
       };
-      if (hasRedemptionCode(promotion)) {
+      if (hasImpactPromotionRedemptionCodeV2(promotion)) {
         normalizedCoupons.push({
           ...base,
           kind: "coupon",
