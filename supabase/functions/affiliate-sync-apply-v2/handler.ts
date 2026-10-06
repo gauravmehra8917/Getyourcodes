@@ -16,6 +16,14 @@ import {
   persistenceRpcArgs,
   type PreparedPersistenceExecutionV2,
 } from "./persistence-execution.ts";
+import {
+  assertDealsOnlyExecutionV2,
+  assertDealsOnlyPlanV2,
+  assertDealsOnlyPreviewEvidenceV2,
+  canaryDealPromotionV2,
+  dealPromotionsV2,
+  promotionsPreviewInputV2,
+} from "./deals-only.ts";
 import type {
   ApplyV2ActualCounts,
   ApplyV2FailureReason,
@@ -26,6 +34,8 @@ import type {
   ApplyV2RpcBlockedReason,
   ApplyV2RpcStage,
   ApplyV2SuccessResponse,
+  DealsOnlyExecutionV2,
+  ParsedApplyV2Request,
 } from "./types.ts";
 
 const UUID_PATTERN =
@@ -139,43 +149,37 @@ function jsonResponse(
   });
 }
 
-function failed(
-  stage: ApplyV2FailureStage,
-  reason: ApplyV2FailureReason,
-  status: number,
-  origin: string | null,
-  allowed: boolean,
-): Response {
-  return jsonResponse(
-    { status: "failed", stage, reason },
-    status,
-    origin,
-    allowed,
-  );
-}
-
 function strictBearer(authorization: string): string | null {
   const match = authorization.match(/^Bearer ([^\s]+)$/);
   return match?.[1] ?? null;
 }
 
-function exactRequest(value: unknown): {
-  integrationId: string;
-  execute: true;
-} | null {
+export function parseApplyV2Request(
+  value: unknown,
+): ParsedApplyV2Request | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const keys = Object.keys(value).sort();
-  if (
-    keys.length !== 2 || keys[0] !== "execute" || keys[1] !== "integrationId"
-  ) {
-    return null;
-  }
+  const historical = keys.length === 2 && keys[0] === "execute" &&
+    keys[1] === "integrationId";
+  const deals = keys.length === 4 && keys[0] === "execute" &&
+    keys[1] === "integrationId" &&
+    keys[2] === "mode" && keys[3] === "scope";
+  if (!historical && !deals) return null;
   const record = value as Record<string, unknown>;
   if (
     typeof record.integrationId !== "string" ||
     !UUID_PATTERN.test(record.integrationId) || record.execute !== true
   ) return null;
-  return { integrationId: record.integrationId.toLowerCase(), execute: true };
+  const request = {
+    integrationId: record.integrationId.toLowerCase(),
+    execute: true as const,
+  };
+  if (historical) return request;
+  if (
+    record.scope !== "deals" ||
+    (record.mode !== "canary" && record.mode !== "full")
+  ) return null;
+  return { ...request, scope: "deals", mode: record.mode };
 }
 
 function fetchFailureReason(
@@ -567,7 +571,9 @@ function validSuccessEvidence(
         entry.offerKind !== offerInstruction!.kind
       ) return false;
       const parentEntityId = storeEntitiesByProvider.get(
-        `${offerInstruction!.parentProviderEntityNamespace}\u0000${offerInstruction!.parentProviderEntityId}`,
+        `${offerInstruction!.parentProviderEntityNamespace}\u0000${
+          offerInstruction!.parentProviderEntityId
+        }`,
       );
       if (
         parentEntityId === undefined ||
@@ -592,8 +598,9 @@ function validSuccessEvidence(
       providerEntityId: entry.providerEntityId,
       entityId: entry.entityId,
       expectedEntityId: entry.expectedEntityId as string | null,
-      parentProviderEntityNamespace:
-        entry.parentProviderEntityNamespace as "campaign" | null,
+      parentProviderEntityNamespace: entry.parentProviderEntityNamespace as
+        | "campaign"
+        | null,
       parentProviderEntityId: entry.parentProviderEntityId as string | null,
       parentEntityId: entry.parentEntityId as string | null,
       offerKind: entry.offerKind as "coupon" | "deal" | null,
@@ -777,21 +784,50 @@ export function createAffiliateSyncApplyV2Handler(
   dependencies: ApplyV2HostDependencies,
 ): (request: Request) => Promise<Response> {
   return async (request: Request): Promise<Response> => {
+    let execution: DealsOnlyExecutionV2 | undefined;
+    const respond = (
+      body: ApplyV2Response | null,
+      status: number,
+      origin: string | null,
+      allowed: boolean,
+    ): Response => {
+      if (body && execution) {
+        const counts =
+          body.status === "committed" || body.status === "replayed_existing"
+            ? {
+              createdStores: body.created.stores,
+              createdDeals: body.created.offers,
+              noopStores: body.noops.stores,
+              noopDeals: body.noops.offers,
+            }
+            : {};
+        body = { ...body, ...execution, ...counts };
+      }
+      return jsonResponse(body, status, origin, allowed);
+    };
+    const reject = (
+      stage: ApplyV2FailureStage,
+      reason: ApplyV2FailureReason,
+      status: number,
+      origin: string | null,
+      allowed: boolean,
+    ): Response =>
+      respond({ status: "failed", stage, reason }, status, origin, allowed);
     const origin = request.headers.get("Origin");
     const originAllowed = approvedOrigin(origin, dependencies.siteUrl);
     if (!originAllowed) {
-      return failed("cors", "origin_not_allowed", 403, origin, false);
+      return reject("cors", "origin_not_allowed", 403, origin, false);
     }
     if (request.method === "OPTIONS") {
-      return jsonResponse(null, 204, origin, true);
+      return respond(null, 204, origin, true);
     }
     if (request.method !== "POST") {
-      return failed("response", "method_not_allowed", 405, origin, true);
+      return reject("response", "method_not_allowed", 405, origin, true);
     }
 
     const authorization = request.headers.get("Authorization") ?? "";
     const jwt = strictBearer(authorization);
-    if (!jwt) return failed("auth", "unauthenticated", 401, origin, true);
+    if (!jwt) return reject("auth", "unauthenticated", 401, origin, true);
 
     let user: { id: string } | null;
     try {
@@ -800,27 +836,31 @@ export function createAffiliateSyncApplyV2Handler(
       user = null;
     }
     if (!user || !UUID_PATTERN.test(user.id)) {
-      return failed("auth", "unauthenticated", 401, origin, true);
+      return reject("auth", "unauthenticated", 401, origin, true);
     }
 
     let dataSource: ReturnType<ApplyV2HostDependencies["createDataSource"]>;
     try {
       dataSource = dependencies.createDataSource();
       if (!await dataSource.hasAdminRole(user.id)) {
-        return failed("auth", "unauthorized", 403, origin, true);
+        return reject("auth", "unauthorized", 403, origin, true);
       }
     } catch {
-      return failed("auth", "unauthorized", 403, origin, true);
+      return reject("auth", "unauthorized", 403, origin, true);
     }
 
-    let parsed: ReturnType<typeof exactRequest>;
+    let parsed: ReturnType<typeof parseApplyV2Request>;
     try {
-      parsed = exactRequest(await request.json());
+      parsed = parseApplyV2Request(await request.json());
     } catch {
       parsed = null;
     }
     if (!parsed) {
-      return failed("response", "invalid_request", 400, origin, true);
+      return reject("response", "invalid_request", 400, origin, true);
+    }
+
+    if (parsed.scope === "deals") {
+      execution = { scope: parsed.scope, mode: parsed.mode };
     }
 
     let evaluationTimestamp: string;
@@ -828,14 +868,14 @@ export function createAffiliateSyncApplyV2Handler(
       evaluationTimestamp = dependencies.now().toISOString();
       if (!Number.isFinite(Date.parse(evaluationTimestamp))) throw new Error();
     } catch {
-      return failed("response", "response_failed", 500, origin, true);
+      return reject("response", "response_failed", 500, origin, true);
     }
 
     let integration: Awaited<ReturnType<typeof dataSource.readIntegration>>;
     try {
       integration = await dataSource.readIntegration(parsed.integrationId);
     } catch {
-      return failed(
+      return reject(
         "integration_load",
         "invalid_integration_config",
         500,
@@ -844,7 +884,7 @@ export function createAffiliateSyncApplyV2Handler(
       );
     }
     if (!integration) {
-      return failed(
+      return reject(
         "integration_load",
         "integration_not_found",
         404,
@@ -856,7 +896,7 @@ export function createAffiliateSyncApplyV2Handler(
       !UUID_PATTERN.test(integration.id) ||
       integration.id.toLowerCase() !== parsed.integrationId
     ) {
-      return failed(
+      return reject(
         "integration_load",
         "invalid_integration_config",
         500,
@@ -865,7 +905,7 @@ export function createAffiliateSyncApplyV2Handler(
       );
     }
     if (!integration.isEnabled) {
-      return failed(
+      return reject(
         "integration_load",
         "integration_disabled",
         409,
@@ -876,7 +916,7 @@ export function createAffiliateSyncApplyV2Handler(
     try {
       assertImpactProvider(integration.providerName);
     } catch {
-      return failed(
+      return reject(
         "integration_load",
         "provider_not_impact",
         422,
@@ -891,7 +931,7 @@ export function createAffiliateSyncApplyV2Handler(
         integration.publishingPolicyId,
       );
     } catch {
-      return failed(
+      return reject(
         "integration_load",
         "invalid_integration_config",
         500,
@@ -901,7 +941,7 @@ export function createAffiliateSyncApplyV2Handler(
     }
     const policyValidation = validatedPublishingPolicy(policy);
     if (!policyValidation.valid) {
-      return failed(
+      return reject(
         "integration_load",
         "invalid_integration_config",
         422,
@@ -923,7 +963,7 @@ export function createAffiliateSyncApplyV2Handler(
       );
       credentials = parseImpactHostCredentials(plaintext);
     } catch {
-      return failed(
+      return reject(
         "credential_load",
         "credentials_unavailable",
         422,
@@ -947,7 +987,7 @@ export function createAffiliateSyncApplyV2Handler(
       const stage = reason === "credentials_unavailable"
         ? "credential_load"
         : "integration_load";
-      return failed(stage, reason, 422, origin, true);
+      return reject(stage, reason, 422, origin, true);
     }
 
     let fetched: ImpactProviderFetchResultV2;
@@ -966,7 +1006,7 @@ export function createAffiliateSyncApplyV2Handler(
         signal: request.signal,
       });
     } catch {
-      return failed(
+      return reject(
         "provider_fetch",
         "provider_fetch_failed",
         502,
@@ -976,7 +1016,7 @@ export function createAffiliateSyncApplyV2Handler(
     }
     const fetchFailure = fetchFailureReason(fetched);
     if (fetchFailure) {
-      return failed("provider_fetch", fetchFailure, 502, origin, true);
+      return reject("provider_fetch", fetchFailure, 502, origin, true);
     }
 
     let catalog: Awaited<
@@ -985,7 +1025,7 @@ export function createAffiliateSyncApplyV2Handler(
     try {
       catalog = await dataSource.loadCatalogPlanningContext();
     } catch {
-      return failed(
+      return reject(
         "catalog_snapshot",
         "catalog_snapshot_failed",
         500,
@@ -996,7 +1036,7 @@ export function createAffiliateSyncApplyV2Handler(
 
     let preview: ReturnType<ApplyV2HostDependencies["previewPlan"]>;
     try {
-      preview = dependencies.previewPlan({
+      const completeInput = {
         acceptedPromotions: fetched.acceptedPromotions,
         acceptedCampaigns: fetched.acceptedCampaigns,
         fetchDiagnostics: fetched.fetchDiagnostics,
@@ -1005,9 +1045,38 @@ export function createAffiliateSyncApplyV2Handler(
         publishingPolicyConfig: resolved.publishingPolicyConfig,
         storeQualificationConfig: resolved.storeQualificationConfig,
         evaluationTimestamp,
-      });
+      };
+      preview = dependencies.previewPlan(completeInput);
+      if (execution) {
+        assertDealsOnlyPreviewEvidenceV2(preview);
+        const dealsInput = promotionsPreviewInputV2(
+          completeInput,
+          dealPromotionsV2(preview),
+        );
+        preview = dependencies.previewPlan(dealsInput);
+        assertDealsOnlyPreviewEvidenceV2(preview);
+        if (execution.mode === "canary") {
+          const canary = canaryDealPromotionV2(preview);
+          if (canary === null) {
+            return respond(
+              {
+                status: "blocked",
+                stage: "preview_plan",
+                reason: "no_eligible_deal",
+              },
+              409,
+              origin,
+              true,
+            );
+          }
+          preview = dependencies.previewPlan(
+            promotionsPreviewInputV2(completeInput, [canary]),
+          );
+          assertDealsOnlyPreviewEvidenceV2(preview);
+        }
+      }
     } catch {
-      return failed("preview_plan", "preview_plan_failed", 500, origin, true);
+      return reject("preview_plan", "preview_plan_failed", 500, origin, true);
     }
 
     let plan: ReturnType<ApplyV2HostDependencies["persistencePlan"]>;
@@ -1023,7 +1092,7 @@ export function createAffiliateSyncApplyV2Handler(
         },
       });
     } catch {
-      return failed(
+      return reject(
         "persistence_plan",
         "persistence_plan_failed",
         500,
@@ -1035,7 +1104,7 @@ export function createAffiliateSyncApplyV2Handler(
     if (plan.status === "blocked") {
       const blockerReasonCounts = plannerBlockerCounts(plan.blockers);
       if (!blockerReasonCounts) {
-        return failed(
+        return reject(
           "persistence_plan",
           "persistence_plan_failed",
           500,
@@ -1043,7 +1112,7 @@ export function createAffiliateSyncApplyV2Handler(
           true,
         );
       }
-      return jsonResponse(
+      return respond(
         {
           status: "blocked",
           stage: "persistence_plan",
@@ -1056,26 +1125,54 @@ export function createAffiliateSyncApplyV2Handler(
       );
     }
 
+    if (execution) {
+      try {
+        assertDealsOnlyPlanV2(plan, preview, execution.mode);
+      } catch {
+        return reject(
+          "persistence_plan",
+          "deals_only_invariant_failed",
+          500,
+          origin,
+          true,
+        );
+      }
+    }
+
     let prepared: PreparedPersistenceExecutionV2;
     try {
       prepared = await dependencies.prepareExecution(plan, user.id);
     } catch {
-      return failed("fingerprint", "fingerprint_failed", 500, origin, true);
+      return reject("fingerprint", "fingerprint_failed", 500, origin, true);
     }
 
     try {
       if (!await dataSource.hasAdminRole(user.id)) {
-        return failed("auth", "unauthorized", 403, origin, true);
+        return reject("auth", "unauthorized", 403, origin, true);
       }
     } catch {
-      return failed("auth", "unauthorized", 403, origin, true);
+      return reject("auth", "unauthorized", 403, origin, true);
+    }
+
+    if (execution) {
+      try {
+        assertDealsOnlyExecutionV2(prepared, plan, execution.mode);
+      } catch {
+        return reject(
+          "persistence_plan",
+          "deals_only_invariant_failed",
+          500,
+          origin,
+          true,
+        );
+      }
     }
 
     let rpcResult: Awaited<ReturnType<typeof dataSource.applyPersistencePlan>>;
     try {
       rpcResult = await dataSource.applyPersistencePlan(prepared);
     } catch {
-      return jsonResponse(
+      return respond(
         {
           status: "indeterminate",
           stage: "rpc_apply",
@@ -1087,7 +1184,7 @@ export function createAffiliateSyncApplyV2Handler(
       );
     }
     if (rpcResult.kind === "transport_error") {
-      return jsonResponse(
+      return respond(
         {
           status: "indeterminate",
           stage: "rpc_apply",
@@ -1107,6 +1204,6 @@ export function createAffiliateSyncApplyV2Handler(
       : safe.status === "indeterminate"
       ? 502
       : 200;
-    return jsonResponse(safe, status, origin, true);
+    return respond(safe, status, origin, true);
   };
 }
