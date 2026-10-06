@@ -149,19 +149,25 @@ function storeProjection(
 function offerProjection(
   offer: PreviewOfferV2 | undefined,
   parent: ProviderStoreKey,
+  parentStore: AffiliateSyncPreviewV2["normalizedStores"][number] | undefined,
 ): OfferCreateProjectionV2 | null {
   if (!offer || !validKey(parent)) return null;
+  if (offer.kind === "deal" && !parentStore) return null;
   const title = nonempty(offer.title);
   const start = utcDate(offer.startDate);
   const end = utcDate(offer.endDate);
   if (!title || !start.valid || !end.valid) return null;
   if (offer.kind === "coupon" && !nonempty(offer.code)) return null;
+  const affiliateUrl =
+    nonempty(offer.trackingUrl) ??
+    (offer.kind === "deal" ? nonempty(parentStore?.trackingUrl ?? null) : null);
+  if (offer.kind === "deal" && !affiliateUrl) return null;
   return {
     title,
     description: nonempty(offer.description),
     couponCode: offer.kind === "coupon" ? nonempty(offer.code) : null,
     couponType: offer.kind === "coupon" ? "code" : "deal",
-    affiliateUrl: nonempty(offer.trackingUrl),
+    affiliateUrl,
     landingPageUrl: null,
     startDate: start.value,
     expiryDate: end.value,
@@ -871,7 +877,9 @@ export class PersistencePlannerV2 {
           facts.nonwritable_actions_preserved = false;
           add(blocker("invalid_preview_action", "offer", { promotionId }));
         }
-        const projection = validKey(parent) ? offerProjection(normalized, parent) : null;
+        const projection = validKey(parent)
+          ? offerProjection(normalized, parent, storeByKey.get(keyText(parent)))
+          : null;
         if (!projection) {
           facts.offer_projections_valid = false;
           add(blocker("invalid_offer_projection", "offer", {
