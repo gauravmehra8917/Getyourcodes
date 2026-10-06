@@ -306,6 +306,240 @@ test("D: an exact existing store remains a no-op parent for a new offer", () => 
   assert.equal(result.offerInstructions[0]?.expectedParentStoreId, "store-existing");
 });
 
+for (const campaignTrackingUrl of [null, "https://campaign.example/tracking"]) {
+  test(`Deal uses its Promotion tracking URL with Campaign URL ${campaignTrackingUrl}`, () => {
+    const result = plan(
+      preview({
+        stores: [{ ...simpleStore(), trackingUrl: campaignTrackingUrl }],
+        offers: [
+          {
+            promotionId: "deal-a",
+            campaignId: "campaign-a",
+            kind: "deal",
+            trackingUrl: "https://promotion.example/tracking",
+          },
+        ],
+      }),
+    );
+    assert.equal(result.status, "ready");
+    assert.equal(result.offerInstructions[0]?.action, "create");
+    assert.equal(
+      result.offerInstructions[0]?.projection?.affiliateUrl,
+      "https://promotion.example/tracking",
+    );
+  });
+}
+
+test("Acme Tools Deal falls back to the exact existing Campaign 11565 tracking URL", () => {
+  const trackingUrl = "https://acmetools.pxf.io/c/5427301/817692/11565";
+  const parentKey = {
+    provider: "impact",
+    namespace: "campaign",
+    id: "11565",
+  } as const;
+  const result = plan(
+    preview({
+      stores: [{ campaignId: "11565", name: "Acme Tools", trackingUrl }],
+      offers: [
+        {
+          promotionId: "acme-deal",
+          campaignId: "11565",
+          kind: "deal",
+          trackingUrl: null,
+        },
+      ],
+      snapshot: {
+        stores: [{ id: "store-existing", providerStoreKey: parentKey }],
+        offers: [],
+      },
+    }),
+  );
+  assert.equal(result.status, "ready");
+  assert.equal(result.storeInstructions[0]?.action, "noop_existing");
+  const deal = result.offerInstructions[0]!;
+  assert.equal(deal.action, "create");
+  assert.deepEqual(deal.parentProviderStoreKey, parentKey);
+  assert.equal(deal.expectedParentStoreId, "store-existing");
+  assert.equal(deal.projection?.couponType, "deal");
+  assert.equal(deal.projection?.couponCode, null);
+  assert.equal(deal.projection?.affiliateUrl, trackingUrl);
+  assert.equal(deal.projection?.landingPageUrl, null);
+});
+
+for (const empty of [null, "", " \t "]) {
+  test(`Deal falls back to Campaign tracking URL when Promotion URL is ${JSON.stringify(empty)}`, () => {
+    const result = plan(
+      preview({
+        stores: [
+          {
+            ...simpleStore(),
+            trackingUrl: " https://campaign.example/tracking ",
+          },
+        ],
+        offers: [
+          {
+            promotionId: "deal-a",
+            campaignId: "campaign-a",
+            kind: "deal",
+            trackingUrl: empty,
+          },
+        ],
+      }),
+    );
+    assert.equal(result.status, "ready");
+    assert.equal(
+      result.offerInstructions[0]?.projection?.affiliateUrl,
+      "https://campaign.example/tracking",
+    );
+  });
+
+  for (const destinationUrl of [null, "https://merchant.example/destination"]) {
+    test(`Deal blocks empty tracking URLs ${JSON.stringify(empty)} with destination ${destinationUrl}`, () => {
+      const result = plan(
+        preview({
+          stores: [{ ...simpleStore(), trackingUrl: empty, destinationUrl }],
+          offers: [
+            {
+              promotionId: "deal-a",
+              campaignId: "campaign-a",
+              kind: "deal",
+              trackingUrl: empty,
+            },
+          ],
+        }),
+      );
+      assert.equal(result.status, "blocked");
+      assert.ok(
+        result.blockers.some(
+          (entry) => entry.reason === "invalid_offer_projection" && entry.promotionId === "deal-a",
+        ),
+      );
+      assert.equal(
+        result.preconditions.find((entry) => entry.code === "offer_projections_valid")?.satisfied,
+        false,
+      );
+      assert.equal(result.offerInstructions[0]?.projection, null);
+      assert.equal(
+        result.offerInstructions.some(
+          (entry) => entry.action === "create" && entry.projection !== null,
+        ),
+        false,
+      );
+      validatePersistencePlanV2(result);
+    });
+  }
+}
+
+for (const trackingUrl of [null, " \t ", "https://promotion.example/tracking"]) {
+  test(`Promotion coupon preserves its own affiliate URL ${JSON.stringify(trackingUrl)} without Campaign fallback`, () => {
+    const result = plan(
+      preview({
+        stores: [simpleStore()],
+        offers: [
+          {
+            promotionId: "coupon-a",
+            campaignId: "campaign-a",
+            kind: "coupon",
+            trackingUrl,
+          },
+        ],
+      }),
+    );
+    assert.equal(result.status, "ready");
+    assert.equal(result.offerInstructions[0]?.projection?.couponType, "code");
+    assert.equal(
+      result.offerInstructions[0]?.projection?.affiliateUrl,
+      trackingUrl?.trim() || null,
+    );
+  });
+}
+
+for (const trackingUrl of [null, "https://campaign.example/tracking"]) {
+  test(`Existing Deal stays noop_existing with no Promotion URL and Campaign URL ${trackingUrl}`, () => {
+    const result = plan(
+      preview({
+        stores: [{ ...simpleStore(), trackingUrl }],
+        offers: [
+          {
+            promotionId: "deal-a",
+            campaignId: "campaign-a",
+            kind: "deal",
+            trackingUrl: null,
+          },
+        ],
+        snapshot: {
+          stores: [
+            {
+              id: "store-existing",
+              providerStoreKey: {
+                provider: "impact",
+                namespace: "campaign",
+                id: "campaign-a",
+              },
+            },
+          ],
+          offers: [{ id: "deal-existing", promotionId: "deal-a" }],
+        },
+      }),
+      context({
+        knownOfferKinds: [
+          {
+            offerId: "deal-existing",
+            providerEntityNamespace: "promotion",
+            promotionId: "deal-a",
+            kind: "deal",
+          },
+        ],
+      }),
+    );
+    assert.equal(result.status, "ready");
+    assert.equal(result.offerInstructions[0]?.action, "noop_existing");
+    assert.equal(result.offerInstructions[0]?.existingOfferId, "deal-existing");
+    assert.equal(result.offerInstructions[0]?.projection, null);
+    assert.equal(result.counts.writableEntities, 0);
+    assert.deepEqual(
+      result.offerInstructions.map((entry) => entry.action),
+      ["noop_existing"],
+    );
+  });
+}
+
+for (const mismatch of [
+  { provider: "other" },
+  { namespace: "advertiser" },
+  {
+    id: "other-campaign",
+  },
+  null,
+]) {
+  test(`Deal fallback fails closed without exact normalized parent identity ${JSON.stringify(mismatch)}`, () => {
+    const evidence = preview({
+      stores: [simpleStore()],
+      offers: [
+        {
+          promotionId: "deal-a",
+          campaignId: "campaign-a",
+          kind: "deal",
+          trackingUrl: null,
+        },
+      ],
+    });
+    if (mismatch) {
+      evidence.normalizedStores = structuredClone(evidence.normalizedStores);
+      Object.assign(evidence.normalizedStores[0]!.providerStoreKey, mismatch);
+    } else evidence.normalizedStores = [];
+    assert.deepEqual(evidence.proposedActions.offers[0]?.providerStoreKey, {
+      provider: "impact",
+      namespace: "campaign",
+      id: "campaign-a",
+    });
+    const result = plan(evidence);
+    assert.equal(result.status, "blocked");
+    assert.ok(result.blockers.some((entry) => entry.reason === "invalid_offer_projection"));
+    assert.equal(result.offerInstructions[0]?.projection, null);
+  });
+}
+
 test("E: an exact existing offer is a no-op and never authorizes an update", () => {
   const result = plan(preview({
     stores: [simpleStore()],

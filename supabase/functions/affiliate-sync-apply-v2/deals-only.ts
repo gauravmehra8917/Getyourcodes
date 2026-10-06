@@ -153,7 +153,9 @@ export function assertDealsOnlyPlanV2(
       assert(
         instruction.projection !== null &&
           instruction.projection.couponType === "deal" &&
-          instruction.projection.couponCode === null,
+          instruction.projection.couponCode === null &&
+          typeof instruction.projection.affiliateUrl === "string" &&
+          instruction.projection.affiliateUrl.trim().length > 0,
       );
     } else assert(instruction.projection === null);
   }
@@ -208,6 +210,15 @@ export function assertDealsOnlyExecutionV2(
         JSON.stringify(instruction.projection) ===
           JSON.stringify(planned.projection),
     );
+    if (instruction.action === "create") {
+      assert(
+        instruction.projection !== null &&
+          instruction.projection.couponType === "deal" &&
+          instruction.projection.couponCode === null &&
+          typeof instruction.projection.affiliateUrl === "string" &&
+          instruction.projection.affiliateUrl.trim().length > 0,
+      );
+    }
   });
   args._store_instructions.forEach((instruction, index) => {
     const planned = stores[index]!;
