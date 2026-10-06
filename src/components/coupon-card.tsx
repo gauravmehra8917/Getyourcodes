@@ -136,7 +136,7 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
       ) : (
         <article
           id={coupon.id}
-          className={`group flex items-center gap-4 rounded-2xl border bg-card p-4 transition hover:shadow-sm sm:p-5 ${
+          className={`group flex min-w-0 max-w-full items-center gap-4 overflow-hidden rounded-2xl border bg-card p-4 transition hover:shadow-sm sm:p-5 ${
             best
               ? "border-primary/60 ring-1 ring-primary/20"
               : "border-border hover:border-primary/30"
