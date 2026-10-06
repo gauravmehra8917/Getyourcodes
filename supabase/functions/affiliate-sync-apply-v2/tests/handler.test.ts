@@ -2785,6 +2785,77 @@ test("corrupt deal projection, identity, parent, and counts all fail closed befo
   }
 });
 
+for (const mode of ["canary", "full"] as const) {
+  for (const affiliateUrl of [null, "", " \t "]) {
+    test(`${mode} Deal guard rejects affiliate URL ${JSON.stringify(affiliateUrl)} before preparation or RPC`, async () => {
+      const result = dealsFixture(mixedDealsFetch(0, 1), {
+        persistencePlan(input) {
+          const plan = PersistencePlannerV2.plan(input);
+          plan.offerInstructions[0]!.projection!.affiliateUrl = affiliateUrl;
+          return refreshPlanMaterial(plan);
+        },
+      });
+      const response = await createAffiliateSyncApplyV2Handler(result.deps)(dealsRequest(mode));
+      assert.equal(response.status, 500);
+      assert.equal((await body(response)).reason, "deals_only_invariant_failed");
+      assert.equal(result.activity.preparations.length, 0);
+      assert.equal(result.dataSource.rpcCalls.length, 0);
+    });
+  }
+
+  test(`${mode} final RPC guard rejects null affiliate URL introduced during preparation`, async () => {
+    const result = dealsFixture(mixedDealsFetch(0, 1), {
+      async prepareExecution(plan, triggeredBy) {
+        plan.offerInstructions[0]!.projection!.affiliateUrl = null;
+        return await preparePersistenceExecution(refreshPlanMaterial(plan), triggeredBy);
+      },
+    });
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(dealsRequest(mode));
+    assert.equal(response.status, 500);
+    assert.equal((await body(response)).reason, "deals_only_invariant_failed");
+    assert.equal(result.activity.preparations.length, 1);
+    assert.equal(result.dataSource.rpcCalls.length, 0);
+  });
+
+  test(`${mode} Deal with Campaign URL fallback passes existing limits`, async () => {
+    const fetched = mixedDealsFetch(0, 2);
+    fetched.acceptedPromotions.forEach((promotion) => {
+      promotion.trackingUrl = null;
+    });
+    const result = dealsFixture(fetched);
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(dealsRequest(mode));
+    assert.equal(response.status, 200);
+    assert.equal(result.dataSource.rpcCalls.length, 1);
+    const args = persistenceRpcArgs(result.dataSource.rpcCalls[0]!);
+    assert.equal(args._offer_instructions.length, mode === "canary" ? 1 : 2);
+    assert.equal(args._store_instructions.length, 1);
+    for (const instruction of args._offer_instructions) {
+      assert.equal(instruction.projection?.couponType, "deal");
+      assert.equal(instruction.projection?.couponCode, null);
+      assert.equal(instruction.projection?.affiliateUrl, fetched.acceptedCampaigns[0]!.trackingUrl);
+      assert.equal(instruction.parentProviderEntityId, fetched.acceptedCampaigns[0]!.campaignId);
+    }
+  });
+
+  test(`${mode} Deal without either tracking URL blocks despite Campaign destination URL`, async () => {
+    const fetched = mixedDealsFetch(0, 1);
+    fetched.acceptedPromotions[0]!.trackingUrl = null;
+    fetched.acceptedCampaigns[0]!.trackingUrl = null;
+    assert.ok(fetched.acceptedCampaigns[0]!.destinationUrl);
+    const result = dealsFixture(fetched);
+    const response = await createAffiliateSyncApplyV2Handler(result.deps)(dealsRequest(mode));
+    assert.equal(response.status, 409);
+    assert.equal(result.activity.planned[0]?.status, "blocked");
+    assert.ok(
+      result.activity.planned[0]?.blockers.some(
+        (entry) => entry.reason === "invalid_offer_projection",
+      ),
+    );
+    assert.equal(result.activity.preparations.length, 0);
+    assert.equal(result.dataSource.rpcCalls.length, 0);
+  });
+}
+
 test("canary rejects multiple executable Deals or an unnecessary second parent Store", async () => {
   for (const extra of ["deal", "store"] as const) {
     const result = dealsFixture(mixedDealsFetch(0, 2), {
