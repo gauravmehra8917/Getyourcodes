@@ -1,13 +1,32 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BadgeCheck, Sparkles, Users, ShieldCheck, Tag, HeartHandshake, Building2, ShoppingBag, Lock } from "lucide-react";
+import {
+  BadgeCheck,
+  Sparkles,
+  Users,
+  ShieldCheck,
+  Tag,
+  HeartHandshake,
+  Building2,
+  ShoppingBag,
+  Lock,
+  type LucideIcon,
+} from "lucide-react";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
       { title: "About Us — Getyourcodes" },
-      { name: "description", content: "Getyourcodes helps shoppers save more with hand-picked, verified coupons and deals from trusted brands worldwide." },
+      {
+        name: "description",
+        content:
+          "Getyourcodes helps shoppers discover coupons and deals from affiliate partners, maintained through automated integrations and admin tools.",
+      },
       { property: "og:title", content: "About Getyourcodes" },
-      { property: "og:description", content: "Hand-picked, verified coupons and deals from trusted brands worldwide." },
+      {
+        property: "og:description",
+        content:
+          "Discover coupons and deals sourced through affiliate partners and maintained through automated integrations and admin tools.",
+      },
       { property: "og:url", content: "https://getyourcodes.com/about" },
     ],
     links: [{ rel: "canonical", href: "https://getyourcodes.com/about" }],
@@ -15,7 +34,15 @@ export const Route = createFileRoute("/about")({
   component: AboutPage,
 });
 
-function Feature({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) {
+function Feature({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary-soft text-primary">
@@ -34,10 +61,13 @@ function AboutPage() {
         <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
           <Sparkles className="h-3.5 w-3.5" /> About Getyourcodes
         </span>
-        <h1 className="mt-4 font-display text-4xl font-bold sm:text-5xl">Smarter savings, made simple.</h1>
+        <h1 className="mt-4 font-display text-4xl font-bold sm:text-5xl">
+          Smarter savings, made simple.
+        </h1>
         <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-          Getyourcodes is owned and operated by Pixorads. We help shoppers discover verified coupons, promo codes and
-          deals sourced from trusted affiliate partners, presented in a clean, searchable experience.
+          Getyourcodes is owned and operated by Pixorads. We help shoppers discover coupons, promo
+          codes and deals sourced from trusted affiliate partners, presented in a clean, searchable
+          experience.
         </p>
       </section>
 
@@ -49,40 +79,45 @@ function AboutPage() {
           <div>
             <h2 className="font-display text-2xl font-semibold">Owned by Pixorads</h2>
             <p className="mt-3 text-muted-foreground">
-              Getyourcodes is owned and operated by Pixorads, our parent company focused on building digital products
-              that help consumers save money and make smarter online purchasing decisions.
+              Getyourcodes is owned and operated by Pixorads, our parent company focused on building
+              digital products that help consumers save money and make smarter online purchasing
+              decisions.
             </p>
           </div>
         </div>
       </section>
 
       <section className="mt-12 grid gap-4 sm:grid-cols-3">
-        <Feature icon={BadgeCheck} title="Verified Coupons">
-          We carefully review and publish coupons from trusted brands.
+        <Feature icon={BadgeCheck} title="Partner-sourced offers">
+          Offers are sourced through affiliate partners and maintained through our automated
+          integrations and admin tools.
         </Feature>
         <Feature icon={ShoppingBag} title="Trusted Brands">
           Browse deals from well-known online stores and services.
         </Feature>
         <Feature icon={Lock} title="Transparent Savings">
-          No misleading discounts or hidden conditions — just clear savings.
+          We present offer details to help you compare savings. Check merchant terms for eligibility
+          and exclusions.
         </Feature>
       </section>
 
       <section className="mt-6 grid gap-4 sm:grid-cols-2">
         <Feature icon={ShieldCheck} title="Safe & transparent">
-          No hidden steps, no spammy redirects — just clean codes and clear terms from brands you can trust.
+          Availability and merchant terms can change, so the merchant's checkout page is the final
+          source of truth.
         </Feature>
         <Feature icon={Tag} title="Curated, not cluttered">
           We surface the deals worth your time, across fashion, food, electronics, travel and more.
         </Feature>
         <Feature icon={HeartHandshake} title="Built for shoppers">
-          Save favorites, get the freshest drops first, and shop with confidence — Getyourcodes is on your side.
+          Save favorites, get the freshest drops first, and shop with confidence — Getyourcodes is
+          on your side.
         </Feature>
-        <Feature icon={Users} title="Reviewed before publishing">
-          Offers are checked before they go live, and we remove them as soon as we learn they no longer work.
+        <Feature icon={Users} title="Keeping offers current">
+          We aim to keep offers current and remove or hide offers when our systems identify that
+          they are no longer eligible.
         </Feature>
       </section>
-
 
       <section className="mt-14 rounded-3xl border border-border bg-secondary/40 p-8 sm:p-10">
         <div className="flex items-start gap-4">
@@ -92,22 +127,27 @@ function AboutPage() {
           <div>
             <h2 className="font-display text-2xl font-semibold">Our story</h2>
             <p className="mt-3 text-muted-foreground">
-              Getyourcodes started with a small team obsessed with finding the best deals on the internet — and frustrated
-              by sites cluttered with expired codes. We're building the experience we always wanted: clean, fast, honest, and free.
+              Getyourcodes started with a small team obsessed with finding the best deals on the
+              internet — and frustrated by sites cluttered with expired codes. We're building the
+              experience we always wanted: clean, fast, honest, and free.
             </p>
             <p className="mt-3 text-muted-foreground">
-              Offers are imported and maintained through our affiliate network integrations, then reviewed and
-              presented in a clean, searchable experience.
+              Offers are imported and maintained through our affiliate network integrations, with
+              administrative review where needed, and presented in a clean, searchable experience.
             </p>
-
           </div>
         </div>
       </section>
 
       <section className="mt-14 text-center">
-        <h2 className="font-display text-2xl font-semibold">Have a question or partnership idea?</h2>
+        <h2 className="font-display text-2xl font-semibold">
+          Have a question or partnership idea?
+        </h2>
         <p className="mx-auto mt-2 max-w-xl text-muted-foreground">We'd love to hear from you.</p>
-        <Link to="/contact" className="mt-6 inline-flex rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90">
+        <Link
+          to="/contact"
+          className="mt-6 inline-flex rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+        >
           Get in touch
         </Link>
       </section>

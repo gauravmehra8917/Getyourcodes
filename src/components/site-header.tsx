@@ -3,6 +3,7 @@ import { Search, Tag, User, LogOut, Heart, BarChart3, Menu, X, Sparkles } from "
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { trackSearch } from "@/lib/db";
+import { normalizeSearchTerm } from "@/lib/search-normalization";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAssistant } from "@/components/ai-assistant-provider";
 import type { User as AuthUser } from "@supabase/supabase-js";
@@ -31,7 +32,9 @@ export function SiteHeader() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) =>
+      setUser(session?.user ?? null),
+    );
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -55,7 +58,9 @@ export function SiteHeader() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen]);
 
-  const initial = (user?.user_metadata?.display_name as string | undefined ?? user?.email ?? "?").charAt(0).toUpperCase();
+  const initial = ((user?.user_metadata?.display_name as string | undefined) ?? user?.email ?? "?")
+    .charAt(0)
+    .toUpperCase();
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
 
   const signOut = async () => {
@@ -66,7 +71,7 @@ export function SiteHeader() {
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const term = q.trim();
+    const term = normalizeSearchTerm(q);
     if (!term) return;
     trackSearch(term, "search");
     setMobileOpen(false);
@@ -82,11 +87,15 @@ export function SiteHeader() {
       }`}
     >
       <div className="container-page flex h-[70px] items-center gap-3 lg:gap-6">
-        <Link to="/" className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight">
+        <Link
+          to="/"
+          aria-label="Getyourcodes home"
+          className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight"
+        >
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Tag className="h-[18px] w-[18px]" />
           </span>
-          <span>Getyourcodes</span>
+          <span className="hidden sm:inline">Getyourcodes</span>
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
@@ -104,7 +113,7 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <form className="ml-auto hidden max-w-sm flex-1 md:flex" onSubmit={submitSearch}>
+        <form className="ml-auto hidden min-w-0 max-w-sm flex-1 md:flex" onSubmit={submitSearch}>
           <div className="relative w-full">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -118,7 +127,7 @@ export function SiteHeader() {
           </div>
         </form>
 
-        <div className="ml-auto flex items-center gap-0.5 sm:gap-1 md:ml-0">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1 md:ml-0">
           <button
             type="button"
             onClick={() => assistant.open()}
@@ -146,7 +155,19 @@ export function SiteHeader() {
                 className="focus-ring flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-sm font-semibold text-primary transition-opacity duration-150 hover:opacity-90"
                 aria-label="Account menu"
               >
-                {avatarUrl ? <img src={avatarUrl} alt="" width={36} height={36} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : initial}
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    width={36}
+                    height={36}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  initial
+                )}
               </button>
               {menuOpen && (
                 <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-lg">
@@ -154,16 +175,31 @@ export function SiteHeader() {
                     <p className="truncate text-xs text-muted-foreground">Signed in as</p>
                     <p className="truncate text-sm font-medium">{user.email}</p>
                   </div>
-                  <Link to="/account" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-hover">
+                  <Link
+                    to="/account"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-hover"
+                  >
                     <User className="h-4 w-4" /> My account
                   </Link>
-                  <Link to="/account" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-hover">
+                  <Link
+                    to="/account"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-hover"
+                  >
                     <Heart className="h-4 w-4" /> Saved
                   </Link>
-                  <Link to="/analytics" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-hover">
+                  <Link
+                    to="/analytics"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-hover"
+                  >
                     <BarChart3 className="h-4 w-4" /> Deal analytics
                   </Link>
-                  <button onClick={signOut} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-destructive hover:bg-hover">
+                  <button
+                    onClick={signOut}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-destructive hover:bg-hover"
+                  >
                     <LogOut className="h-4 w-4" /> Sign out
                   </button>
                 </div>

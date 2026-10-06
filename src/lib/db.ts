@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { SeoFields } from "./seo";
 
-export type Store = {
+export type Store = SeoFields & {
   id: string;
   name: string;
   slug: string;
@@ -15,7 +16,7 @@ export type Store = {
   updated_at?: string | null;
 };
 
-export type Category = {
+export type Category = SeoFields & {
   id: string;
   name: string;
   slug: string;
@@ -44,7 +45,6 @@ export type Coupon = {
   structured_terms?: unknown;
   metadata?: Record<string, unknown> | null;
 };
-
 
 // Untyped accessor (types.ts is auto-generated and currently empty)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

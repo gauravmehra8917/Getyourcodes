@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { Sparkles, Send, X, Trash2, MessageCircle, Loader2, Tag, Store as StoreIcon, Minus, Plus } from "lucide-react";
+import {
+  Sparkles,
+  Send,
+  X,
+  Trash2,
+  MessageCircle,
+  Loader2,
+  Tag,
+  Store as StoreIcon,
+  Minus,
+  Plus,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { storeSlug } from "@/lib/coupon-actions";
@@ -47,7 +58,11 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
     if (!open || !authed || initialMessages !== null) return;
     loadChatHistory()
       .then((msgs) => {
-        const ui = msgs.map((m) => ({ id: m.id, role: m.role, parts: m.parts })) as unknown as UIMessage[];
+        const ui = msgs.map((m) => ({
+          id: m.id,
+          role: m.role,
+          parts: m.parts,
+        })) as unknown as UIMessage[];
         setInitialMessages(ui);
         lastPersistedRef.current = ui.length;
       })
@@ -57,7 +72,21 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
   const { messages, sendMessage, status, setMessages } = useChat({
     id: "dealio",
     messages: initialMessages ?? [],
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      // Keep displayed/persisted history intact while bounding the outgoing context.
+      prepareSendMessagesRequest: ({ messages, body, id, trigger, messageId }) => ({
+        body: { ...body, id, trigger, messageId, messages: messages.slice(-24) },
+      }),
+      headers: async () => {
+        const { data } = await supabase.auth.getSession();
+        const headers = new Headers();
+        if (data.session?.access_token) {
+          headers.set("Authorization", `Bearer ${data.session.access_token}`);
+        }
+        return headers;
+      },
+    }),
   });
 
   // Sync loaded history into the chat hook once.
@@ -207,7 +236,11 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
                 disabled={isBusy || !input.trim()}
                 className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
               >
-                {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </button>
             </div>
           </form>
@@ -354,9 +387,7 @@ function ToolResult({ part }: { part: ToolPart }) {
           <Tag className="h-3.5 w-3.5 text-primary" />
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">{c.title}</p>
-            {c.stores?.name && (
-              <p className="truncate text-muted-foreground">{c.stores.name}</p>
-            )}
+            {c.stores?.name && <p className="truncate text-muted-foreground">{c.stores.name}</p>}
           </div>
           {c.coupon_code && (
             <span className="rounded-md bg-primary-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
@@ -383,13 +414,15 @@ function ToolResult({ part }: { part: ToolPart }) {
 function renderMarkdownLite(text: string) {
   const lines = text.split("\n");
   return lines.map((line, i) => {
-    const bold = line.split(/(\*\*[^*]+\*\*)/g).map((seg, j) =>
-      seg.startsWith("**") && seg.endsWith("**") ? (
-        <strong key={j}>{seg.slice(2, -2)}</strong>
-      ) : (
-        <span key={j}>{seg}</span>
-      ),
-    );
+    const bold = line
+      .split(/(\*\*[^*]+\*\*)/g)
+      .map((seg, j) =>
+        seg.startsWith("**") && seg.endsWith("**") ? (
+          <strong key={j}>{seg.slice(2, -2)}</strong>
+        ) : (
+          <span key={j}>{seg}</span>
+        ),
+      );
     return (
       <div key={i}>
         {bold}
