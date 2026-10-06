@@ -22,7 +22,18 @@ import type { ApplyV2RpcTransportResult } from "./supabase-persistence-boundary.
 export interface ApplyV2RequestBody {
   integrationId?: unknown;
   execute?: unknown;
+  scope?: unknown;
+  mode?: unknown;
 }
+
+export interface DealsOnlyExecutionV2 {
+  scope: "deals";
+  mode: "canary" | "full";
+}
+
+export type ParsedApplyV2Request =
+  | { integrationId: string; execute: true; scope?: never; mode?: never }
+  | ({ integrationId: string; execute: true } & DealsOnlyExecutionV2);
 
 /** Raw apply-side policy values. The handler narrows these without coercion. */
 export interface ApplyV2PublishingPolicy {
@@ -100,6 +111,7 @@ export type ApplyV2FailureReason =
   | "preview_plan_failed"
   | "persistence_plan_failed"
   | "plan_blocked"
+  | "deals_only_invariant_failed"
   | "fingerprint_failed"
   | "rpc_blocked"
   | "rpc_failed"
@@ -123,6 +135,12 @@ export interface ApplyV2PlannerBlockedResponse {
   stage: "persistence_plan";
   reason: "plan_blocked";
   blockerReasonCounts: Partial<Record<PersistenceBlockerReasonV2, number>>;
+}
+
+export interface ApplyV2NoEligibleDealResponse {
+  status: "blocked";
+  stage: "preview_plan";
+  reason: "no_eligible_deal";
 }
 
 export interface ApplyV2RpcBlockedResponse {
@@ -196,9 +214,20 @@ export interface ApplyV2SuccessResponse {
 }
 
 export type ApplyV2Response =
-  | ApplyV2FailureResponse
-  | ApplyV2IndeterminateResponse
-  | ApplyV2PlannerBlockedResponse
-  | ApplyV2RpcBlockedResponse
-  | ApplyV2RpcFailedResponse
-  | ApplyV2SuccessResponse;
+  & (
+    | ApplyV2FailureResponse
+    | ApplyV2IndeterminateResponse
+    | ApplyV2PlannerBlockedResponse
+    | ApplyV2NoEligibleDealResponse
+    | ApplyV2RpcBlockedResponse
+    | ApplyV2RpcFailedResponse
+    | ApplyV2SuccessResponse
+  )
+  & {
+    scope?: "deals";
+    mode?: "canary" | "full";
+    createdStores?: number;
+    createdDeals?: number;
+    noopStores?: number;
+    noopDeals?: number;
+  };
