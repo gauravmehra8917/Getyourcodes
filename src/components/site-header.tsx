@@ -12,8 +12,8 @@ type NavItem = { label: string; to: string; hash?: string };
 
 const NAV: NavItem[] = [
   { label: "Home", to: "/" },
-  { label: "Categories", to: "/categories" },
   { label: "Stores", to: "/stores" },
+  { label: "Categories", to: "/categories" },
   { label: "Coupons", to: "/coupons" },
   { label: "Deals", to: "/deals" },
   { label: "Blog", to: "/blog" },
@@ -97,21 +97,6 @@ export function SiteHeader() {
           </span>
           <span className="hidden sm:inline">Getyourcodes</span>
         </Link>
-
-        <nav className="hidden items-center gap-1 lg:flex">
-          {NAV.map((item) => (
-            <Link
-              key={item.label}
-              to={item.to}
-              hash={item.hash}
-              className="focus-ring rounded-full px-3 py-2 text-[0.9375rem] font-medium text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground"
-              activeOptions={{ exact: item.to === "/" && !item.hash, includeHash: false }}
-              activeProps={{ className: "text-foreground" }}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
 
         <form className="ml-auto hidden min-w-0 max-w-sm flex-1 md:flex" onSubmit={submitSearch}>
           <div className="relative w-full">
@@ -220,15 +205,32 @@ export function SiteHeader() {
             onClick={() => setMobileOpen((o) => !o)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            className="focus-ring inline-grid h-9 w-9 place-items-center sm:h-10 sm:w-10 rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground lg:hidden"
+            className="focus-ring inline-grid h-9 w-9 place-items-center sm:h-10 sm:w-10 rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground md:hidden"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
+      <nav aria-label="Primary navigation" className="hidden border-t border-border md:block">
+        <div className="container-page flex h-11 items-center justify-center gap-1">
+          {NAV.map((item) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              hash={item.hash}
+              className="focus-ring rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground"
+              activeOptions={{ exact: item.to === "/" && !item.hash, includeHash: false }}
+              activeProps={{ className: "bg-hover text-foreground" }}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </nav>
+
       {mobileOpen && (
-        <div className="border-t border-border bg-background lg:hidden">
+        <div className="border-t border-border bg-background md:hidden">
           <div className="container-page py-3">
             <form className="mb-2 md:hidden" onSubmit={submitSearch}>
               <div className="relative">
@@ -243,14 +245,14 @@ export function SiteHeader() {
                 />
               </div>
             </form>
-            <nav className="flex flex-col">
+            <nav aria-label="Mobile navigation" className="flex flex-col">
               {NAV.map((item) => (
                 <Link
                   key={item.label}
                   to={item.to}
                   hash={item.hash}
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-xl px-3 py-3 text-base font-medium text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground"
+                  className="focus-ring rounded-xl px-3 py-3 text-base font-medium text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground"
                 >
                   {item.label}
                 </Link>
