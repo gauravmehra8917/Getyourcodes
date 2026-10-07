@@ -263,8 +263,8 @@ function navEntries(nav: Element) {
 
 const expectedNav = [
   ["Home", "/"],
-  ["Stores", "/stores"],
   ["Categories", "/categories"],
+  ["Stores", "/stores"],
   ["Coupons", "/coupons"],
   ["Deals", "/deals"],
   ["Blog", "/blog"],
