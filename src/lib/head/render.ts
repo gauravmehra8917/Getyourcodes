@@ -1,11 +1,9 @@
-// Head Rendering Engine — data-driven, provider-agnostic.
-// Consumes Head Manager entries and produces TanStack head descriptors
-// plus an exact HTML preview. No provider-specific logic lives here.
-
+// Shared Head Manager renderer and sanitizer for public SSR and admin preview.
 export type HeadSection = "verification" | "analytics" | "structured_data" | "custom_html";
 
 export type HeadEntryInput = {
   id?: string;
+  created_at?: string;
   section: string;
   provider: string;
   type: string;
@@ -18,7 +16,11 @@ export type HeadEntryInput = {
 export type MetaDescriptor = Record<string, string>;
 export type LinkDescriptor = Record<string, string>;
 export type ScriptDescriptor = { children?: string; [attr: string]: string | undefined };
-
+export type ParsedTag = {
+  tag: "meta" | "link" | "script";
+  attrs: Record<string, string>;
+  children?: string;
+};
 export type RenderedHead = {
   meta: MetaDescriptor[];
   links: LinkDescriptor[];
@@ -27,8 +29,9 @@ export type RenderedHead = {
   skipped: { entry: HeadEntryInput; reason: string }[];
 };
 
-const ALLOWED_TAGS = new Set(["meta", "link", "script"]);
-const URL_ATTRS = new Set(["src", "href"]);
+export const NOSCRIPT_ERROR =
+  "<noscript> tracking snippets are not supported in Head Manager because they belong in the document body. Import the script portion only.";
+const URL_ERROR = "Use an absolute HTTPS URL or a root-relative path starting with a single /.";
 
 export function escapeAttr(value: string): string {
   return value
@@ -39,215 +42,305 @@ export function escapeAttr(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function safeUrl(value: string): boolean {
-  const v = value.trim().toLowerCase();
-  return !(v.startsWith("javascript:") || v.startsWith("data:text/html") || v.startsWith("vbscript:"));
+/** Resource URLs must resolve to HTTPS or the same site's root. */
+export function isSafeHeadUrl(value: string): boolean {
+  const url = value.trim();
+  if (
+    !url ||
+    /[\s\\]/.test(url) ||
+    Array.from(url).some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)
+  )
+    return false;
+  if (url.startsWith("/")) return !url.startsWith("//");
+  if (!/^https:\/\/[^/?#]+/i.test(url)) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
 }
 
-/** Validate a JSON-LD payload. Returns compacted JSON or an error. */
-export function validateJsonLd(raw: string): { ok: true; json: string } | { ok: false; error: string } {
+/** Return a copy in canonical chronological order, including deterministic ties. */
+export function sortHeadEntriesForRender<T extends HeadEntryInput>(entries: readonly T[]): T[] {
+  const time = (entry: T) => {
+    const value = Date.parse(entry.created_at ?? "");
+    return Number.isFinite(value) ? value : 0;
+  };
+  return [...entries].sort(
+    (a, b) =>
+      time(a) - time(b) || ((a.id ?? "") < (b.id ?? "") ? -1 : (a.id ?? "") > (b.id ?? "") ? 1 : 0),
+  );
+}
+
+export function validateJsonLd(
+  raw: string,
+): { ok: true; json: string } | { ok: false; error: string } {
   const text = (raw ?? "").trim();
   if (!text) return { ok: false, error: "JSON-LD content is empty." };
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
-  } catch (e) {
-    return { ok: false, error: `Invalid JSON: ${(e as Error).message}` };
+  } catch {
+    return { ok: false, error: "Invalid JSON. Check the JSON-LD content and try again." };
   }
-  if (parsed === null || typeof parsed !== "object") {
+  if (parsed === null || typeof parsed !== "object")
     return { ok: false, error: "JSON-LD must be an object or an array of objects." };
-  }
   const items = Array.isArray(parsed) ? parsed : [parsed];
+  if (!items.length) return { ok: false, error: "JSON-LD must contain at least one object." };
   for (const item of items) {
-    if (item === null || typeof item !== "object" || Array.isArray(item)) {
+    if (item === null || typeof item !== "object" || Array.isArray(item))
       return { ok: false, error: "Each JSON-LD item must be an object." };
-    }
-    if (!("@context" in (item as Record<string, unknown>)) && !("@type" in (item as Record<string, unknown>))) {
+    if (!("@context" in item) && !("@type" in item))
       return { ok: false, error: "JSON-LD must include @context or @type." };
-    }
   }
-  // Prevent breaking out of the script element.
-  const json = JSON.stringify(parsed).replace(/</g, "\\u003c");
-  return { ok: true, json };
+  return { ok: true, json: JSON.stringify(parsed).replace(/</g, "\\u003c") };
 }
 
-type ParsedTag = { tag: string; attrs: Record<string, string>; children?: string };
+// Decode attribute entities before URL validation and descriptor serialization.
+function decodeAttribute(value: string): string {
+  const named: Record<string, string> = {
+    amp: "&",
+    quot: '"',
+    apos: "'",
+    lt: "<",
+    gt: ">",
+    colon: ":",
+    sol: "/",
+    Tab: "\t",
+    NewLine: "\n",
+  };
+  return value.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (match, entity: string) => {
+    if (!entity.startsWith("#")) return named[entity] ?? match;
+    const code =
+      entity[1]?.toLowerCase() === "x"
+        ? parseInt(entity.slice(2), 16)
+        : parseInt(entity.slice(1), 10);
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "\ufffd";
+  });
+}
 
-/** Parse + sanitize raw head HTML into a whitelist of tag descriptors. */
+/** Consume every character; malformed attributes and unsupported tags cannot disappear. */
 export function sanitizeHeadHtml(
   raw: string,
 ): { ok: true; tags: ParsedTag[] } | { ok: false; error: string } {
   const text = (raw ?? "").trim();
-  if (!text) return { ok: false, error: "HTML content is empty." };
-
   const tags: ParsedTag[] = [];
-  const tagRe = /<\s*([a-zA-Z][\w-]*)\b([^>]*?)(\/?)>/g;
-  let match: RegExpExecArray | null;
   let cursor = 0;
-  let found = 0;
-
-  while ((match = tagRe.exec(text)) !== null) {
-    const between = text.slice(cursor, match.index).trim();
-    if (between && !between.startsWith("<!--")) {
-      return { ok: false, error: "Malformed HTML: stray text outside of tags." };
+  const malformed = () => ({
+    ok: false as const,
+    error: "Malformed HTML. Use complete meta, link, or script tags.",
+  });
+  while (cursor < text.length) {
+    const whitespace = /^\s+/.exec(text.slice(cursor));
+    if (whitespace) {
+      cursor += whitespace[0].length;
+      continue;
     }
-    found += 1;
-    const tag = match[1]!.toLowerCase();
-    const attrSrc = match[2] ?? "";
-    if (!ALLOWED_TAGS.has(tag)) {
-      return { ok: false, error: `Tag <${tag}> is not allowed in the head. Allowed: meta, link, script.` };
+    if (text.startsWith("<!--", cursor)) {
+      const end = text.indexOf("-->", cursor + 4);
+      if (end < 0) return malformed();
+      cursor = end + 3;
+      continue;
     }
-
+    const opening = /^<([a-z][\w-]*)(?=[\s/>])/i.exec(text.slice(cursor));
+    if (!opening) return malformed();
+    const tag = opening[1].toLowerCase();
+    if (tag === "noscript") return { ok: false, error: NOSCRIPT_ERROR };
+    if (tag !== "meta" && tag !== "link" && tag !== "script")
+      return { ok: false, error: `Tag <${tag}> is not supported. Use meta, link, or script tags.` };
+    cursor += opening[0].length;
     const attrs: Record<string, string> = {};
-    const attrRe = /([a-zA-Z_:][\w:.-]*)\s*(?:=\s*("([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
-    let a: RegExpExecArray | null;
-    while ((a = attrRe.exec(attrSrc)) !== null) {
-      const key = a[1]!.toLowerCase();
-      const val = a[3] ?? a[4] ?? a[5] ?? "";
-      if (key.startsWith("on")) {
+    let selfClosing = false;
+    while (true) {
+      const space = /^\s*/.exec(text.slice(cursor))![0];
+      cursor += space.length;
+      if (text.startsWith("/>", cursor)) {
+        selfClosing = true;
+        cursor += 2;
+        break;
+      }
+      if (text[cursor] === ">") {
+        cursor++;
+        break;
+      }
+      if (!space) return malformed();
+      const attr = /^([a-z_:][\w:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/i.exec(
+        text.slice(cursor),
+      );
+      if (!attr) return malformed();
+      const key = attr[1].toLowerCase();
+      const value = decodeAttribute(attr[2] ?? attr[3] ?? attr[4] ?? "");
+      if (key.startsWith("on"))
         return { ok: false, error: `Inline event handler "${key}" is not allowed.` };
-      }
-      if (URL_ATTRS.has(key) && val && !safeUrl(val)) {
-        return { ok: false, error: `Unsafe URL in "${key}".` };
-      }
-      attrs[key] = val;
+      if (key === "children" || Object.hasOwn(attrs, key))
+        return { ok: false, error: `Unsupported or duplicate attribute "${key}".` };
+      if ((key === "src" || key === "href") && !isSafeHeadUrl(value))
+        return { ok: false, error: `Unsafe URL in "${key}". ${URL_ERROR}` };
+      attrs[key] = value;
+      cursor += attr[0].length;
     }
-
     let children: string | undefined;
-    cursor = tagRe.lastIndex;
-    if (tag === "script" && match[3] !== "/") {
-      const closeIdx = text.toLowerCase().indexOf("</script>", cursor);
-      if (closeIdx === -1) return { ok: false, error: "Malformed HTML: unclosed <script> tag." };
-      children = text.slice(cursor, closeIdx);
-      cursor = closeIdx + "</script>".length;
-      tagRe.lastIndex = cursor;
-    } else if (tag === "link" || tag === "meta") {
-      // void elements — nothing to close
+    if (tag === "script") {
+      if (selfClosing)
+        return { ok: false, error: "Malformed HTML: scripts require a closing </script> tag." };
+      const closing = /<\/script\s*>/gi;
+      closing.lastIndex = cursor;
+      const match = closing.exec(text);
+      if (!match) return { ok: false, error: "Malformed HTML: unclosed <script> tag." };
+      children = text.slice(cursor, match.index);
+      cursor = closing.lastIndex;
     }
-    tags.push({ tag, attrs, ...(children ? { children } : {}) });
+    tags.push({ tag, attrs, ...(children !== undefined ? { children } : {}) });
   }
-
-  const trailing = text.slice(cursor).trim();
-  if (trailing) return { ok: false, error: "Malformed HTML: stray content after the last tag." };
-  if (!found) return { ok: false, error: "No valid head tags found." };
-  if (/<\s*\//.test(text.replace(/<\/script>/gi, ""))) {
-    return { ok: false, error: "Malformed HTML: unexpected closing tag." };
-  }
+  if (!tags.length) return { ok: false, error: "No supported head tags found." };
   return { ok: true, tags };
 }
 
-function entryKey(section: string, tag: string, attrs: Record<string, string>): string {
-  const ident = attrs["name"] ?? attrs["property"] ?? attrs["http-equiv"] ?? attrs["src"] ?? attrs["href"] ?? "";
-  return `${section}|${tag}|${ident.toLowerCase()}`;
+/** Inline JavaScript is intentional; validate its HTML envelope, not its source. */
+export function parseAnalyticsScripts(content: string): ReturnType<typeof sanitizeHeadHtml> {
+  const result = sanitizeHeadHtml(
+    content.trim().startsWith("<") ? content : `<script>${content}</script>`,
+  );
+  if (!result.ok) return result;
+  if (result.tags.some((tag) => tag.tag !== "script"))
+    return {
+      ok: false,
+      error: "Use script tags or inline JavaScript for an analytics script entry.",
+    };
+  return result;
 }
 
-function serializeTag(tag: string, attrs: Record<string, string>, children?: string): string {
+function serializeTag({ tag, attrs, children }: ParsedTag): string {
   const attrText = Object.entries(attrs)
-    .filter(([, v]) => v !== undefined && v !== null)
-    .map(([k, v]) => (v === "" ? k : `${k}="${escapeAttr(String(v))}"`))
+    .map(([key, value]) => (value === "" ? key : `${key}="${escapeAttr(value)}"`))
     .join(" ");
-  const open = `<${tag}${attrText ? ` ${attrText}` : ""}>`;
-  if (tag === "meta" || tag === "link") return open;
-  return `${open}${children ?? ""}</${tag}>`;
+  const opening = `<${tag}${attrText ? ` ${attrText}` : ""}>`;
+  return tag === "script" ? `${opening}${children ?? ""}</script>` : opening;
 }
 
-/**
- * Build head descriptors from Head Manager entries.
- * Disabled entries, invalid JSON-LD, malformed HTML, duplicate verification
- * meta names and duplicate analytics providers are skipped with a reason.
- */
-export function renderHeadEntries(entries: HeadEntryInput[]): RenderedHead {
-  const meta: MetaDescriptor[] = [];
-  const links: LinkDescriptor[] = [];
-  const scripts: ScriptDescriptor[] = [];
-  const htmlParts: string[] = [];
-  const skipped: { entry: HeadEntryInput; reason: string }[] = [];
-
+export function renderHeadEntries(entries: readonly HeadEntryInput[]): RenderedHead {
+  const result: RenderedHead = { meta: [], links: [], scripts: [], html: "", skipped: [] };
+  const html: string[] = [];
   const seenTags = new Set<string>();
   const seenVerification = new Set<string>();
-  const seenAnalyticsProvider = new Set<string>();
-
-  const push = (kind: "meta" | "link" | "script", attrs: Record<string, string>, children?: string, sectionKey = "") => {
-    const key = entryKey(sectionKey, kind, attrs) + (children ? `|${children}` : "");
-    if (seenTags.has(key)) return false;
-    seenTags.add(key);
-    if (kind === "meta") meta.push(attrs);
-    else if (kind === "link") links.push(attrs);
-    else scripts.push({ ...attrs, ...(children ? { children } : {}) });
-    htmlParts.push(serializeTag(kind, attrs, children));
-    return true;
-  };
-
-  for (const entry of entries) {
+  const seenProviders = new Set<string>();
+  for (const entry of sortHeadEntriesForRender(entries)) {
+    const skip = (reason: string) => result.skipped.push({ entry, reason });
     if (entry.enabled === false) {
-      skipped.push({ entry, reason: "Disabled" });
+      skip("Disabled");
       continue;
     }
-    const section = entry.section as HeadSection;
     const name = (entry.name ?? "").trim();
     const value = (entry.value ?? "").trim();
     const content = entry.content ?? "";
     const provider = (entry.provider ?? "").trim();
-
-    if (section === "verification") {
+    let tags: ParsedTag[] = [];
+    let verificationKey = "";
+    let providerKey = "";
+    if (entry.section === "verification") {
+      if (entry.type !== "meta" && entry.type !== "link") {
+        skip("Verification supports meta or link entries.");
+        continue;
+      }
       if (!name || !value) {
-        skipped.push({ entry, reason: "Verification entries require a name and a value." });
+        skip("Verification entries require a name and a value.");
         continue;
       }
-      const dedupKey = `${entry.type || "meta"}:${name.toLowerCase()}`;
-      if (seenVerification.has(dedupKey)) {
-        skipped.push({ entry, reason: `Duplicate verification tag "${name}".` });
+      if (entry.type === "link" && !isSafeHeadUrl(value)) {
+        skip(`Unsafe verification link URL. ${URL_ERROR}`);
         continue;
       }
-      seenVerification.add(dedupKey);
-      if (entry.type === "link") push("link", { rel: name, href: value }, undefined, section);
-      else push("meta", { name, content: value }, undefined, section);
-      continue;
-    }
-
-    if (section === "analytics") {
-      const providerKey = provider.toLowerCase();
-      if (providerKey && seenAnalyticsProvider.has(providerKey)) {
-        skipped.push({ entry, reason: `Duplicate analytics provider "${provider}".` });
+      verificationKey = `${entry.type}:${name.toLowerCase()}`;
+      if (seenVerification.has(verificationKey)) {
+        skip(`Duplicate verification tag "${name}".`);
         continue;
       }
-      if (providerKey) seenAnalyticsProvider.add(providerKey);
-
+      tags = [
+        {
+          tag: entry.type,
+          attrs: entry.type === "link" ? { rel: name, href: value } : { name, content: value },
+        },
+      ];
+    } else if (entry.section === "analytics") {
+      if (entry.type !== "meta" && entry.type !== "script") {
+        skip("Analytics supports script or meta entries.");
+        continue;
+      }
+      providerKey = provider.toLowerCase();
+      if (providerKey && seenProviders.has(providerKey)) {
+        skip(`Duplicate analytics provider "${provider}".`);
+        continue;
+      }
       if (entry.type === "meta") {
-        if (!name || !value) { skipped.push({ entry, reason: "Meta entries require a name and a value." }); continue; }
-        push("meta", { name, content: value }, undefined, section);
+        if (!name || !value) {
+          skip("Meta entries require a name and a value.");
+          continue;
+        }
+        tags = [{ tag: "meta", attrs: { name, content: value } }];
+      } else {
+        if (!value && !content.trim()) {
+          skip("Analytics entry has no script URL or inline snippet.");
+          continue;
+        }
+        if (value && !isSafeHeadUrl(value)) {
+          skip(`Unsafe script URL. ${URL_ERROR}`);
+          continue;
+        }
+        if (content.trim()) {
+          const parsed = parseAnalyticsScripts(content);
+          if (!parsed.ok) {
+            skip(parsed.error);
+            continue;
+          }
+          tags = parsed.tags;
+        }
+        if (value) tags.unshift({ tag: "script", attrs: { src: value, async: "" } });
+      }
+    } else if (entry.section === "structured_data") {
+      const json = validateJsonLd(content || value);
+      if (!json.ok) {
+        skip(json.error);
         continue;
       }
-      // script: either external src (value) or inline snippet (content)
-      if (value) {
-        if (!safeUrl(value)) { skipped.push({ entry, reason: "Unsafe script URL." }); continue; }
-        push("script", { src: value, async: "" }, undefined, section);
-        if (content.trim()) push("script", {}, content, section);
+      tags = [{ tag: "script", attrs: { type: "application/ld+json" }, children: json.json }];
+    } else if (entry.section === "custom_html") {
+      const parsed = sanitizeHeadHtml(content || value);
+      if (!parsed.ok) {
+        skip(parsed.error);
         continue;
       }
-      if (!content.trim()) { skipped.push({ entry, reason: "Analytics entry has no script URL or inline snippet." }); continue; }
-      const inline = sanitizeHeadHtml(content.trim().startsWith("<") ? content : `<script>${content}</script>`);
-      if (!inline.ok) { skipped.push({ entry, reason: inline.error }); continue; }
-      for (const t of inline.tags) push(t.tag as "meta" | "link" | "script", t.attrs, t.children, section);
+      tags = parsed.tags;
+    } else {
+      skip(`Unknown section "${entry.section}".`);
       continue;
     }
 
-    if (section === "structured_data") {
-      const result = validateJsonLd(content || value);
-      if (!result.ok) { skipped.push({ entry, reason: result.error }); continue; }
-      push("script", { type: "application/ld+json" }, result.json, section);
-      continue;
+    if (verificationKey) seenVerification.add(verificationKey);
+    if (providerKey) seenProviders.add(providerKey);
+    for (const tag of tags) {
+      const ident =
+        tag.attrs.name ??
+        tag.attrs.property ??
+        tag.attrs["http-equiv"] ??
+        tag.attrs.src ??
+        tag.attrs.href;
+      const key = `${entry.section}|${tag.tag}|${ident === undefined ? JSON.stringify(tag.attrs) : ident.toLowerCase()}|${tag.children ?? ""}`;
+      if (seenTags.has(key)) {
+        skip(`Duplicate <${tag.tag}> tag.`);
+        continue;
+      }
+      seenTags.add(key);
+      if (tag.tag === "meta") result.meta.push(tag.attrs);
+      else if (tag.tag === "link") result.links.push(tag.attrs);
+      else
+        result.scripts.push({
+          ...tag.attrs,
+          ...(tag.children !== undefined ? { children: tag.children } : {}),
+        });
+      html.push(serializeTag(tag));
     }
-
-    if (section === "custom_html") {
-      const result = sanitizeHeadHtml(content || value);
-      if (!result.ok) { skipped.push({ entry, reason: result.error }); continue; }
-      for (const t of result.tags) push(t.tag as "meta" | "link" | "script", t.attrs, t.children, section);
-      continue;
-    }
-
-    skipped.push({ entry, reason: `Unknown section "${entry.section}".` });
   }
-
-  return { meta, links, scripts, html: htmlParts.join("\n"), skipped };
+  result.html = html.join("\n");
+  return result;
 }
