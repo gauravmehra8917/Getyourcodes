@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+import { deleteAdminCatalogRow } from "@/lib/admin-catalog-delete";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sb, type Category } from "@/lib/db";
 import { PageHeader } from "@/components/admin/page-header";
@@ -31,10 +33,19 @@ const slugify = (s: string) =>
 
 function CategoriesPage() {
   const qc = useQueryClient();
-  const { data: rows = [] } = useQuery({
+  const pendingDeletes = useRef(new Set<string>());
+  const [deletingIds, setDeletingIds] = useState(new Set<string>());
+  const {
+    data: rows = [],
+    isPending,
+    isError,
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: ["admin-categories"],
     queryFn: async () => {
-      const { data } = await sb.from("categories").select("*").order("name");
+      const { data, error } = await sb.from("categories").select("*").order("name");
+      if (error) throw new Error("Could not load categories. Please try again.");
       return (data ?? []) as Category[];
     },
   });
@@ -85,11 +96,17 @@ function CategoriesPage() {
     setOpen(false);
   };
 
-  const onDelete = async (id: string) => {
-    if (!confirm("Delete this category?")) return;
-    await sb.from("categories").delete().eq("id", id);
-    qc.invalidateQueries({ queryKey: ["admin-categories"] });
-  };
+  const onDelete = (row: Category) =>
+    deleteAdminCatalogRow({
+      kind: "category",
+      row,
+      pendingIds: pendingDeletes.current,
+      confirmDelete: () => confirm("Delete this category?"),
+      deleteRow: () => sb.from("categories").delete().eq("id", row.id),
+      onBusyChange: () => setDeletingIds(new Set(pendingDeletes.current)),
+      onError: (message) => toast.error(message),
+      refresh: () => qc.invalidateQueries({ queryKey: ["admin-categories"] }),
+    });
 
   const cols: Column<Category>[] = [
     {
@@ -117,9 +134,11 @@ function CategoriesPage() {
             <Pencil className="h-4 w-4" />
           </button>
           <button
-            onClick={() => onDelete(r.id)}
-            className="rounded p-1.5 text-rose-500 hover:bg-rose-50"
-            title="Delete"
+            onClick={() => void onDelete(r)}
+            disabled={deletingIds.has(r.id)}
+            className="rounded p-1.5 text-rose-500 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+            title={deletingIds.has(r.id) ? "Deleting…" : "Delete"}
+            aria-label="Delete category"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -141,7 +160,27 @@ function CategoriesPage() {
           </button>
         }
       />
-      <DataTable rows={rows} columns={cols} />
+      {isPending ? (
+        <p role="status" className="text-sm text-slate-500">
+          Loading categories…
+        </p>
+      ) : isError ? (
+        <div
+          role="alert"
+          className="rounded border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+        >
+          Could not load categories. Please try again.
+          <button
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="ml-3 rounded border border-rose-300 px-3 py-1 disabled:opacity-50"
+          >
+            {isFetching ? "Retrying…" : "Retry"}
+          </button>
+        </div>
+      ) : (
+        <DataTable rows={rows} columns={cols} />
+      )}
 
       {open && (
         <div
