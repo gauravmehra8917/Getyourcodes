@@ -14,7 +14,8 @@ export const getEnabledHeadEntries = createServerFn({ method: "GET" }).handler(
       global: {
         fetch: (input, init) => {
           const h = new Headers(init?.headers);
-          if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`) h.delete("Authorization");
+          if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`)
+            h.delete("Authorization");
           h.set("apikey", key);
           return fetch(input, { ...init, headers: h });
         },
@@ -23,9 +24,10 @@ export const getEnabledHeadEntries = createServerFn({ method: "GET" }).handler(
 
     const { data, error } = await client
       .from("head_entries")
-      .select("id, section, provider, type, name, value, content, enabled")
+      .select("id, section, provider, type, name, value, content, enabled, created_at")
       .eq("enabled", true)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
 
     if (error) {
       console.error("head entries fetch failed:", error.message);
