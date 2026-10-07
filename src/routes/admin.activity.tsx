@@ -36,27 +36,36 @@ const ACTION_STYLE: Record<string, string> = {
 };
 
 function ActivityPage() {
-  const { data: rows = [] } = useQuery({
+  const {
+    data: rows = [],
+    isPending,
+    isError,
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: ["admin-activity"],
     queryFn: async () => {
-      const { data } = await sb
+      const { data, error } = await sb
         .from("admin_activity_log")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(500);
+      if (error) throw new Error("Could not load activity. Please try again.");
       const logs = (data ?? []) as Row[];
       const actorIds = Array.from(
-        new Set(logs.map((r) => r.actor_id).filter((v): v is string => !!v))
+        new Set(logs.map((r) => r.actor_id).filter((v): v is string => !!v)),
       );
       if (actorIds.length) {
-        const { data: profiles } = await sb
+        const { data: profiles, error: profileError } = await sb
           .from("profiles")
           .select("id, display_name")
           .in("id", actorIds);
+        if (profileError) throw new Error("Could not load activity details. Please try again.");
         const map = new Map(
-          ((profiles ?? []) as { id: string; display_name: string | null }[]).map(
-            (p) => [p.id, p.display_name ?? ""]
-          )
+          ((profiles ?? []) as { id: string; display_name: string | null }[]).map((p) => [
+            p.id,
+            p.display_name ?? "",
+          ]),
         );
         logs.forEach((r) => {
           if (r.actor_id) r.actor_name = map.get(r.actor_id) ?? "";
@@ -86,7 +95,13 @@ function ActivityPage() {
             ACTION_STYLE[r.action] ?? "bg-slate-100 text-slate-700"
           }`}
         >
-          {r.action === "create" ? "Created" : r.action === "update" ? "Updated" : r.action === "delete" ? "Deleted" : r.action}
+          {r.action === "create"
+            ? "Created"
+            : r.action === "update"
+              ? "Updated"
+              : r.action === "delete"
+                ? "Deleted"
+                : r.action}
         </span>
       ),
     },
@@ -95,18 +110,14 @@ function ActivityPage() {
       header: "Entity",
       searchValue: (r) => r.entity,
       render: (r) => (
-        <span className="font-medium text-slate-700">
-          {ENTITY_LABEL[r.entity] ?? r.entity}
-        </span>
+        <span className="font-medium text-slate-700">{ENTITY_LABEL[r.entity] ?? r.entity}</span>
       ),
     },
     {
       key: "name",
       header: "Name",
       searchValue: (r) => r.meta?.name ?? "",
-      render: (r) => (
-        <span className="text-slate-800">{r.meta?.name || "—"}</span>
-      ),
+      render: (r) => <span className="text-slate-800">{r.meta?.name || "—"}</span>,
     },
     {
       key: "actor",
@@ -132,7 +143,27 @@ function ActivityPage() {
   return (
     <div>
       <PageHeader title="Activity Log" />
-      <DataTable rows={rows} columns={cols} emptyText="No admin actions logged yet." />
+      {isPending ? (
+        <p role="status" className="text-sm text-slate-500">
+          Loading activity…
+        </p>
+      ) : isError ? (
+        <div
+          role="alert"
+          className="rounded border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+        >
+          Could not load activity. Please try again.
+          <button
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="ml-3 rounded border border-rose-300 px-3 py-1 disabled:opacity-50"
+          >
+            {isFetching ? "Retrying…" : "Retry"}
+          </button>
+        </div>
+      ) : (
+        <DataTable rows={rows} columns={cols} emptyText="No admin actions logged yet." />
+      )}
     </div>
   );
 }
