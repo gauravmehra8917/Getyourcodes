@@ -4,22 +4,12 @@ import {
   LayoutDashboard,
   Megaphone,
   Tag,
-  Tags,
   Store,
-  GalleryHorizontal,
-  FileText,
   Users,
   Bell,
-  Languages,
-  ListOrdered,
-  Image as ImageIcon,
-  Brush,
   Mail,
-  Settings,
   Newspaper,
   FolderOpen,
-  MessageSquare,
-  Star,
   BarChart3,
   History,
   Plug,
@@ -44,9 +34,7 @@ const GROUPS: Group[] = [
     items: [
       { to: "/admin/coupons", label: "Coupons", icon: Megaphone },
       { to: "/admin/categories", label: "Categories", icon: Tag },
-      { to: "/admin/subcategories", label: "Sub Categories", icon: Tags },
       { to: "/admin/stores", label: "Stores", icon: Store },
-      { to: "/admin/reviews", label: "Store Reviews", icon: Star },
     ],
   },
   {
@@ -54,10 +42,6 @@ const GROUPS: Group[] = [
     items: [
       { to: "/admin/posts", label: "Posts", icon: Newspaper },
       { to: "/admin/blog-categories", label: "Blog Categories", icon: FolderOpen },
-      { to: "/admin/comments", label: "Comments", icon: MessageSquare },
-      { to: "/admin/pages", label: "Pages", icon: FileText },
-      { to: "/admin/sliders", label: "Sliders", icon: GalleryHorizontal },
-      { to: "/admin/ads", label: "Ads", icon: ImageIcon },
     ],
   },
   {
@@ -71,15 +55,9 @@ const GROUPS: Group[] = [
   {
     title: "System",
     items: [
-      { to: "/admin/menus", label: "Menus", icon: ListOrdered },
-      { to: "/admin/translations", label: "Translations", icon: Languages },
-      { to: "/admin/theme", label: "Theme", icon: Brush },
       { to: "/admin/head-manager", label: "Head Manager", icon: Code2 },
-
-      { to: "/admin/etemplates", label: "Email Templates", icon: Mail },
       { to: "/admin/integrations", label: "API Integrations", icon: Plug },
       { to: "/admin/publishing-policies", label: "Publishing Policies", icon: Scale },
-      { to: "/admin/settings", label: "Settings", icon: Settings },
     ],
   },
 ];
