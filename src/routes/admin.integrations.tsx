@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClientOnlyFn, useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -36,9 +37,19 @@ import type {
   AffiliateSyncAdsApplyV2Failure,
   AffiliateSyncAdsApplyV2Result,
 } from "@/lib/affiliate-sync-ads-apply-v2.client";
+import type {
+  ImpactDealsApplyResult,
+  ImpactDealsApplySuccess,
+  ImpactDealsFailure,
+  ImpactDealsPreviewResult,
+  ImpactDealsPreviewSummary,
+} from "@/lib/affiliate-sync-deals.client";
 import { listPublishingPolicies, setIntegrationPolicy } from "@/lib/publishing-policies.functions";
 import { syncStoreLogos, type LogoSyncReport } from "@/lib/presentation.functions";
-import { IntegrationWizard, type IntegrationRecord as WizardRecord } from "@/components/admin/integration-wizard";
+import {
+  IntegrationWizard,
+  type IntegrationRecord as WizardRecord,
+} from "@/components/admin/integration-wizard";
 import {
   listIntegrations,
   toggleIntegration,
@@ -51,7 +62,10 @@ import {
 
 export const Route = createFileRoute("/admin/integrations")({
   head: () => ({
-    meta: [{ title: "API Integrations — Getyourcodes Admin" }, { name: "robots", content: "noindex,nofollow" }],
+    meta: [
+      { title: "API Integrations — Getyourcodes Admin" },
+      { name: "robots", content: "noindex,nofollow" },
+    ],
   }),
   component: IntegrationsPage,
 });
@@ -100,10 +114,17 @@ const PROVIDER_TYPE_LABEL: Record<string, string> = {
   custom_rest_api: "Custom API",
 };
 
-
 const STATUS_META: Record<string, { label: string; dot: string; badge: string }> = {
-  connected: { label: "Connected", dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
-  never_tested: { label: "Never Tested", dot: "bg-amber-400", badge: "bg-amber-100 text-amber-700" },
+  connected: {
+    label: "Connected",
+    dot: "bg-emerald-500",
+    badge: "bg-emerald-100 text-emerald-700",
+  },
+  never_tested: {
+    label: "Never Tested",
+    dot: "bg-amber-400",
+    badge: "bg-amber-100 text-amber-700",
+  },
   warning: { label: "Warning", dot: "bg-orange-500", badge: "bg-orange-100 text-orange-700" },
   failed: { label: "Failed", dot: "bg-rose-500", badge: "bg-rose-100 text-rose-700" },
   disabled: { label: "Disabled", dot: "bg-slate-400", badge: "bg-slate-200 text-slate-600" },
@@ -112,8 +133,9 @@ const STATUS_META: Record<string, { label: string; dot: string; badge: string }>
 const IMPACT_PROVIDER_NAMES = new Set(["impact", "impact.com", "impact radius"]);
 
 function isExactImpactProvider(providerName: unknown): boolean {
-  return typeof providerName === "string" &&
-    IMPACT_PROVIDER_NAMES.has(providerName.trim().toLowerCase());
+  return (
+    typeof providerName === "string" && IMPACT_PROVIDER_NAMES.has(providerName.trim().toLowerCase())
+  );
 }
 
 const runImpactCouponImport = createClientOnlyFn(async (integrationId: string) => {
@@ -121,9 +143,39 @@ const runImpactCouponImport = createClientOnlyFn(async (integrationId: string) =
   return client.importImpactCoupons(integrationId);
 });
 
+const runImpactDealsReview = createClientOnlyFn(async (integrationId: string) => {
+  const client = await import("@/lib/affiliate-sync-deals.client");
+  return client.reviewImpactDeals(integrationId);
+});
+
+const runImpactDealsImport = createClientOnlyFn(async (integrationId: string) => {
+  const client = await import("@/lib/affiliate-sync-deals.client");
+  return client.importImpactDeals(integrationId);
+});
+
+type ImpactDealsDialogState = { rec: IntegrationRecord } & (
+  | { phase: "reviewing" | "applying" }
+  | { phase: "ready"; summary: ImpactDealsPreviewSummary }
+  | { phase: "failed"; failure: ImpactDealsFailure; retryReview: boolean }
+  | { phase: "complete"; result: ImpactDealsApplySuccess }
+  | { phase: "indeterminate"; failure: ImpactDealsFailure }
+);
+
+const DEALS_INDETERMINATE: ImpactDealsFailure = {
+  status: "indeterminate",
+  message:
+    "The final import outcome could not be confirmed. Do not retry immediately. Check Deals and Import History first.",
+};
+
 const PAGE_SIZE = 20;
 
-type SortKey = "integration_name" | "provider_name" | "created_at" | "updated_at" | "last_tested_at" | "status";
+type SortKey =
+  | "integration_name"
+  | "provider_name"
+  | "created_at"
+  | "updated_at"
+  | "last_tested_at"
+  | "status";
 
 function fmtLastTested(iso?: string | null) {
   if (!iso) return "Never";
@@ -134,14 +186,23 @@ function fmtLastTested(iso?: string | null) {
   const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   if (days === 0) return `Today ${time}`;
   if (days === 1) return `Yesterday ${time}`;
-  return d.toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString([], {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function IntegrationsPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editing, setEditing] = useState<IntegrationRecord | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<IntegrationRecord | null>(null);
-  const [drawer, setDrawer] = useState<{ rec: IntegrationRecord; tab: "overview" | "history" | "audit" } | null>(null);
+  const [drawer, setDrawer] = useState<{
+    rec: IntegrationRecord;
+    tab: "overview" | "history" | "audit";
+  } | null>(null);
   const [testModal, setTestModal] = useState<{
     rec: IntegrationRecord;
     running: boolean;
@@ -154,6 +215,16 @@ function IntegrationsPage() {
     running: boolean;
     result: AffiliateSyncAdsApplyV2Result | null;
   } | null>(null);
+  const [impactDeals, setImpactDeals] = useState<ImpactDealsDialogState | null>(null);
+  // Locks are synchronous: rapid clicks cannot race React's pending render.
+  const impactOperationRef = useRef(false);
+  const impactDealsRef = useRef<ImpactDealsDialogState | null>(null);
+  const dealsOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  const updateImpactDeals = (state: ImpactDealsDialogState | null) => {
+    impactDealsRef.current = state;
+    setImpactDeals(state);
+  };
 
   const [search, setSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("all");
@@ -204,7 +275,8 @@ function IntegrationsPage() {
       qc.setQueryData(["admin-integrations"], ctx?.prev);
       toast.error(err instanceof Error ? err.message : "Failed to update");
     },
-    onSuccess: (_d, vars) => toast.success(vars.enabled ? "Integration enabled" : "Integration disabled"),
+    onSuccess: (_d, vars) =>
+      toast.success(vars.enabled ? "Integration enabled" : "Integration disabled"),
     onSettled: () => qc.invalidateQueries({ queryKey: ["admin-integrations"] }),
   });
 
@@ -254,11 +326,111 @@ function IntegrationsPage() {
     onError: (_error, rec) => {
       setImpactImport({ rec, running: false, result: { status: "indeterminate" } });
     },
+    onSettled: () => {
+      impactOperationRef.current = false;
+    },
   });
+
+  const dealsReviewMutation = useMutation({
+    retry: false,
+    mutationFn: (rec: IntegrationRecord): Promise<ImpactDealsPreviewResult> =>
+      runImpactDealsReview(rec.id),
+    onSuccess: (result, rec) => {
+      if (result.status === "ready") updateImpactDeals({ rec, phase: "ready", summary: result });
+      else updateImpactDeals({ rec, phase: "failed", failure: result, retryReview: true });
+    },
+    onError: (_error, rec) =>
+      updateImpactDeals({
+        rec,
+        phase: "failed",
+        retryReview: true,
+        failure: {
+          status: "failed",
+          message: "The Deals review could not be verified. No Deals were imported.",
+        },
+      }),
+    onSettled: () => {
+      impactOperationRef.current = false;
+    },
+  });
+
+  const dealsApplyMutation = useMutation({
+    retry: false,
+    mutationFn: (rec: IntegrationRecord): Promise<ImpactDealsApplyResult> =>
+      runImpactDealsImport(rec.id),
+    onSuccess: (result, rec) => {
+      if (result.status === "committed" || result.status === "replayed_existing") {
+        updateImpactDeals({ rec, phase: "complete", result });
+        qc.invalidateQueries({ queryKey: ["integration-imports", rec.id] });
+      } else if (result.status === "indeterminate") {
+        updateImpactDeals({ rec, phase: "indeterminate", failure: result });
+      } else if (result.status === "blocked" || result.status === "failed") {
+        updateImpactDeals({ rec, phase: "failed", failure: result, retryReview: false });
+      }
+    },
+    onError: (_error, rec) =>
+      updateImpactDeals({ rec, phase: "indeterminate", failure: DEALS_INDETERMINATE }),
+    onSettled: () => {
+      impactOperationRef.current = false;
+    },
+  });
+
+  const anyImpactImportPending =
+    impactImportMutation.isPending || dealsReviewMutation.isPending || dealsApplyMutation.isPending;
+
+  const reviewImpactDeals = (rec: IntegrationRecord, opener?: HTMLButtonElement) => {
+    const current = impactDealsRef.current;
+    if (
+      impactOperationRef.current ||
+      anyImpactImportPending ||
+      impactImportConfirm ||
+      impactImport ||
+      (current && (current.phase !== "failed" || !current.retryReview)) ||
+      rec.is_enabled !== true ||
+      !isExactImpactProvider(rec.provider_name)
+    )
+      return;
+    if (opener) dealsOpenerRef.current = opener;
+    impactOperationRef.current = true;
+    updateImpactDeals({ rec, phase: "reviewing" });
+    dealsReviewMutation.mutate(rec);
+  };
+
+  const confirmImpactDeals = () => {
+    const current = impactDealsRef.current;
+    if (
+      impactOperationRef.current ||
+      anyImpactImportPending ||
+      current?.phase !== "ready" ||
+      current.summary.deals.proposedCreate <= 0
+    )
+      return;
+    const rec = integrations.find((row) => row.id === current.rec.id);
+    if (!rec || rec.is_enabled !== true || !isExactImpactProvider(rec.provider_name)) {
+      updateImpactDeals({
+        rec: current.rec,
+        phase: "failed",
+        retryReview: false,
+        failure: { status: "failed", message: "Enable this Impact integration before importing." },
+      });
+      return;
+    }
+    impactOperationRef.current = true;
+    updateImpactDeals({ rec, phase: "applying" });
+    dealsApplyMutation.mutate(rec);
+  };
+
+  const closeImpactDeals = () => {
+    const phase = impactDealsRef.current?.phase;
+    if (impactOperationRef.current || phase === "reviewing" || phase === "applying") return;
+    updateImpactDeals(null);
+  };
 
   const confirmImpactImport = () => {
     const rec = impactImportConfirm;
-    if (!rec || impactImportMutation.isPending) return;
+    if (!rec || impactOperationRef.current || anyImpactImportPending || impactDealsRef.current)
+      return;
+    impactOperationRef.current = true;
     setImpactImportConfirm(null);
     setImpactImport({ rec, running: true, result: null });
     impactImportMutation.mutate(rec);
@@ -266,7 +438,14 @@ function IntegrationsPage() {
 
   // Derived summary
   const summary = useMemo(() => {
-    const s = { total: integrations.length, connected: 0, disabled: 0, failed: 0, never_tested: 0, warning: 0 };
+    const s = {
+      total: integrations.length,
+      connected: 0,
+      disabled: 0,
+      failed: 0,
+      never_tested: 0,
+      warning: 0,
+    };
     for (const r of integrations) {
       const st = effectiveStatus(r);
       if (st in s) (s as any)[st] += 1;
@@ -352,7 +531,7 @@ function IntegrationsPage() {
   }, [integrations]);
 
   return (
-    <div>
+    <div ref={pageRef} tabIndex={-1}>
       <PageHeader
         title="API Integration"
         action={
@@ -380,7 +559,10 @@ function IntegrationsPage() {
       {/* Search + filters */}
       <div className="mb-4 flex flex-col gap-3 rounded-md border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" aria-hidden />
+          <Search
+            className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400"
+            aria-hidden
+          />
           <input
             aria-label="Search integrations"
             value={search}
@@ -489,9 +671,21 @@ function IntegrationsPage() {
                 onToggle={() => toggleMutation.mutate({ id: rec.id, enabled: !rec.is_enabled })}
                 onDelete={() => setConfirmDelete(rec)}
                 onHistory={() => setDrawer({ rec, tab: "audit" })}
-                showImpactImport={rec.is_enabled === true && isExactImpactProvider(rec.provider_name)}
+                showImpactImport={
+                  rec.is_enabled === true && isExactImpactProvider(rec.provider_name)
+                }
                 importing={impactImportMutation.isPending}
-                onImportImpact={() => setImpactImportConfirm(rec)}
+                impactImportsPending={anyImpactImportPending}
+                dealsPending={dealsReviewMutation.isPending || dealsApplyMutation.isPending}
+                onImportImpact={() => {
+                  if (
+                    !impactOperationRef.current &&
+                    !anyImpactImportPending &&
+                    !impactDealsRef.current
+                  )
+                    setImpactImportConfirm(rec);
+                }}
+                onImportImpactDeals={(event) => reviewImpactDeals(rec, event.currentTarget)}
                 syncingLogos={logoMutation.isPending && logoMutation.variables?.id === rec.id}
                 onSyncLogos={() => logoMutation.mutate(rec)}
               />
@@ -500,8 +694,8 @@ function IntegrationsPage() {
 
           <div className="mt-6 flex items-center justify-between text-sm text-slate-600">
             <span>
-              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredSorted.length)} of{" "}
-              {filteredSorted.length}
+              Showing {(page - 1) * PAGE_SIZE + 1}–
+              {Math.min(page * PAGE_SIZE, filteredSorted.length)} of {filteredSorted.length}
             </span>
             <div className="flex items-center gap-1">
               <button
@@ -576,11 +770,14 @@ function IntegrationsPage() {
           className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
           onClick={() => setImpactImportConfirm(null)}
         >
-          <div className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h4 className="text-base font-semibold text-slate-800">Import Impact Coupons?</h4>
             <p className="mt-1 text-sm text-slate-600">
-              Fetch the current eligible coded coupons from Impact and import new exact Campaign stores and Ad
-              coupons. Existing exact provider identities are left unchanged.
+              Fetch the current eligible coded coupons from Impact and import new exact Campaign
+              stores and Ad coupons. Existing exact provider identities are left unchanged.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -591,7 +788,7 @@ function IntegrationsPage() {
               </button>
               <button
                 onClick={confirmImpactImport}
-                disabled={impactImportMutation.isPending}
+                disabled={anyImpactImportPending}
                 className="rounded bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 Confirm Import
@@ -609,7 +806,10 @@ function IntegrationsPage() {
           className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
           onClick={() => !impactImport.running && setImpactImport(null)}
         >
-          <div className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h4 className="text-base font-semibold text-slate-800">
               Import Impact Coupons — {impactImport.rec.integration_name}
             </h4>
@@ -632,6 +832,21 @@ function IntegrationsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {impactDeals && (
+        <ImpactDealsDialog
+          state={impactDeals}
+          onClose={closeImpactDeals}
+          onConfirm={confirmImpactDeals}
+          onRetry={() => reviewImpactDeals(impactDeals.rec)}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            const opener = dealsOpenerRef.current;
+            if (opener?.isConnected && !opener.disabled) opener.focus();
+            else pageRef.current?.focus();
+          }}
+        />
       )}
 
       {testModal && (
@@ -674,7 +889,9 @@ function sortVal(r: IntegrationRecord, key: SortKey): string | number | null {
 function StatusBadge({ status }: { status: string }) {
   const m = STATUS_META[status] ?? STATUS_META.never_tested;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${m.badge}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${m.badge}`}
+    >
       <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} aria-hidden />
       {m.label}
     </span>
@@ -736,7 +953,8 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       </div>
       <h3 className="text-lg font-semibold text-slate-800">No integrations configured</h3>
       <p className="mt-2 max-w-md text-sm text-slate-500">
-        Connect affiliate networks and external services to automate coupon, store, and deal imports.
+        Connect affiliate networks and external services to automate coupon, store, and deal
+        imports.
       </p>
       <button
         onClick={onCreate}
@@ -760,6 +978,9 @@ function IntegrationCard({
   showImpactImport,
   importing,
   onImportImpact,
+  impactImportsPending,
+  dealsPending,
+  onImportImpactDeals,
   syncingLogos,
   onSyncLogos,
 }: {
@@ -774,6 +995,9 @@ function IntegrationCard({
   showImpactImport: boolean;
   importing: boolean;
   onImportImpact: () => void;
+  impactImportsPending: boolean;
+  dealsPending: boolean;
+  onImportImpactDeals: (event: React.MouseEvent<HTMLButtonElement>) => void;
   syncingLogos: boolean;
   onSyncLogos: () => void;
 }) {
@@ -807,7 +1031,9 @@ function IntegrationCard({
           {PROVIDER_TYPE_LABEL[rec.provider_type] ?? rec.provider_type}
         </dd>
         <dt className="text-slate-500">Last Tested</dt>
-        <dd className="text-right font-medium text-slate-700">{fmtLastTested(rec.last_tested_at)}</dd>
+        <dd className="text-right font-medium text-slate-700">
+          {fmtLastTested(rec.last_tested_at)}
+        </dd>
         <dt className="text-slate-500">Latency</dt>
         <dd className="text-right font-medium text-slate-700">
           {rec.last_test_result?.latency_ms != null ? `${rec.last_test_result.latency_ms} ms` : "—"}
@@ -819,7 +1045,13 @@ function IntegrationCard({
           Edit
         </ActionBtn>
         <ActionBtn
-          icon={testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+          icon={
+            testing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Zap className="h-3.5 w-3.5" />
+            )
+          }
           onClick={onTest}
           disabled={testing}
         >
@@ -833,18 +1065,47 @@ function IntegrationCard({
           {rec.is_enabled ? "Disable" : "Enable"}
         </ActionBtn>
         {showImpactImport && (
-          <ActionBtn
-            icon={importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
-            onClick={onImportImpact}
-            disabled={importing}
-            tone="success"
-            title="Import coupons from Impact"
-          >
-            {importing ? "Importing…" : "Import Impact Coupons"}
-          </ActionBtn>
+          <>
+            <ActionBtn
+              icon={
+                importing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <DownloadCloud className="h-3.5 w-3.5" />
+                )
+              }
+              onClick={onImportImpact}
+              disabled={impactImportsPending}
+              tone="success"
+              title="Import coupons from Impact"
+            >
+              {importing ? "Importing…" : "Import Impact Coupons"}
+            </ActionBtn>
+            <ActionBtn
+              icon={
+                dealsPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <DownloadCloud className="h-3.5 w-3.5" />
+                )
+              }
+              onClick={onImportImpactDeals}
+              disabled={impactImportsPending}
+              tone="success"
+              title="Review and import Deals from Impact"
+            >
+              Import Impact Deals
+            </ActionBtn>
+          </>
         )}
         <ActionBtn
-          icon={syncingLogos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+          icon={
+            syncingLogos ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ImageIcon className="h-3.5 w-3.5" />
+            )
+          }
           onClick={onSyncLogos}
           disabled={syncingLogos}
           title="Download merchant logos into storage"
@@ -874,7 +1135,7 @@ function ActionBtn({
   children: React.ReactNode;
   tone?: "danger" | "success" | "warn";
   disabled?: boolean;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   title?: string;
 }) {
   const toneCls = disabled
@@ -899,7 +1160,159 @@ function ActionBtn({
   );
 }
 
-function ConfirmDelete({ name, onCancel, onConfirm }: { name: string; onCancel: () => void; onConfirm: () => void }) {
+function ImpactDealsDialog({
+  state,
+  onClose,
+  onConfirm,
+  onRetry,
+  onCloseAutoFocus,
+}: {
+  state: ImpactDealsDialogState;
+  onClose: () => void;
+  onConfirm: () => void;
+  onRetry: () => void;
+  onCloseAutoFocus: (event: Event) => void;
+}) {
+  const pending = state.phase === "reviewing" || state.phase === "applying";
+  const summary = state.phase === "ready" ? state.summary : null;
+  const result = state.phase === "complete" ? state.result : null;
+  const rows: Array<[string, number]> = summary
+    ? [
+        ["Deals found", summary.deals.normalized],
+        ["Ready to import", summary.deals.proposedCreate],
+        ["Already on site", summary.deals.existing],
+        ["Held by policy", summary.deals.held],
+        ["Unresolved", summary.deals.unresolved],
+        ["Stores with selected offers", summary.stores.withSelectedOffers],
+        ["Qualified stores", summary.stores.qualified],
+      ]
+    : result
+      ? [
+          ["Deals created", result.createdDeals],
+          ["Deals already existing", result.noopDeals],
+          ["Stores created", result.createdStores],
+          ["Stores already existing", result.noopStores],
+          ...(result.counts.expected.offers.noopHeld === undefined
+            ? []
+            : [
+                ["Deals held by policy", result.counts.expected.offers.noopHeld] as [
+                  string,
+                  number,
+                ],
+              ]),
+        ]
+      : [];
+  return (
+    <DialogPrimitive.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-slate-900/60" />
+        <DialogPrimitive.Content
+          role="dialog"
+          aria-modal="true"
+          aria-busy={pending}
+          className="fixed left-1/2 top-1/2 z-[60] max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md bg-white p-5 shadow-xl"
+          onEscapeKeyDown={(event) => {
+            if (pending) event.preventDefault();
+          }}
+          onPointerDownOutside={(event) => {
+            if (pending) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (pending) event.preventDefault();
+          }}
+          onCloseAutoFocus={onCloseAutoFocus}
+        >
+          <DialogPrimitive.Title className="text-base font-semibold text-slate-800">
+            {result ? "Impact Deals Import Complete" : "Import Impact Deals"}
+          </DialogPrimitive.Title>
+          <DialogPrimitive.Description className="mt-1 text-sm text-slate-600">
+            This imports the selected no-code Impact Promotions as Deals. Coupon-code offers are not
+            changed. Existing exact provider identities are not recreated. Necessary Campaign-backed
+            stores may be created.
+          </DialogPrimitive.Description>
+          <div aria-live="polite" className="mt-3 text-sm text-slate-600">
+            {pending && (
+              <div role="status">
+                <p className="flex items-center gap-2">
+                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+                  {state.phase === "reviewing"
+                    ? "Reviewing Impact Deals…"
+                    : "Importing Impact Deals…"}
+                </p>
+                <p className="mt-1">This may take a couple of minutes.</p>
+              </div>
+            )}
+            {summary?.deals.proposedCreate === 0 && (
+              <p className="mb-3 font-medium text-emerald-700">No new Deals are ready to import.</p>
+            )}
+            {rows.length > 0 && (
+              <dl className="space-y-2">
+                {rows.map(([label, count]) => (
+                  <div key={label} className="flex items-center justify-between gap-3">
+                    <dt>{label}</dt>
+                    <dd className="font-semibold text-slate-800">{count}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {(state.phase === "failed" || state.phase === "indeterminate") && (
+              <p
+                role="alert"
+                className="rounded border border-amber-300 bg-amber-50 p-3 font-medium text-slate-800"
+              >
+                {state.failure.message}
+              </p>
+            )}
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={pending}
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {summary && summary.deals.proposedCreate > 0 ? "Cancel" : "Close"}
+            </button>
+            {state.phase === "failed" && state.retryReview && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900"
+              >
+                Retry Review
+              </button>
+            )}
+            {summary && (
+              <button
+                type="button"
+                onClick={onConfirm}
+                disabled={summary.deals.proposedCreate <= 0}
+                className="rounded bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Import {summary.deals.proposedCreate} Deals
+              </button>
+            )}
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+function ConfirmDelete({
+  name,
+  onCancel,
+  onConfirm,
+}: {
+  name: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
   return (
     <div
       role="alertdialog"
@@ -907,11 +1320,14 @@ function ConfirmDelete({ name, onCancel, onConfirm }: { name: string; onCancel: 
       className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
       onClick={onCancel}
     >
-      <div className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="w-full max-w-sm rounded-md bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h4 className="text-base font-semibold text-slate-800">Delete integration?</h4>
         <p className="mt-1 text-sm text-slate-600">
-          This will permanently remove <span className="font-medium">{name}</span> and its stored credentials. This
-          action cannot be undone.
+          This will permanently remove <span className="font-medium">{name}</span> and its stored
+          credentials. This action cannot be undone.
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <button
@@ -965,7 +1381,7 @@ function ImpactImportResultBody({ result }: { result: AffiliateSyncAdsApplyV2Res
   const message =
     failure.status === "indeterminate"
       ? "Import outcome could not be confirmed. Check Import History before trying again."
-      : failure.reason ?? failure.rpcReason ?? "The import did not complete.";
+      : (failure.reason ?? failure.rpcReason ?? "The import did not complete.");
 
   return (
     <div className="mt-3 space-y-3 text-sm">
@@ -991,7 +1407,9 @@ function ImpactImportResultBody({ result }: { result: AffiliateSyncAdsApplyV2Res
             {Object.entries(failure.blockerReasonCounts!)
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([reason, count]) => (
-                <Row key={reason} label={reason}>{count}</Row>
+                <Row key={reason} label={reason}>
+                  {count}
+                </Row>
               ))}
           </div>
         </div>
@@ -1061,7 +1479,9 @@ function TestResultModal({
             </div>
           )}
           {!running && error && (
-            <div className="rounded border border-rose-200 bg-rose-50 p-3 text-rose-700">{error}</div>
+            <div className="rounded border border-rose-200 bg-rose-50 p-3 text-rose-700">
+              {error}
+            </div>
           )}
           {!running && result && (
             <>
@@ -1129,19 +1549,30 @@ function DebugInformation({ debug }: { debug: NonNullable<TestResult["debug"]> }
           {item("URL Join OK", debug.joinedCorrectly ? "yes" : "no — check slashes")}
           {item("HTTP Method", debug.method ?? "—")}
           {item("Authentication Scheme", debug.authScheme ?? "none")}
-          {item("Authorization Header", debug.authorizationHeaderAttached ? "attached" : "not attached")}
+          {item(
+            "Authorization Header",
+            debug.authorizationHeaderAttached ? "attached" : "not attached",
+          )}
           {item(
             "Placeholder Resolution",
             <>
-              <div>resolved: {debug.resolvedVariables?.length ? debug.resolvedVariables.join(", ") : "none"}</div>
-              <div>unresolved: {debug.unresolvedVariables?.length ? debug.unresolvedVariables.join(", ") : "none"}</div>
+              <div>
+                resolved:{" "}
+                {debug.resolvedVariables?.length ? debug.resolvedVariables.join(", ") : "none"}
+              </div>
+              <div>
+                unresolved:{" "}
+                {debug.unresolvedVariables?.length ? debug.unresolvedVariables.join(", ") : "none"}
+              </div>
             </>,
           )}
           {item("Reached HTTP Client", debug.reachedHttpClient ? "yes" : "no")}
           {item("Response Status", debug.responseStatus ?? "—")}
           {item(
             "Request Headers",
-            <pre className="whitespace-pre-wrap">{JSON.stringify(debug.headers ?? {}, null, 2)}</pre>,
+            <pre className="whitespace-pre-wrap">
+              {JSON.stringify(debug.headers ?? {}, null, 2)}
+            </pre>,
           )}
           {item(
             "Response Body (500 chars)",
@@ -1246,16 +1677,27 @@ function DetailsDrawer({
       className="fixed inset-0 z-[60] flex justify-end bg-slate-900/50"
       onClick={onClose}
     >
-      <div className="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
           <div className="min-w-0">
-            <div className="text-xs font-medium uppercase tracking-wider text-slate-500">{rec.provider_name}</div>
-            <h3 className="truncate text-lg font-semibold text-slate-800">{rec.integration_name}</h3>
+            <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              {rec.provider_name}
+            </div>
+            <h3 className="truncate text-lg font-semibold text-slate-800">
+              {rec.integration_name}
+            </h3>
             <div className="mt-1">
               <StatusBadge status={status} />
             </div>
           </div>
-          <button onClick={onClose} aria-label="Close drawer" className="rounded p-1 text-slate-500 hover:bg-slate-100">
+          <button
+            onClick={onClose}
+            aria-label="Close drawer"
+            className="rounded p-1 text-slate-500 hover:bg-slate-100"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -1267,7 +1709,13 @@ function DetailsDrawer({
               onClick={() => setTab(t)}
               className={`rounded-t px-3 py-2 text-sm font-medium ${tab === t ? "border-b-2 border-slate-800 text-slate-800" : "text-slate-500 hover:text-slate-700"}`}
             >
-              {t === "overview" ? "Overview" : t === "history" ? "Test History" : t === "imports" ? "Imports" : "Audit"}
+              {t === "overview"
+                ? "Overview"
+                : t === "history"
+                  ? "Test History"
+                  : t === "imports"
+                    ? "Imports"
+                    : "Audit"}
             </button>
           ))}
         </div>
@@ -1278,12 +1726,21 @@ function DetailsDrawer({
               <Section title="General">
                 <KV k="Integration Name" v={rec.integration_name} />
                 <KV k="Provider" v={rec.provider_name} />
-                <KV k="Provider Type" v={PROVIDER_TYPE_LABEL[rec.provider_type] ?? rec.provider_type} />
+                <KV
+                  k="Provider Type"
+                  v={PROVIDER_TYPE_LABEL[rec.provider_type] ?? rec.provider_type}
+                />
                 <KV k="Authentication" v={rec.authentication_type} />
                 <KV k="Base URL" v={rec.base_url} />
                 <KV k="Environment" v={rec.environment ?? "production"} />
-                <KV k="Created" v={rec.created_at ? new Date(rec.created_at).toLocaleString() : "—"} />
-                <KV k="Updated" v={rec.updated_at ? new Date(rec.updated_at).toLocaleString() : "—"} />
+                <KV
+                  k="Created"
+                  v={rec.created_at ? new Date(rec.created_at).toLocaleString() : "—"}
+                />
+                <KV
+                  k="Updated"
+                  v={rec.updated_at ? new Date(rec.updated_at).toLocaleString() : "—"}
+                />
                 <KV k="Last Tested" v={fmtLastTested(rec.last_tested_at)} />
               </Section>
               <Section title="Configuration">
@@ -1347,7 +1804,9 @@ function DetailsDrawer({
                 <div key={h.id} className="rounded border border-slate-200 p-3">
                   <div className="mb-1 flex items-center justify-between">
                     <StatusBadge status={h.status} />
-                    <span className="text-xs text-slate-500">{new Date(h.created_at).toLocaleString()}</span>
+                    <span className="text-xs text-slate-500">
+                      {new Date(h.created_at).toLocaleString()}
+                    </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs text-slate-600">
                     <div>
@@ -1382,7 +1841,9 @@ function DetailsDrawer({
                     >
                       {r.preview ? "Preview" : "Import"} · {r.success ? "Success" : "Failed"}
                     </span>
-                    <span className="text-xs text-slate-500">{new Date(r.started_at).toLocaleString()}</span>
+                    <span className="text-xs text-slate-500">
+                      {new Date(r.started_at).toLocaleString()}
+                    </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs text-slate-600">
                     <div>
@@ -1408,7 +1869,8 @@ function DetailsDrawer({
                     {r.statistics?.lifecycle && (
                       <>
                         <div>
-                          <span className="text-slate-400">Stores held</span> {r.statistics.lifecycle.storesHeld}
+                          <span className="text-slate-400">Stores held</span>{" "}
+                          {r.statistics.lifecycle.storesHeld}
                         </div>
                         <div>
                           <span className="text-slate-400">Lifecycle hidden</span>{" "}
@@ -1421,7 +1883,9 @@ function DetailsDrawer({
                       </>
                     )}
                   </div>
-                  {r.error_message && <div className="mt-1 text-xs text-rose-600">{r.error_message}</div>}
+                  {r.error_message && (
+                    <div className="mt-1 text-xs text-rose-600">{r.error_message}</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1436,14 +1900,19 @@ function DetailsDrawer({
                 </div>
               )}
               {auditQ.data?.map((a: any) => (
-                <div key={a.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between rounded border border-slate-200 p-3"
+                >
                   <div>
                     <div className="text-sm font-medium capitalize text-slate-800">
                       {a.action} · {a.entity.replace("affiliate_", "")}
                     </div>
                     <div className="text-xs text-slate-500">{a.meta?.description ?? ""}</div>
                   </div>
-                  <span className="text-xs text-slate-500">{new Date(a.created_at).toLocaleString()}</span>
+                  <span className="text-xs text-slate-500">
+                    {new Date(a.created_at).toLocaleString()}
+                  </span>
                 </div>
               ))}
             </div>
@@ -1472,7 +1941,9 @@ function DetailsDrawer({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</h4>
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        {title}
+      </h4>
       <div className="space-y-1 rounded border border-slate-200 bg-white p-3">{children}</div>
     </div>
   );
@@ -1482,7 +1953,10 @@ function KV({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-start justify-between gap-3 border-b border-slate-100 py-1.5 last:border-b-0">
       <span className="text-xs text-slate-500">{k}</span>
-      <span className="max-w-[60%] truncate text-right text-xs font-medium text-slate-700" title={v}>
+      <span
+        className="max-w-[60%] truncate text-right text-xs font-medium text-slate-700"
+        title={v}
+      >
         {v}
       </span>
     </div>
@@ -1505,7 +1979,11 @@ function SystemHealth({
         <h3 className="text-sm font-semibold text-slate-800">System Health</h3>
       </div>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-3">
-        <HealthItem icon={<Plug className="h-3.5 w-3.5" />} label="Total Integrations" value={String(total)} />
+        <HealthItem
+          icon={<Plug className="h-3.5 w-3.5" />}
+          label="Total Integrations"
+          value={String(total)}
+        />
         <HealthItem
           icon={<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}
           label="Credential Storage"
@@ -1534,7 +2012,11 @@ function SystemHealth({
           value="Encrypted (AES-256-GCM)"
           tone="ok"
         />
-        <HealthItem icon={<Activity className="h-3.5 w-3.5" />} label="Module Version" value="v1.0.0" />
+        <HealthItem
+          icon={<Activity className="h-3.5 w-3.5" />}
+          label="Module Version"
+          value="v1.0.0"
+        />
       </dl>
     </div>
   );
@@ -1556,7 +2038,9 @@ function HealthItem({
       <dt className="flex items-center gap-1.5 text-slate-500">
         {icon} {label}
       </dt>
-      <dd className={`font-medium ${tone === "ok" ? "text-emerald-700" : "text-slate-700"}`}>{value}</dd>
+      <dd className={`font-medium ${tone === "ok" ? "text-emerald-700" : "text-slate-700"}`}>
+        {value}
+      </dd>
     </div>
   );
 }
