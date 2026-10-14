@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Copy, Check, Calendar, Tag, Percent, Globe, ExternalLink, Sparkles } from "lucide-react";
 import { type Coupon, type Store } from "@/lib/db";
 import { activateCoupon } from "@/lib/coupon-actions";
+import { copyCouponCode } from "@/lib/presentation/clipboard";
 import {
   formatDiscount,
   hasDiscountTypeConflict,
@@ -29,6 +30,7 @@ type Props = {
 export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   const isDeal = coupon.coupon_type === "deal";
   const expiry = coupon.expiry_date
@@ -67,10 +69,10 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
   };
 
   const copy = async () => {
-    if (!coupon.coupon_code) return;
-    await navigator.clipboard.writeText(coupon.coupon_code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    const success = await copyCouponCode(coupon.coupon_code ?? "");
+    setCopied(success);
+    setCopyFailed(!success);
+    if (success) setTimeout(() => setCopied(false), 1800);
   };
 
   return (
@@ -259,7 +261,7 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
           </DialogDescription>
 
           <div className="my-6 flex items-stretch gap-0 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft p-1">
-            <div className="flex-1 px-4 py-3 text-center font-mono text-lg font-bold tracking-wider text-primary">
+            <div className="flex-1 select-text px-4 py-3 text-center font-mono text-lg font-bold tracking-wider text-primary">
               {coupon.coupon_code}
             </div>
             <button
@@ -277,6 +279,12 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
               )}
             </button>
           </div>
+
+          {copyFailed && (
+            <p role="alert" className="mb-4 text-sm text-amber-700 dark:text-amber-300">
+              Automatic copying was blocked. Select the code above and copy it manually, or open the preview in a separate tab.
+            </p>
+          )}
 
           {discountConflict && (
             <p role="status" className="mb-4 rounded-lg border border-amber-300 p-3 text-sm">
