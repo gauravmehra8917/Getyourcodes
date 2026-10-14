@@ -77,7 +77,9 @@ test("empty code does not interact with either clipboard method", async () => {
 
 test("embedded preview confirms success from resolved clipboard write, without clipboard read", async () => {
   let clipboard = "";
-  const wrote = await copyInEmbeddedFrame("NY80", async (text) => { clipboard = text; });
+  const wrote = await copyInEmbeddedFrame("NY80", async (text) => {
+    clipboard = text;
+  });
   assert.equal(wrote, true);
   assert.equal(clipboard, "NY80");
 });
@@ -89,7 +91,9 @@ test("embedded preview does not require clipboard-read permission", async () => 
 
 test("embedded preview refuses false success when clipboard write is denied", async () => {
   assert.equal(
-    await copyInEmbeddedFrame("NY80", async () => { throw new Error("NotAllowedError"); }),
+    await copyInEmbeddedFrame("NY80", async () => {
+      throw new Error("NotAllowedError");
+    }),
     false,
   );
   assert.equal(await copyInEmbeddedFrame("NY80"), false);
