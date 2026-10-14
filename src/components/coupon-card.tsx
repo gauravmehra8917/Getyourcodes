@@ -5,6 +5,7 @@ import { activateCoupon } from "@/lib/coupon-actions";
 import {
   formatDiscount,
   hasDiscountTypeConflict,
+  humanizeProviderTerms,
   formatStructuredTerms,
   structuredTermsText,
 } from "@/lib/presentation/terms";
@@ -44,7 +45,7 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
     ? "The reported discount details are inconsistent. Confirm the actual offer with the merchant before purchase."
     : coupon.description;
   const termRows = formatStructuredTerms(coupon.structured_terms);
-  const termsText = coupon.terms ?? structuredTermsText(coupon.structured_terms);
+  const termsText = humanizeProviderTerms(coupon.terms) ?? structuredTermsText(coupon.structured_terms);
   const landingPage = coupon.landing_page_url ?? null;
   const country = store?.country ?? null;
 
