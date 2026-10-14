@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Copy, Check, Calendar, Tag, Percent, Globe, ExternalLink, Sparkles } from "lucide-react";
 import { type Coupon, type Store } from "@/lib/db";
 import { activateCoupon } from "@/lib/coupon-actions";
-import { copyCouponCode } from "@/lib/presentation/clipboard";
+import { copyCouponCode, isEmbeddedFrame } from "@/lib/presentation/clipboard";
 import {
   formatDiscount,
   hasDiscountTypeConflict,
@@ -31,6 +31,7 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const couponCodeRef = useRef<HTMLDivElement>(null);
 
   const isDeal = coupon.coupon_type === "deal";
   const expiry = coupon.expiry_date
@@ -72,7 +73,20 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
     const success = await copyCouponCode(coupon.coupon_code ?? "");
     setCopied(success);
     setCopyFailed(!success);
-    if (success) setTimeout(() => setCopied(false), 1800);
+    if (success) {
+      setTimeout(() => setCopied(false), 1800);
+      return;
+    }
+
+    // Make the code ready for keyboard copying when an iframe blocks the APIs.
+    const codeElement = couponCodeRef.current;
+    const selection = typeof window !== "undefined" ? window.getSelection() : null;
+    if (codeElement && selection) {
+      const range = document.createRange();
+      range.selectNodeContents(codeElement);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
   };
 
   return (
@@ -261,7 +275,10 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
           </DialogDescription>
 
           <div className="my-6 flex items-stretch gap-0 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft p-1">
-            <div className="flex-1 select-text px-4 py-3 text-center font-mono text-lg font-bold tracking-wider text-primary">
+            <div
+              ref={couponCodeRef}
+              className="flex-1 select-text px-4 py-3 text-center font-mono text-lg font-bold tracking-wider text-primary"
+            >
               {coupon.coupon_code}
             </div>
             <button
@@ -282,8 +299,9 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
 
           {copyFailed && (
             <p role="alert" className="mb-4 text-sm text-amber-700 dark:text-amber-300">
-              Automatic copying was blocked. Select the code above and copy it manually, or open the
-              preview in a separate tab.
+              {isEmbeddedFrame()
+                ? "Embedded preview clipboard access could not be verified. The code is selected; press ⌘C on Mac or Ctrl+C on Windows to copy it, or open the preview in a new tab."
+                : "Automatic copying was blocked. The code is selected; press ⌘C on Mac or Ctrl+C on Windows, or open the preview in a new tab."}
             </p>
           )}
 
