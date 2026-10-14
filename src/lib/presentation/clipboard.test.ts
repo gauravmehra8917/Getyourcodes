@@ -79,7 +79,9 @@ test("embedded preview displays success only with verified clipboard read-back",
   let copied = "";
   assert.equal(
     await copyWithVerification("SS40", {
-      writeText: async (text) => { copied = text; },
+      writeText: async (text) => {
+        copied = text;
+      },
       readText: async () => copied,
     }),
     true,
@@ -105,7 +107,9 @@ test("embedded preview does not trust unverified native clipboard success", asyn
 test("embedded preview rejects permission failures and unavailable clipboard APIs", async () => {
   assert.equal(
     await copyWithVerification("SS40", {
-      writeText: async () => { throw new Error("NotAllowedError"); },
+      writeText: async () => {
+        throw new Error("NotAllowedError");
+      },
       readText: async () => "SS40",
     }),
     false,
@@ -113,12 +117,17 @@ test("embedded preview rejects permission failures and unavailable clipboard API
   assert.equal(
     await copyWithVerification("SS40", {
       writeText: async () => {},
-      readText: async () => { throw new Error("NotAllowedError"); },
+      readText: async () => {
+        throw new Error("NotAllowedError");
+      },
     }),
     false,
   );
-  assert.equal(await copyWithVerification("", {
-    writeText: async () => {},
-    readText: async () => "",
-  }), false);
+  assert.equal(
+    await copyWithVerification("", {
+      writeText: async () => {},
+      readText: async () => "",
+    }),
+    false,
+  );
 });
