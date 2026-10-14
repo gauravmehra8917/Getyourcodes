@@ -76,7 +76,9 @@ export function formatStructuredTerms(value: unknown): TermRow[] {
 /** Humanize only recognized provider phrases; retain all other merchant wording. */
 export function humanizeProviderTerms(text: string | null | undefined): string | null {
   if (!text) return null;
-  return humanizeProviderTerms(text);
+  return text.replace(/\bApplies to:\s*(ENTIRE_STORE|PRODUCT|CATEGORY)\b/gi, (_match, scope: string) =>
+    `Offer eligibility: ${friendlyScope(scope) ?? "Check merchant terms"}`,
+  );
 }
 
 /** Free-text terms supplied by the provider, if any. */
@@ -84,9 +86,7 @@ export function structuredTermsText(value: unknown): string | null {
   const t = readStructuredTerms(value);
   const text = t?.text?.trim();
   if (!text) return null;
-  return text.replace(/\bApplies to:\s*(ENTIRE_STORE|PRODUCT|CATEGORY)\b/gi, (_match, scope: string) =>
-    `Offer eligibility: ${friendlyScope(scope) ?? "Check merchant terms"}`,
-  );
+  return humanizeProviderTerms(text);
 }
 
 /**
