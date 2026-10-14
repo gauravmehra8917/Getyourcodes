@@ -24,6 +24,36 @@ export async function copyWithFallback(text: string, transport: CopyTransport): 
   }
 }
 
+/**
+ * Embedded frames need verified clipboard read-back; legacy execCommand may
+ * report success even when the OS clipboard was never updated.
+ * If read-back is denied/unavailable, fail closed and offer manual selection.
+ */
+export async function copyWithVerification(
+  text: string,
+  transport: {
+    writeText?: (value: string) => Promise<void>;
+    readText?: () => Promise<string>;
+  },
+): Promise<boolean> {
+  if (!text || !transport.writeText || !transport.readText) return false;
+  try {
+    await transport.writeText(text);
+    return (await transport.readText()) === text;
+  } catch {
+    return false;
+  }
+}
+
+export function isEmbeddedFrame(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
 function copyUsingSelection(text: string): boolean {
   if (
     typeof document === "undefined" ||
@@ -56,11 +86,22 @@ function copyUsingSelection(text: string): boolean {
 /** No analytics, redirects, or mutations: client-side clipboard only. */
 export function copyCouponCode(text: string): Promise<boolean> {
   const clipboard = typeof navigator !== "undefined" ? navigator.clipboard : undefined;
-  return copyWithFallback(text, {
-    writeText:
-      clipboard && typeof clipboard.writeText === "function"
-        ? (value) => clipboard.writeText(value)
-        : undefined,
-    legacyCopy: copyUsingSelection,
-  });
+  const writeText =
+    clipboard && typeof clipboard.writeText === "function"
+      ? (value: string) => clipboard.writeText(value)
+      : undefined;
+
+  if (isEmbeddedFrame()) {
+    // Do not trust execCommand's success flag inside a sandboxed iframe.
+    return copyWithVerification(text, {
+      writeText,
+      readText:
+        clipboard && typeof clipboard.readText === "function"
+          ? () => clipboard.readText()
+          : undefined,
+    });
+  }
+
+  // Preserve the already verified working behavior in standalone browsers.
+  return copyWithFallback(text, { writeText, legacyCopy: copyUsingSelection });
 }
