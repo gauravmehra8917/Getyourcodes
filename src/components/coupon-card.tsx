@@ -282,7 +282,8 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
 
           {copyFailed && (
             <p role="alert" className="mb-4 text-sm text-amber-700 dark:text-amber-300">
-              Automatic copying was blocked. Select the code above and copy it manually, or open the preview in a separate tab.
+              Automatic copying was blocked. Select the code above and copy it manually, or open the
+              preview in a separate tab.
             </p>
           )}
 
