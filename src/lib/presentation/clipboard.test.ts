@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { copyWithFallback, copyWithVerification } from "./clipboard.ts";
+import { copyWithFallback, copyInEmbeddedFrame } from "./clipboard.ts";
 
 test("modern clipboard success reports success and does not invoke fallback", async () => {
   let fallbackCalls = 0;
@@ -75,59 +75,23 @@ test("empty code does not interact with either clipboard method", async () => {
   assert.equal(called, false);
 });
 
-test("embedded preview displays success only with verified clipboard read-back", async () => {
-  let copied = "";
-  assert.equal(
-    await copyWithVerification("SS40", {
-      writeText: async (text) => {
-        copied = text;
-      },
-      readText: async () => copied,
-    }),
-    true,
-  );
+test("embedded preview confirms success from resolved clipboard write, without clipboard read", async () => {
+  let clipboard = "";
+  const wrote = await copyInEmbeddedFrame("NY80", async (text) => { clipboard = text; });
+  assert.equal(wrote, true);
+  assert.equal(clipboard, "NY80");
 });
 
-test("embedded preview does not trust unverified native clipboard success", async () => {
-  assert.equal(
-    await copyWithVerification("SS40", {
-      writeText: async () => {},
-    }),
-    false,
-  );
-  assert.equal(
-    await copyWithVerification("SS40", {
-      writeText: async () => {},
-      readText: async () => "OLD-CODE",
-    }),
-    false,
-  );
+test("embedded preview does not require clipboard-read permission", async () => {
+  // This intentionally supplies only writeText; no readText capability.
+  assert.equal(await copyInEmbeddedFrame("SS40", async () => {}), true);
 });
 
-test("embedded preview rejects permission failures and unavailable clipboard APIs", async () => {
+test("embedded preview refuses false success when clipboard write is denied", async () => {
   assert.equal(
-    await copyWithVerification("SS40", {
-      writeText: async () => {
-        throw new Error("NotAllowedError");
-      },
-      readText: async () => "SS40",
-    }),
+    await copyInEmbeddedFrame("NY80", async () => { throw new Error("NotAllowedError"); }),
     false,
   );
-  assert.equal(
-    await copyWithVerification("SS40", {
-      writeText: async () => {},
-      readText: async () => {
-        throw new Error("NotAllowedError");
-      },
-    }),
-    false,
-  );
-  assert.equal(
-    await copyWithVerification("", {
-      writeText: async () => {},
-      readText: async () => "",
-    }),
-    false,
-  );
+  assert.equal(await copyInEmbeddedFrame("NY80"), false);
+  assert.equal(await copyInEmbeddedFrame("", async () => {}), false);
 });
