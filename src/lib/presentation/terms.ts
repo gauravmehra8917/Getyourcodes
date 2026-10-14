@@ -19,10 +19,14 @@ export interface TermRow {
 export function friendlyScope(scope: unknown): string | null {
   if (typeof scope !== "string") return null;
   switch (scope.trim().toUpperCase()) {
-    case "ENTIRE_STORE": return "Storewide offer";
-    case "PRODUCT": return "Selected products (check merchant eligibility)";
-    case "CATEGORY": return "Selected product categories (not specified)";
-    default: return null;
+    case "ENTIRE_STORE":
+      return "Storewide offer";
+    case "PRODUCT":
+      return "Selected products (check merchant eligibility)";
+    case "CATEGORY":
+      return "Selected product categories (not specified)";
+    default:
+      return null;
   }
 }
 
@@ -33,17 +37,29 @@ export function hasDiscountTypeConflict(
   type: string | null | undefined,
   value: number | null | undefined,
 ): boolean {
-  if ((type !== "fixed" && type !== "percentage") || typeof value !== "number" || !Number.isFinite(value)) return false;
+  if (
+    (type !== "fixed" && type !== "percentage") ||
+    typeof value !== "number" ||
+    !Number.isFinite(value)
+  )
+    return false;
   const claims = [title, description].filter((v): v is string => typeof v === "string");
   // Require a discount claim, not merely a year, product price, or eligibility threshold.
-  if (type === "fixed") return claims.some(v => /\b\d+(?:\.\d+)?\s*%\s*(?:off|discount|savings|sale)\b/i.test(v));
-  return claims.some(v => /(?:US\$|\$|USD\s*)\s*\d+(?:\.\d+)?\s*(?:off|discount|savings)\b/i.test(v));
+  if (type === "fixed")
+    return claims.some((v) => /\b\d+(?:\.\d+)?\s*%\s*(?:off|discount|savings|sale)\b/i.test(v));
+  return claims.some((v) =>
+    /(?:US\$|\$|USD\s*)\s*\d+(?:\.\d+)?\s*(?:off|discount|savings)\b/i.test(v),
+  );
 }
 
 function money(amount: number, currency?: string | null): string {
   const code = (currency ?? "USD").toUpperCase();
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: code, maximumFractionDigits: 2 }).format(amount);
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 2,
+    }).format(amount);
   } catch {
     return `${code} ${amount}`;
   }
@@ -76,8 +92,10 @@ export function formatStructuredTerms(value: unknown): TermRow[] {
 /** Humanize only recognized provider phrases; retain all other merchant wording. */
 export function humanizeProviderTerms(text: string | null | undefined): string | null {
   if (!text) return null;
-  return text.replace(/\bApplies to:\s*(ENTIRE_STORE|PRODUCT|CATEGORY)\b/gi, (_match, scope: string) =>
-    `Offer eligibility: ${friendlyScope(scope) ?? "Check merchant terms"}`,
+  return text.replace(
+    /\bApplies to:\s*(ENTIRE_STORE|PRODUCT|CATEGORY)\b/gi,
+    (_match, scope: string) =>
+      `Offer eligibility: ${friendlyScope(scope) ?? "Check merchant terms"}`,
   );
 }
 
@@ -120,9 +138,12 @@ export function generateTermsText(value: unknown, expiryDate?: string | null): s
   return sentences.join(" ");
 }
 
-
 /** "20% off" / "$15 off" / "Free shipping" — only from imported values. */
-export function formatDiscount(type: string | null | undefined, value: number | null | undefined, currency?: string | null): string | null {
+export function formatDiscount(
+  type: string | null | undefined,
+  value: number | null | undefined,
+  currency?: string | null,
+): string | null {
   if (type === "free_shipping") return "Free shipping";
   if (type === "bogo") return "BOGO";
   if (typeof value === "number" && Number.isFinite(value)) {

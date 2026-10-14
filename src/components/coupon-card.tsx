@@ -38,14 +38,22 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
         year: "numeric",
       })
     : null;
-  const discountConflict = hasDiscountTypeConflict(coupon.title, coupon.description, coupon.discount_type, coupon.discount_value);
-  const discount = discountConflict ? null : formatDiscount(coupon.discount_type, coupon.discount_value);
+  const discountConflict = hasDiscountTypeConflict(
+    coupon.title,
+    coupon.description,
+    coupon.discount_type,
+    coupon.discount_value,
+  );
+  const discount = discountConflict
+    ? null
+    : formatDiscount(coupon.discount_type, coupon.discount_value);
   const displayTitle = discountConflict ? "Offer details require verification" : coupon.title;
   const displayDescription = discountConflict
     ? "The reported discount details are inconsistent. Confirm the actual offer with the merchant before purchase."
     : coupon.description;
   const termRows = formatStructuredTerms(coupon.structured_terms);
-  const termsText = humanizeProviderTerms(coupon.terms) ?? structuredTermsText(coupon.structured_terms);
+  const termsText =
+    humanizeProviderTerms(coupon.terms) ?? structuredTermsText(coupon.structured_terms);
   const landingPage = coupon.landing_page_url ?? null;
   const country = store?.country ?? null;
 
@@ -136,7 +144,11 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
             )}
           </div>
 
-          {discountConflict && <p className="mt-2 text-xs text-amber-700" role="status">Verify discount with merchant</p>}
+          {discountConflict && (
+            <p className="mt-2 text-xs text-amber-700" role="status">
+              Verify discount with merchant
+            </p>
+          )}
 
           {renderAction(
             "mt-4 w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90",
@@ -268,7 +280,8 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
 
           {discountConflict && (
             <p role="status" className="mb-4 rounded-lg border border-amber-300 p-3 text-sm">
-              Discount amount requires verification. Check the merchant's current terms before purchasing.
+              Discount amount requires verification. Check the merchant's current terms before
+              purchasing.
             </p>
           )}
 
