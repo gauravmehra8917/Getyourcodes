@@ -15,6 +15,31 @@ export interface TermRow {
   value: string;
 }
 
+/** Translate known provider scope codes; never pretend a specific category is known. */
+export function friendlyScope(scope: unknown): string | null {
+  if (typeof scope !== "string") return null;
+  switch (scope.trim().toUpperCase()) {
+    case "ENTIRE_STORE": return "Storewide offer";
+    case "PRODUCT": return "Selected products (check merchant eligibility)";
+    case "CATEGORY": return "Selected product categories (not specified)";
+    default: return null;
+  }
+}
+
+/** Fail closed only for unequivocal percentage-versus-fixed-sum contradictions. */
+export function hasDiscountTypeConflict(
+  title: string | null | undefined,
+  description: string | null | undefined,
+  type: string | null | undefined,
+  value: number | null | undefined,
+): boolean {
+  if ((type !== "fixed" && type !== "percentage") || typeof value !== "number" || !Number.isFinite(value)) return false;
+  const claims = [title, description].filter((v): v is string => typeof v === "string");
+  // Require a discount claim, not merely a year, product price, or eligibility threshold.
+  if (type === "fixed") return claims.some(v => /\b\d+(?:\.\d+)?\s*%\s*(?:off|discount|savings|sale)\b/i.test(v));
+  return claims.some(v => /(?:US\$|\$|USD\s*)\s*\d+(?:\.\d+)?\s*(?:off|discount|savings)\b/i.test(v));
+}
+
 function money(amount: number, currency?: string | null): string {
   const code = (currency ?? "USD").toUpperCase();
   try {
@@ -43,7 +68,8 @@ export function formatStructuredTerms(value: unknown): TermRow[] {
   if (typeof t.purchaseLimit === "number") {
     rows.push({ label: "Purchase limit", value: `${t.purchaseLimit} per customer` });
   }
-  if (t.scope) rows.push({ label: "Deal scope", value: String(t.scope) });
+  const scope = friendlyScope(t.scope);
+  if (scope) rows.push({ label: "Offer eligibility", value: scope });
   return rows;
 }
 
@@ -51,7 +77,10 @@ export function formatStructuredTerms(value: unknown): TermRow[] {
 export function structuredTermsText(value: unknown): string | null {
   const t = readStructuredTerms(value);
   const text = t?.text?.trim();
-  return text ? text : null;
+  if (!text) return null;
+  return text.replace(/\bApplies to:\s*(ENTIRE_STORE|PRODUCT|CATEGORY)\b/gi, (_match, scope: string) =>
+    `Offer eligibility: ${friendlyScope(scope) ?? "Check merchant terms"}`,
+  );
 }
 
 /**
@@ -67,7 +96,7 @@ export function generateTermsText(value: unknown, expiryDate?: string | null): s
     if (r.label === "Minimum purchase") return `Minimum purchase of ${r.value} required.`;
     if (r.label === "Maximum savings") return `Maximum savings of ${r.value}.`;
     if (r.label === "Purchase limit") return `Limited to ${r.value}.`;
-    if (r.label === "Deal scope") return `Applies to: ${r.value}.`;
+    if (r.label === "Offer eligibility") return `Offer eligibility: ${r.value}.`;
     return `${r.label}: ${r.value}.`;
   });
 
