@@ -25,7 +25,11 @@ export async function copyWithFallback(text: string, transport: CopyTransport): 
 }
 
 function copyUsingSelection(text: string): boolean {
-  if (typeof document === "undefined" || !document.body || typeof document.execCommand !== "function") {
+  if (
+    typeof document === "undefined" ||
+    !document.body ||
+    typeof document.execCommand !== "function"
+  ) {
     return false;
   }
 
