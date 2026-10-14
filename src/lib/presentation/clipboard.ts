@@ -25,21 +25,18 @@ export async function copyWithFallback(text: string, transport: CopyTransport): 
 }
 
 /**
- * Embedded frames need verified clipboard read-back; legacy execCommand may
- * report success even when the OS clipboard was never updated.
- * If read-back is denied/unavailable, fail closed and offer manual selection.
+ * Do not require clipboard-read permission after a successful write.
+ * The Clipboard API resolves writeText only once writing has succeeded.
+ * In embedded frames, NEVER trust legacy execCommand's success flag.
  */
-export async function copyWithVerification(
+export async function copyInEmbeddedFrame(
   text: string,
-  transport: {
-    writeText?: (value: string) => Promise<void>;
-    readText?: () => Promise<string>;
-  },
+  writeText?: (value: string) => Promise<void>,
 ): Promise<boolean> {
-  if (!text || !transport.writeText || !transport.readText) return false;
+  if (!text || !writeText) return false;
   try {
-    await transport.writeText(text);
-    return (await transport.readText()) === text;
+    await writeText(text);
+    return true;
   } catch {
     return false;
   }
@@ -92,14 +89,8 @@ export function copyCouponCode(text: string): Promise<boolean> {
       : undefined;
 
   if (isEmbeddedFrame()) {
-    // Do not trust execCommand's success flag inside a sandboxed iframe.
-    return copyWithVerification(text, {
-      writeText,
-      readText:
-        clipboard && typeof clipboard.readText === "function"
-          ? () => clipboard.readText()
-          : undefined,
-    });
+    // Write success needs no separate clipboard-read permission.
+    return copyInEmbeddedFrame(text, writeText);
   }
 
   // Preserve the already verified working behavior in standalone browsers.

@@ -300,7 +300,7 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
           {copyFailed && (
             <p role="alert" className="mb-4 text-sm text-amber-700 dark:text-amber-300">
               {isEmbeddedFrame()
-                ? "Embedded preview clipboard access could not be verified. The code is selected; press ⌘C on Mac or Ctrl+C on Windows to copy it, or open the preview in a new tab."
+                ? "Automatic copying is blocked in this embedded preview. The code is selected; press ⌘C on Mac or Ctrl+C on Windows to copy it, or open the preview in a new tab."
                 : "Automatic copying was blocked. The code is selected; press ⌘C on Mac or Ctrl+C on Windows, or open the preview in a new tab."}
             </p>
           )}
