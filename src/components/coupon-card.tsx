@@ -4,6 +4,8 @@ import { type Coupon, type Store } from "@/lib/db";
 import { activateCoupon } from "@/lib/coupon-actions";
 import {
   formatDiscount,
+  hasDiscountTypeConflict,
+  humanizeProviderTerms,
   formatStructuredTerms,
   structuredTermsText,
 } from "@/lib/presentation/terms";
@@ -36,9 +38,22 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
         year: "numeric",
       })
     : null;
-  const discount = formatDiscount(coupon.discount_type, coupon.discount_value);
+  const discountConflict = hasDiscountTypeConflict(
+    coupon.title,
+    coupon.description,
+    coupon.discount_type,
+    coupon.discount_value,
+  );
+  const discount = discountConflict
+    ? null
+    : formatDiscount(coupon.discount_type, coupon.discount_value);
+  const displayTitle = discountConflict ? "Offer details require verification" : coupon.title;
+  const displayDescription = discountConflict
+    ? "The reported discount details are inconsistent. Confirm the actual offer with the merchant before purchase."
+    : coupon.description;
   const termRows = formatStructuredTerms(coupon.structured_terms);
-  const termsText = coupon.terms ?? structuredTermsText(coupon.structured_terms);
+  const termsText =
+    humanizeProviderTerms(coupon.terms) ?? structuredTermsText(coupon.structured_terms);
   const landingPage = coupon.landing_page_url ?? null;
   const country = store?.country ?? null;
 
@@ -111,7 +126,7 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
           </div>
 
           <h3 className="mt-3 line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-            {coupon.title}
+            {displayTitle}
           </h3>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -128,6 +143,12 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
               </span>
             )}
           </div>
+
+          {discountConflict && (
+            <p className="mt-2 text-xs text-amber-700" role="status">
+              Verify discount with merchant
+            </p>
+          )}
 
           {renderAction(
             "mt-4 w-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90",
@@ -199,13 +220,14 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
                 <Calendar className="h-3 w-3" /> {expiry ? `Expires ${expiry}` : "No expiry date"}
               </span>
             </div>
-            <h3 className="truncate font-semibold text-foreground">{coupon.title}</h3>
+            <h3 className="truncate font-semibold text-foreground">{displayTitle}</h3>
             <p className="line-clamp-1 text-sm text-muted-foreground">
-              {coupon.description ??
+              {displayDescription ??
                 (store?.name ? `Verified offer at ${store.name}.` : "Verified offer.")}
             </p>
           </div>
 
+          {discountConflict && <span className="text-xs text-amber-700">Verify discount</span>}
           {renderAction(
             "shrink-0 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90",
           )}
@@ -229,11 +251,11 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
               {discount && <p className="text-xs font-semibold text-primary">{discount}</p>}
             </div>
           </div>
-          <DialogTitle className="mt-3 font-display text-xl font-bold">{coupon.title}</DialogTitle>
+          <DialogTitle className="mt-3 font-display text-xl font-bold">{displayTitle}</DialogTitle>
           <DialogDescription
-            className={coupon.description ? "mt-1 text-sm text-muted-foreground" : "sr-only"}
+            className={displayDescription ? "mt-1 text-sm text-muted-foreground" : "sr-only"}
           >
-            {coupon.description || "Copy this coupon code and continue to the store to use it."}
+            {displayDescription || "Copy this coupon code and continue to the store to use it."}
           </DialogDescription>
 
           <div className="my-6 flex items-stretch gap-0 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft p-1">
@@ -255,6 +277,13 @@ export function CouponCard({ coupon, store, best, variant = "row" }: Props) {
               )}
             </button>
           </div>
+
+          {discountConflict && (
+            <p role="status" className="mb-4 rounded-lg border border-amber-300 p-3 text-sm">
+              Discount amount requires verification. Check the merchant's current terms before
+              purchasing.
+            </p>
+          )}
 
           {termRows.length > 0 && (
             <dl className="mb-4 grid gap-1 rounded-2xl border border-border bg-secondary/30 p-4 text-sm">
