@@ -188,7 +188,7 @@ function HomePage() {
                   onChange={(e) => setAiQ(e.target.value)}
                   placeholder="Search “Nike”, “SAVE20” — or ask “best laptop deals”"
                   aria-label="Search stores, coupons and deals, or ask Dealio"
-                  className="h-12 min-w-0 flex-1 rounded-full border border-border bg-surface-2 px-5 text-base text-foreground placeholder:text-muted-foreground outline-none focus:border-primary sm:text-sm"
+                  className="h-12 min-h-12 w-full min-w-0 rounded-full border border-border bg-surface-2 px-5 text-base text-foreground placeholder:text-muted-foreground outline-none focus:border-primary sm:w-auto sm:flex-1 sm:text-sm"
                 />
                 <button
                   type="submit"
@@ -599,7 +599,7 @@ function NewsletterStrip() {
           autoComplete="email"
           aria-label="Email address"
           aria-invalid={status.kind === "err"}
-          className="h-12 min-w-0 flex-1 rounded-full border border-border bg-background/40 px-5 text-base text-foreground placeholder:text-muted-foreground outline-none focus:border-primary sm:text-sm"
+          className="h-12 min-h-12 w-full min-w-0 rounded-full border border-border bg-background/40 px-5 text-base text-foreground placeholder:text-muted-foreground outline-none focus:border-primary sm:w-auto sm:flex-1 sm:text-sm"
         />
         <button
           type="submit"
