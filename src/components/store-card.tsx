@@ -7,18 +7,28 @@ export function StoreCard({ store, count }: { store: Store; count?: number }) {
     <Link
       to="/$slug"
       params={{ slug: `${store.slug}-coupons` }}
-      className="group flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-5 text-center transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+      className="group flex min-w-0 max-w-full flex-col items-center gap-3 rounded-2xl border border-border bg-card p-3 text-center transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md sm:p-5"
     >
       {store.logo_url ? (
-        <img src={store.logo_url} alt={`${store.name} official store logo`} width={64} height={64} loading="lazy" decoding="async" className="h-16 w-16 rounded-xl border border-border bg-background object-contain p-2" />
+        <img
+          src={store.logo_url}
+          alt={`${store.name} official store logo`}
+          width={64}
+          height={64}
+          loading="lazy"
+          decoding="async"
+          className="h-16 w-16 rounded-xl border border-border bg-background object-contain p-2"
+        />
       ) : (
         <div className="grid h-16 w-16 place-items-center rounded-xl bg-primary-soft text-primary">
           <Tag className="h-7 w-7" />
         </div>
       )}
-      <div>
-        <p className="font-semibold text-foreground">{store.name}</p>
-        {typeof count === "number" && <p className="text-xs text-muted-foreground">{count} offers</p>}
+      <div className="min-w-0 max-w-full">
+        <p className="font-semibold text-foreground [overflow-wrap:anywhere]">{store.name}</p>
+        {typeof count === "number" && (
+          <p className="text-xs text-muted-foreground">{count} offers</p>
+        )}
       </div>
     </Link>
   );

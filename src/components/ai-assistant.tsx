@@ -17,6 +17,7 @@ import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { storeSlug } from "@/lib/coupon-actions";
 import { loadChatHistory, saveChatMessages, clearChatHistory } from "@/lib/chat.functions";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 type Props = {
   open: boolean;
@@ -36,6 +37,7 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
   const [input, setInput] = useState("");
   const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastPersistedRef = useRef<number>(0);
 
@@ -151,15 +153,24 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-end sm:items-end sm:justify-end">
-      <button
-        aria-label="Close assistant"
-        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-        onClick={() => onOpenChange(false)}
-      />
-      <div className="relative flex h-[100dvh] w-full flex-col bg-background shadow-2xl sm:m-4 sm:h-[640px] sm:max-h-[85vh] sm:w-[420px] sm:rounded-3xl sm:border sm:border-border">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        onOpenAutoFocus={() => {
+          openerRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          openerRef.current?.focus();
+        }}
+        className="left-0 top-0 z-[60] flex h-[100dvh] max-h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background p-0 shadow-2xl sm:bottom-[max(1rem,env(safe-area-inset-bottom))] sm:left-auto sm:right-[max(1rem,env(safe-area-inset-right))] sm:top-auto sm:h-[640px] sm:max-h-[calc(100dvh-2rem)] sm:w-[420px] sm:rounded-3xl sm:border sm:border-border [&>button:last-child]:hidden"
+      >
+        <DialogTitle className="sr-only">Dealio AI Deal Assistant</DialogTitle>
+        <DialogDescription className="sr-only">
+          Find coupons and deals with Dealio.
+        </DialogDescription>
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3 [padding-top:max(0.75rem,env(safe-area-inset-top))]">
           <div className="flex items-center gap-2">
             <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-primary to-accent-foreground text-primary-foreground">
               <Sparkles className="h-4 w-4" />
@@ -174,14 +185,15 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
               <button
                 onClick={handleClear}
                 title="Clear chat"
-                className="rounded-full p-2 text-muted-foreground hover:bg-secondary"
+                className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-secondary"
+                aria-label="Clear chat"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
             )}
             <button
               onClick={() => onOpenChange(false)}
-              className="rounded-full p-2 text-muted-foreground hover:bg-secondary"
+              className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-secondary"
               aria-label="Close"
             >
               <X className="h-4 w-4" />
@@ -190,7 +202,10 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
         </div>
 
         {/* Body */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+        <div
+          ref={scrollRef}
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere]"
+        >
           {authed === false ? (
             <SignedOutState />
           ) : authed === null || initialMessages === null ? (
@@ -215,7 +230,10 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
 
         {/* Composer */}
         {authed && (
-          <form onSubmit={handleSubmit} className="border-t border-border bg-card px-3 py-3">
+          <form
+            onSubmit={handleSubmit}
+            className="shrink-0 border-t border-border bg-card px-3 py-3 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]"
+          >
             <div className="flex items-end gap-2 rounded-2xl border border-border bg-background px-3 py-2 focus-within:border-primary">
               <textarea
                 ref={taRef}
@@ -229,12 +247,13 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
                 }}
                 rows={1}
                 placeholder="Ask for any deal…"
-                className="max-h-32 flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="max-h-32 min-w-0 flex-1 resize-none bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
               />
               <button
                 type="submit"
                 disabled={isBusy || !input.trim()}
-                className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
+                aria-label="Send message"
               >
                 {isBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -245,8 +264,8 @@ export function AIAssistant({ open, onOpenChange, initialPrompt }: Props) {
             </div>
           </form>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -600,6 +619,7 @@ export function FloatingAssistantTrigger({
 
   return (
     <div
+      className="hidden lg:block"
       aria-hidden={false}
       style={{
         position: "fixed",
