@@ -17,9 +17,7 @@ export function GlobalDealsBanner() {
     queryFn: async () => {
       // Prefer admin-curated featured coupons
       const { data: featured } = await applyPublicOfferVisibility(
-        sb
-          .from("coupons")
-          .select("*, stores!inner(name, slug, logo_url)"),
+        sb.from("coupons").select("*, stores!inner(name, slug, logo_url)"),
       )
         .eq("featured_in_banner", true)
         .order("created_at", { ascending: false })
@@ -38,9 +36,7 @@ export function GlobalDealsBanner() {
       });
 
       const { data } = await applyPublicOfferVisibility(
-        sb
-          .from("coupons")
-          .select("*, stores!inner(name, slug, logo_url)"),
+        sb.from("coupons").select("*, stores!inner(name, slug, logo_url)"),
       )
         .order("created_at", { ascending: false })
         .limit(24);
@@ -70,7 +66,6 @@ export function GlobalDealsBanner() {
     rail.scrollTo({ left: child.offsetLeft - rail.offsetLeft, behavior: "smooth" });
   }, [index]);
 
-
   if (dismissed || total === 0) return null;
 
   const dismiss = () => {
@@ -92,8 +87,8 @@ export function GlobalDealsBanner() {
       <div className="pointer-events-none absolute -right-20 -bottom-20 h-60 w-60 rounded-full bg-accent/60 blur-3xl" />
 
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="mb-4 flex min-w-0 flex-col items-start justify-between gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex min-w-0 items-center gap-3">
             <h2 className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-card px-3 py-1 text-xs font-semibold text-primary">
               <Globe2 className="h-3.5 w-3.5" />
               Best deals across the globe
@@ -106,21 +101,21 @@ export function GlobalDealsBanner() {
             <button
               onClick={() => go(-1)}
               aria-label="Previous deal"
-              className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground transition hover:text-foreground hover:border-primary/40"
+              className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card text-muted-foreground transition hover:text-foreground hover:border-primary/40"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => go(1)}
               aria-label="Next deal"
-              className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground transition hover:text-foreground hover:border-primary/40"
+              className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card text-muted-foreground transition hover:text-foreground hover:border-primary/40"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
             <button
               onClick={dismiss}
               aria-label="Dismiss banner"
-              className="ml-1 grid h-8 w-8 place-items-center rounded-full border border-transparent text-muted-foreground transition hover:border-border hover:bg-card hover:text-foreground"
+              className="ml-1 grid h-11 w-11 place-items-center rounded-full border border-transparent text-muted-foreground transition hover:border-border hover:bg-card hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
@@ -165,11 +160,19 @@ function DealTile({ deal }: { deal: DealRow }) {
   };
 
   return (
-    <article className="group relative flex w-[88%] shrink-0 snap-start flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md sm:w-[48%] lg:w-[32%]">
+    <article className="group relative flex w-[88%] min-w-0 shrink-0 snap-start flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md sm:w-[48%] lg:w-[32%]">
       <div className="flex items-center gap-3">
         <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-secondary">
           {store?.logo_url ? (
-            <img src={store.logo_url} alt={`${store.name} logo and coupon deals`} width={44} height={44} loading="lazy" decoding="async" className="h-full w-full object-contain" />
+            <img
+              src={store.logo_url}
+              alt={`${store.name} logo and coupon deals`}
+              width={44}
+              height={44}
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-contain"
+            />
           ) : (
             <span className="text-sm font-bold text-muted-foreground">
               {(store?.name ?? "?").charAt(0)}
@@ -177,7 +180,9 @@ function DealTile({ deal }: { deal: DealRow }) {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium text-muted-foreground">{store?.name ?? "Store"}</p>
+          <p className="truncate text-xs font-medium text-muted-foreground">
+            {store?.name ?? "Store"}
+          </p>
           <span
             className={`mt-0.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
               isCode ? "bg-primary-soft text-primary" : "bg-success-soft text-success"
@@ -188,11 +193,16 @@ function DealTile({ deal }: { deal: DealRow }) {
         </div>
       </div>
 
-      <h3 className="line-clamp-2 font-display text-lg font-bold leading-snug">{deal.title}</h3>
+      <h3
+        title={deal.title}
+        className="line-clamp-3 font-display text-lg font-bold leading-snug [overflow-wrap:anywhere] sm:line-clamp-2"
+      >
+        {deal.title}
+      </h3>
 
-      <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+      <div className="mt-auto flex min-w-0 flex-col items-stretch justify-between gap-2 pt-1 sm:flex-row sm:items-center">
         {isCode && deal.coupon_code ? (
-          <span className="truncate rounded-lg border border-dashed border-primary/40 bg-primary-soft px-2.5 py-1 font-mono text-xs font-bold text-primary">
+          <span className="min-w-0 truncate rounded-lg border border-dashed border-primary/40 bg-primary-soft px-2.5 py-1 font-mono text-xs font-bold text-primary">
             {deal.coupon_code}
           </span>
         ) : (
@@ -200,7 +210,7 @@ function DealTile({ deal }: { deal: DealRow }) {
         )}
         <button
           onClick={onClick}
-          className="inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
         >
           Get deal →
         </button>

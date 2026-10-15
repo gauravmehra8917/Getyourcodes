@@ -2,8 +2,19 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  Sparkles, ShoppingBag, Utensils, Plane, Smartphone, Shirt, Home,
-  Wand2, Tag, Gift, TrendingUp, Mail, ArrowRight,
+  Sparkles,
+  ShoppingBag,
+  Utensils,
+  Plane,
+  Smartphone,
+  Shirt,
+  Home,
+  Wand2,
+  Tag,
+  Gift,
+  TrendingUp,
+  Mail,
+  ArrowRight,
 } from "lucide-react";
 import { sb, trackSearch, type Store, type Coupon } from "@/lib/db";
 import {
@@ -25,28 +36,37 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Getyourcodes — Verified Coupons, Promo Codes & Deals" },
-      { name: "description", content: "Hand-picked coupons and deals from your favorite brands. Save more on fashion, food, electronics, travel and more." },
+      {
+        name: "description",
+        content:
+          "Hand-picked coupons and deals from your favorite brands. Save more on fashion, food, electronics, travel and more.",
+      },
       { property: "og:title", content: "Getyourcodes — Verified coupons & deals" },
-      { property: "og:description", content: "Save more on every order with verified promo codes." },
+      {
+        property: "og:description",
+        content: "Save more on every order with verified promo codes.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://getyourcodes.com/" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [{ rel: "canonical", href: "https://getyourcodes.com/" }],
-    scripts: [{
-      type: "application/ld+json",
-      children: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        name: "Getyourcodes",
-        url: "https://getyourcodes.com/",
-        potentialAction: {
-          "@type": "SearchAction",
-          target: "https://getyourcodes.com/search?q={search_term_string}",
-          "query-input": "required name=search_term_string",
-        },
-      }),
-    }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "Getyourcodes",
+          url: "https://getyourcodes.com/",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "https://getyourcodes.com/search?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }),
+      },
+    ],
   }),
   component: HomePage,
 });
@@ -63,7 +83,11 @@ function HomePage() {
   const storesLite = useQuery(storesLiteQuery);
   const allCategories = useQuery(categoriesQuery);
 
-  const topCategories = rankCategories(allCategories.data ?? [], storesLite.data ?? [], offerCounts.data ?? {}).slice(0, 8);
+  const topCategories = rankCategories(
+    allCategories.data ?? [],
+    storesLite.data ?? [],
+    offerCounts.data ?? {},
+  ).slice(0, 8);
   const topStores = rankStores(storesLite.data ?? [], offerCounts.data ?? {}).slice(0, 12);
 
   const trending = useQuery({
@@ -71,9 +95,7 @@ function HomePage() {
     staleTime: 60 * 1000,
     queryFn: async () => {
       const { data } = await applyPublicOfferVisibility(
-        sb
-          .from("coupons")
-          .select("*, stores!inner(name, slug, logo_url)"),
+        sb.from("coupons").select("*, stores!inner(name, slug, logo_url)"),
       )
         .eq("coupon_type", "code")
         .order("created_at", { ascending: false })
@@ -86,9 +108,7 @@ function HomePage() {
     staleTime: 60 * 1000,
     queryFn: async () => {
       const { data } = await applyPublicOfferVisibility(
-        sb
-          .from("coupons")
-          .select("*, stores!inner(name, slug, logo_url)"),
+        sb.from("coupons").select("*, stores!inner(name, slug, logo_url)"),
       )
         .eq("coupon_type", "deal")
         .order("created_at", { ascending: false })
@@ -100,11 +120,20 @@ function HomePage() {
     queryKey: ["home-blog"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data } = await sb.from("posts")
+      const { data } = await sb
+        .from("posts")
         .select("id,title,slug,excerpt,cover_image,published_at")
         .eq("status", "published")
-        .order("published_at", { ascending: false }).limit(3);
-      return (data ?? []) as { id: string; title: string; slug: string; excerpt: string | null; cover_image: string | null; published_at: string | null }[];
+        .order("published_at", { ascending: false })
+        .limit(3);
+      return (data ?? []) as {
+        id: string;
+        title: string;
+        slug: string;
+        excerpt: string | null;
+        cover_image: string | null;
+        published_at: string | null;
+      }[];
     },
   });
 
@@ -121,8 +150,7 @@ function HomePage() {
             <Sparkles className="h-3.5 w-3.5 text-glow" /> Verified coupons from affiliate partners
           </div>
           <h1 className="mx-auto max-w-4xl font-display text-5xl font-bold leading-[1.05] tracking-tight text-foreground sm:text-7xl">
-            Verified coupons,{" "}
-            <span className="text-gradient">real savings.</span>
+            Verified coupons, <span className="text-gradient">real savings.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
             Getyourcodes brings together promo codes and deals sourced directly from our affiliate
@@ -160,7 +188,7 @@ function HomePage() {
                   onChange={(e) => setAiQ(e.target.value)}
                   placeholder="Search “Nike”, “SAVE20” — or ask “best laptop deals”"
                   aria-label="Search stores, coupons and deals, or ask Dealio"
-                  className="h-12 flex-1 rounded-full border border-border bg-surface-2 px-5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
+                  className="h-12 min-w-0 flex-1 rounded-full border border-border bg-surface-2 px-5 text-base text-foreground placeholder:text-muted-foreground outline-none focus:border-primary sm:text-sm"
                 />
                 <button
                   type="submit"
@@ -170,7 +198,11 @@ function HomePage() {
                 </button>
               </form>
               <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs">
-                {["Find me laptop deals", "Any food delivery codes?", "Travel offers this week"].map((s) => (
+                {[
+                  "Find me laptop deals",
+                  "Any food delivery codes?",
+                  "Travel offers this week",
+                ].map((s) => (
                   <button
                     key={s}
                     type="button"
@@ -184,8 +216,13 @@ function HomePage() {
             </div>
             <HeroSearchResults
               term={term}
-              onAskDealio={() => { if (term) assistant.open(term); }}
-              onClear={() => { setTerm(""); setAiQ(""); }}
+              onAskDealio={() => {
+                if (term) assistant.open(term);
+              }}
+              onClear={() => {
+                setTerm("");
+                setAiQ("");
+              }}
             />
           </div>
         </div>
@@ -205,23 +242,28 @@ function HomePage() {
             action={<ViewAll to="/deals" label="View all deals" />}
           />
           {latestDeals.data && latestDeals.data.length > 0 ? (
-            <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
-              <div className="grid content-start gap-4">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4">
                 {latestDeals.data.slice(0, 2).map((c) => (
-                  <div key={c.id} className="rounded-3xl bg-gradient-to-br from-primary/25 via-primary/10 to-transparent p-[1.5px] shadow-sm">
+                  <div
+                    key={c.id}
+                    className="min-w-0 rounded-3xl bg-gradient-to-br from-primary/25 via-primary/10 to-transparent p-[1.5px] shadow-sm"
+                  >
                     <div className="rounded-3xl bg-card">
                       <CouponCard coupon={c} store={c.stores} best />
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="grid content-start gap-3">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-3">
                 {latestDeals.data.slice(2, 6).map((c) => (
                   <CouponCard key={c.id} coupon={c} store={c.stores} />
                 ))}
               </div>
             </div>
-          ) : <EmptyHint text="No deals yet." />}
+          ) : (
+            <EmptyHint text="No deals yet." />
+          )}
         </div>
       </section>
 
@@ -244,9 +286,19 @@ function HomePage() {
               >
                 <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-background transition-colors group-hover:border-primary/30">
                   {s.logo_url ? (
-                    <img src={s.logo_url} alt={`${s.name} logo`} width={40} height={40} loading="lazy" decoding="async" className="h-10 w-10 object-contain p-1" />
+                    <img
+                      src={s.logo_url}
+                      alt={`${s.name} logo`}
+                      width={40}
+                      height={40}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-10 w-10 object-contain p-1"
+                    />
                   ) : (
-                    <span className="text-sm font-bold text-primary">{s.name.slice(0, 2).toUpperCase()}</span>
+                    <span className="text-sm font-bold text-primary">
+                      {s.name.slice(0, 2).toUpperCase()}
+                    </span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -259,7 +311,9 @@ function HomePage() {
               </Link>
             ))}
           </div>
-        ) : <EmptyHint text="No stores yet." />}
+        ) : (
+          <EmptyHint text="No stores yet." />
+        )}
       </section>
 
       {/* LATEST COUPONS — compact card grid */}
@@ -273,9 +327,13 @@ function HomePage() {
           />
           {trending.data && trending.data.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {trending.data.map((c) => <CouponCard key={c.id} coupon={c} store={c.stores} variant="tile" />)}
+              {trending.data.map((c) => (
+                <CouponCard key={c.id} coupon={c} store={c.stores} variant="tile" />
+              ))}
             </div>
-          ) : <EmptyHint text="No active coupons yet." />}
+          ) : (
+            <EmptyHint text="No active coupons yet." />
+          )}
         </div>
       </section>
 
@@ -285,7 +343,10 @@ function HomePage() {
       </div>
 
       {/* BROWSE CATEGORIES — compact dense cards */}
-      <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-14 sm:px-6 sm:py-16">
+      <section
+        id="categories"
+        className="mx-auto max-w-7xl scroll-mt-24 px-4 py-14 sm:px-6 sm:py-16"
+      >
         <SectionHeading
           icon={<Tag className="h-5 w-5" />}
           title="Browse Categories"
@@ -301,20 +362,25 @@ function HomePage() {
                   key={c.id}
                   to="/$slug"
                   params={{ slug: `${c.slug}-offers` }}
-                  className="group flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-hover"
+                  className="group flex min-w-0 items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-hover"
                 >
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                     <Icon className="h-3.5 w-3.5" />
                   </span>
-                  <span className="truncate text-sm font-medium text-foreground">{c.name}</span>
-                  <span className="ml-auto shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{c.offers}</span>
+                  <span className="min-w-0 text-sm font-medium text-foreground [overflow-wrap:anywhere]">
+                    {c.name}
+                  </span>
+                  <span className="ml-auto shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                    {c.offers}
+                  </span>
                 </Link>
               );
             })}
           </div>
-        ) : <EmptyHint text="No categories yet." />}
+        ) : (
+          <EmptyHint text="No categories yet." />
+        )}
       </section>
-
 
       {/* BLOG — image led, one lead post */}
       {blogPosts.data && blogPosts.data.length > 0 && (
@@ -335,18 +401,34 @@ function HomePage() {
                   className="group relative flex min-h-[280px] flex-col justify-end overflow-hidden rounded-3xl border border-border bg-card"
                 >
                   {p.cover_image ? (
-                    <img src={p.cover_image} alt={p.title} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <img
+                      src={p.cover_image}
+                      alt={p.title}
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
                   ) : (
-                    <div className="absolute inset-0 grid place-items-center bg-secondary/50 text-primary/40"><Sparkles className="h-10 w-10" /></div>
+                    <div className="absolute inset-0 grid place-items-center bg-secondary/50 text-primary/40">
+                      <Sparkles className="h-10 w-10" />
+                    </div>
                   )}
                   <div className="relative bg-gradient-to-t from-background via-background/85 to-transparent p-6 pt-16">
                     {p.published_at && (
                       <span className="mb-2 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        {new Date(p.published_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                        {new Date(p.published_at).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
                       </span>
                     )}
-                    <h3 className="line-clamp-2 font-display text-2xl font-bold leading-snug transition-colors group-hover:text-primary">{p.title}</h3>
-                    {p.excerpt && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
+                    <h3 className="line-clamp-2 font-display text-2xl font-bold leading-snug transition-colors group-hover:text-primary">
+                      {p.title}
+                    </h3>
+                    {p.excerpt && (
+                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>
+                    )}
                   </div>
                 </Link>
               ))}
@@ -355,26 +437,41 @@ function HomePage() {
                   <Link
                     key={p.id}
                     to="/blog/$slug"
-                  search={{ page: 1 }}
+                    search={{ page: 1 }}
                     params={{ slug: p.slug }}
                     className="group flex gap-4 overflow-hidden rounded-2xl border border-border bg-card p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                   >
                     <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-xl bg-secondary/50">
                       {p.cover_image ? (
-                        <img src={p.cover_image} alt={p.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        <img
+                          src={p.cover_image}
+                          alt={p.title}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
                       ) : (
-                        <div className="grid h-full w-full place-items-center text-primary/40"><Sparkles className="h-6 w-6" /></div>
+                        <div className="grid h-full w-full place-items-center text-primary/40">
+                          <Sparkles className="h-6 w-6" />
+                        </div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
                       {p.published_at && (
                         <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          {new Date(p.published_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          {new Date(p.published_at).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
                         </span>
                       )}
-                      <h3 className="line-clamp-2 font-display text-base font-bold leading-snug transition-colors group-hover:text-primary">{p.title}</h3>
+                      <h3 className="line-clamp-2 font-display text-base font-bold leading-snug transition-colors group-hover:text-primary">
+                        {p.title}
+                      </h3>
                       <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                        Read article <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                        Read article{" "}
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                       </span>
                     </div>
                   </Link>
@@ -393,8 +490,13 @@ function HomePage() {
   );
 }
 
-
-function ViewAll({ to, label }: { to: "/categories" | "/stores" | "/coupons" | "/deals" | "/blog"; label: string }) {
+function ViewAll({
+  to,
+  label,
+}: {
+  to: "/categories" | "/stores" | "/coupons" | "/deals" | "/blog";
+  label: string;
+}) {
   return (
     <Link
       to={to}
@@ -406,13 +508,27 @@ function ViewAll({ to, label }: { to: "/categories" | "/stores" | "/coupons" | "
   );
 }
 
-function SectionHeading({ icon, title, subtitle, action }: { icon?: React.ReactNode; title: string; subtitle?: string; action?: React.ReactNode }) {
+function SectionHeading({
+  icon,
+  title,
+  subtitle,
+  action,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:flex sm:flex-wrap sm:justify-between sm:gap-4">
+    <div className="mb-5 flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
       <div className="min-w-0">
         <h2 className="flex items-center gap-2 font-display text-xl font-bold tracking-tight sm:text-3xl">
-          {icon && <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">{icon}</span>}
-          <span className="truncate">{title}</span>
+          {icon && (
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
+              {icon}
+            </span>
+          )}
+          <span>{title}</span>
         </h2>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
@@ -420,7 +536,6 @@ function SectionHeading({ icon, title, subtitle, action }: { icon?: React.ReactN
     </div>
   );
 }
-
 
 function EmptyHint({ text }: { text: string }) {
   return (
@@ -430,14 +545,14 @@ function EmptyHint({ text }: { text: string }) {
   );
 }
 
-
-
-
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
 function NewsletterStrip() {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<{ kind: "idle" | "ok" | "err"; msg: string }>({ kind: "idle", msg: "" });
+  const [status, setStatus] = useState<{ kind: "idle" | "ok" | "err"; msg: string }>({
+    kind: "idle",
+    msg: "",
+  });
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -459,38 +574,56 @@ function NewsletterStrip() {
   }
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-primary/30 via-surface-2 to-surface p-8 text-center sm:p-12 shadow-glow">
+    <section className="rounded-3xl border border-border bg-gradient-to-br from-primary/30 via-surface-2 to-surface p-5 text-center sm:p-12 shadow-glow">
       <Mail className="mx-auto mb-4 h-8 w-8 text-glow" />
       <h2 className="font-display text-3xl font-bold sm:text-4xl">Never miss a deal.</h2>
-      <p className="mx-auto mt-2 max-w-md text-white/70">Any email works — get the best coupons of the week in your inbox. No spam, ever.</p>
-      <form className="mx-auto mt-6 flex max-w-md flex-col gap-2 sm:flex-row" onSubmit={onSubmit} noValidate>
+      <p className="mx-auto mt-2 max-w-md text-muted-foreground">
+        Any email works — get the best coupons of the week in your inbox. No spam, ever.
+      </p>
+      <form
+        className="mx-auto mt-6 flex max-w-md flex-col gap-2 sm:flex-row"
+        onSubmit={onSubmit}
+        noValidate
+      >
         <input
           type="email"
           required
           name="email"
           value={email}
-          onChange={(e) => { setEmail(e.target.value); if (status.kind !== "idle") setStatus({ kind: "idle", msg: "" }); }}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (status.kind !== "idle") setStatus({ kind: "idle", msg: "" });
+          }}
           placeholder="Your email address"
           maxLength={254}
           autoComplete="email"
           aria-label="Email address"
           aria-invalid={status.kind === "err"}
-          className="h-12 flex-1 rounded-full border border-white/15 bg-background/40 px-5 text-sm text-white placeholder:text-white/40 outline-none focus:border-primary"
+          className="h-12 min-w-0 flex-1 rounded-full border border-border bg-background/40 px-5 text-base text-foreground placeholder:text-muted-foreground outline-none focus:border-primary sm:text-sm"
         />
         <button
           type="submit"
           disabled={busy}
           className="gradient-primary inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white shadow-glow disabled:opacity-60"
         >
-          {busy ? "Subscribing…" : (<>Subscribe <ArrowRight className="h-4 w-4" /></>)}
+          {busy ? (
+            "Subscribing…"
+          ) : (
+            <>
+              Subscribe <ArrowRight className="h-4 w-4" />
+            </>
+          )}
         </button>
       </form>
       {status.kind !== "idle" && (
-        <p role="status" aria-live="polite" className={`mt-4 text-sm ${status.kind === "ok" ? "text-emerald-300" : "text-red-300"}`}>
+        <p
+          role="status"
+          aria-live="polite"
+          className={`mt-4 text-sm ${status.kind === "ok" ? "text-emerald-300" : "text-red-300"}`}
+        >
           {status.msg}
         </p>
       )}
     </section>
   );
 }
-

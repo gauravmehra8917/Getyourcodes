@@ -29,6 +29,7 @@ export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const mobileToggleRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
@@ -80,6 +81,13 @@ export function SiteHeader() {
 
   return (
     <header
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        if (mobileOpen) mobileToggleRef.current?.focus();
+        else if (menuOpen) menuRef.current?.querySelector("button")?.focus();
+        setMobileOpen(false);
+        setMenuOpen(false);
+      }}
       className={`sticky top-0 z-40 border-b transition-[background-color,box-shadow,border-color] duration-200 ${
         scrolled
           ? "border-border bg-background/85 shadow-sm backdrop-blur-md"
@@ -126,19 +134,21 @@ export function SiteHeader() {
             to="/search"
             search={{ q: "" }}
             aria-label="Search"
-            className="focus-ring inline-grid h-9 w-9 place-items-center sm:h-10 sm:w-10 rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground md:hidden"
+            className="focus-ring inline-grid h-11 w-11 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground md:hidden"
           >
             <Search className="h-[18px] w-[18px]" />
           </Link>
 
-          <ThemeToggle />
+          <ThemeToggle className="h-11 w-11" />
 
           {user ? (
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((o) => !o)}
-                className="focus-ring flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-sm font-semibold text-primary transition-opacity duration-150 hover:opacity-90"
+                className="focus-ring flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-sm font-semibold text-primary transition-opacity duration-150 hover:opacity-90"
                 aria-label="Account menu"
+                aria-expanded={menuOpen}
+                aria-controls="site-account-menu"
               >
                 {avatarUrl ? (
                   <img
@@ -155,7 +165,10 @@ export function SiteHeader() {
                 )}
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-lg">
+                <div
+                  id="site-account-menu"
+                  className="absolute right-0 mt-2 max-h-[calc(100dvh-6rem)] w-56 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-border bg-popover text-popover-foreground shadow-lg"
+                >
                   <div className="border-b border-border px-4 py-3">
                     <p className="truncate text-xs text-muted-foreground">Signed in as</p>
                     <p className="truncate text-sm font-medium">{user.email}</p>
@@ -194,18 +207,20 @@ export function SiteHeader() {
             <Link
               to="/auth"
               search={{ next: undefined }}
-              className="focus-ring ml-1 inline-flex h-9 items-center whitespace-nowrap rounded-full bg-primary px-3.5 text-[0.8125rem] sm:h-10 sm:px-4 sm:text-sm font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90"
+              className="focus-ring ml-1 inline-flex h-11 items-center whitespace-nowrap rounded-full bg-primary px-3.5 text-[0.8125rem] sm:px-4 sm:text-sm font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90"
             >
               Sign in
             </Link>
           )}
 
           <button
+            ref={mobileToggleRef}
             type="button"
             onClick={() => setMobileOpen((o) => !o)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            className="focus-ring inline-grid h-9 w-9 place-items-center sm:h-10 sm:w-10 rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground md:hidden"
+            aria-controls="site-mobile-menu"
+            className="focus-ring inline-grid h-11 w-11 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground md:hidden"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -230,7 +245,10 @@ export function SiteHeader() {
       </nav>
 
       {mobileOpen && (
-        <div className="border-t border-border bg-background md:hidden">
+        <div
+          id="site-mobile-menu"
+          className="max-h-[calc(100dvh-70px-env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain border-t border-border bg-background md:hidden"
+        >
           <div className="container-page py-3">
             <form className="mb-2 md:hidden" onSubmit={submitSearch}>
               <div className="relative">
@@ -241,7 +259,7 @@ export function SiteHeader() {
                   placeholder="Search stores, brands, deals…"
                   aria-label="Search stores, brands and deals"
                   type="search"
-                  className="focus-ring h-11 w-full rounded-full border border-input bg-secondary pl-10 pr-4 text-sm outline-none focus:border-primary"
+                  className="focus-ring h-11 w-full rounded-full border border-input bg-secondary pl-10 pr-4 text-base outline-none focus:border-primary"
                 />
               </div>
             </form>
@@ -258,6 +276,17 @@ export function SiteHeader() {
                 </Link>
               ))}
             </nav>
+            <button
+              type="button"
+              onClick={() => {
+                mobileToggleRef.current?.focus();
+                setMobileOpen(false);
+                assistant.open();
+              }}
+              className="focus-ring mt-2 flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-3 text-base font-medium text-primary hover:bg-hover"
+            >
+              <Sparkles className="h-4 w-4 shrink-0" /> Ask Dealio
+            </button>
           </div>
         </div>
       )}

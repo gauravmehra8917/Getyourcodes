@@ -613,6 +613,7 @@ test("assistant transport reads the current session on every send without a fake
           "@tanstack/react-router",
           "@/lib/coupon-actions",
           "@/lib/chat.functions",
+          "@/components/ui/dialog",
         ].includes(id)
       )
         return {};
